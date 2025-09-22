@@ -19,3 +19,44 @@ Please use the provided folder structure for your project. You are free to organ
 
 Please use a branching workflow, and once an item is ready, do remember to issue a PR, review, and merge it into the master branch.
 Be sure to keep your docs and README.md up-to-date.
+
+## Conventional Commits
+Moving forward, we should use convential commits. As this is the industry standard of writing commit messages. More info can be found on [conventionalcommits.org](https://www.conventionalcommits.org/en/v1.0.0/)
+
+Essentially, this is what they are:
+
+```bash
+feat: add user login form
+fix: correct navbar alignment on mobile
+docs: update README with project instructions
+style: format code using Prettier
+refactor: restructure API call logic
+test: add unit test for login validation
+chore: update dependencies
+perf: improve image load time
+```
+* * *
+
+### What each type means
+
+- **feat** – A new feature or significant addition
+- **fix** – A bug fix or error correction
+- **docs** – Documentation-only changes (README, comments, etc.)
+- **style** – Code formatting, spacing, or stylistic fixes (no logic changes)
+- **refactor** – Code restructuring/refining that doesn't add features or fix bugs
+- **test** – Adding or updating tests (unit, integration, etc.)
+- **chore** – Routine tasks (e.g., dependency updates, config changes)
+- **perf** – Performance improvements (e.g., faster loading, optimized code)
+
+* * *
+
+### Optional Scope
+
+A scope is just a way to categorize the commit by its feature or module. Just written in parentheses right after the type.
+
+**Example:**
+
+```
+fix(setup): fix typo in setup script
+```
+Here, `setup`  would be the scope, it’s just helpful to indicate what exactly has changed. Although for that example, adding `setup` would not be necessary as it's quite clear what is changing.
