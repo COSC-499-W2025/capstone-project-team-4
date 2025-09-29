@@ -9,5 +9,5 @@
 - Helped shape our topic for project proposal 
 - Helped write documentation - project proposal
 - Helped make diagram - system architecture
-- Submitted the project proposal
+- Reviewed system architecture of Team 7, 8 and 16
 
