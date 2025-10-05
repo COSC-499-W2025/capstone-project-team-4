@@ -2,6 +2,7 @@
 
 We were working on the data flow of our system and making DFD level 0/1 diagrams. After the in class activity we got feedback on our design and made necessary revisions.
 
+<img width="1112" height="648" alt="Screenshot 2025-10-05 at 14 50 26" src="https://github.com/user-attachments/assets/d1bfca92-f433-4b84-9448-90b7e3d60fd8" />
 
 ## **Tasks Completed:**
 
