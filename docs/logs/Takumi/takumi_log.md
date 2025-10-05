@@ -1,4 +1,18 @@
-# **Week 4 Individual Log (22nd-28th of September)**
+# **Week 5 Individual Log**
+
+We were working on the data flow of our system and making DFD level 0/1 diagrams. After the in class activity we got feedback on our design and made necessary revisions.
+
+
+## **Tasks Completed:**
+
+I have been involved with the following tasks either alone or helping my other classmates.
+
+* Week 5 indivdual log (issue #14)
+* Design Data Flow diagram (issue #16)
+* Submit DFD to canvas (issue #17)
+
+
+# **Week 4 Individual Log**
 
 We focused on creating the system architecture and project proposal.
 
