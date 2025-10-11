@@ -20,6 +20,10 @@ Please use the provided folder structure for your project. You are free to organ
 Please use a branching workflow, and once an item is ready, do remember to issue a PR, review, and merge it into the master branch.
 Be sure to keep your docs and README.md up-to-date.
 
+## Revised Diagram Links
+- [Revised DFD Level 1](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/diagrams/docs/design/dfd-level-1-revised.png)
+- [Revised System Architecture](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/diagrams/docs/design/system-architecture-revised.png)
+
 ## Conventional Commits
 Moving forward, we should use convential commits. As this is the industry standard of writing commit messages. More info can be found on [conventionalcommits.org](https://www.conventionalcommits.org/en/v1.0.0/)
 
