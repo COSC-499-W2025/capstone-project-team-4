@@ -23,7 +23,7 @@ Be sure to keep your docs and README.md up-to-date.
 ## Revised Diagram Links
 - [Revised DFD Level 1](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/diagrams/docs/design/dfd-level-1-revised.png)
 - [Revised System Architecture](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/diagrams/docs/design/system-architecture-revised.png)
-
+- [New WBS Table](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/diagrams/docs/design/WBS)
 ## Conventional Commits
 Moving forward, we should use convential commits. As this is the industry standard of writing commit messages. More info can be found on [conventionalcommits.org](https://www.conventionalcommits.org/en/v1.0.0/)
 
