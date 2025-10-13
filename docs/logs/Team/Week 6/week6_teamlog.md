@@ -31,3 +31,7 @@ Testing will begin once features are actually implemented
 
 ## Additional Content
 This week was primarily focused on revising our diagrams and working on WBS, with the new requirements we have a better understanding of all the functions we need to implement into the project.
+
+## **Plan/to-dos for next cycle** 
+* Setting up local environment
+* Coding
