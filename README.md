@@ -20,6 +20,20 @@ Please use the provided folder structure for your project. You are free to organ
 Please use a branching workflow, and once an item is ready, do remember to issue a PR, review, and merge it into the master branch.
 Be sure to keep your docs and README.md up-to-date.
 
+## Project Setup
+- Please follow the steps on setting up the dev environment for VSCode (for other IDEs idk man):
+
+1. If you haven't already, install the Python extension and Python 3.14
+
+2. Open the command palette. By default the command is `CTRL + Shift + P` on Windows/Linux and `CMD + Shift + P` for Mac
+
+3. Search up `Python: Create Environment...` and press `Enter`
+
+4. Select `venv` and select `requirements.txt`
+
+5. To test if it's working, run `python src/main.py` and it should be true that a virtual environment is running
+
+
 ## Conventional Commits
 Moving forward, we should use convential commits. As this is the industry standard of writing commit messages. More info can be found on [conventionalcommits.org](https://www.conventionalcommits.org/en/v1.0.0/)
 
@@ -60,3 +74,5 @@ A scope is just a way to categorize the commit by its feature or module. Just wr
 fix(setup): fix typo in setup script
 ```
 Here, `setup`  would be the scope, it’s just helpful to indicate what exactly has changed. Although for that example, adding `setup` would not be necessary as it's quite clear what is changing.
+
+
