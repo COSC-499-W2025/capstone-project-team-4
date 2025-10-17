@@ -1,0 +1,10 @@
+## This helps with adding the third party libraries for the project setup
+
+typer              # for CLI commands
+pandas             # for metrics & CSVs
+gitpython          # to analyze Git repos
+python-magic       # file type detection
+requests           # for GitHub API
+pytest             # testing framework
+tqdm               # progress bars
+sqlite-utils       # optional helper for DB
