@@ -8,3 +8,5 @@ requests           # for GitHub API
 pytest             # testing framework
 tqdm               # progress bars
 sqlite-utils       # optional helper for DB
+pytest             # for running tests
+pytest-cov         # for test coverage reports
