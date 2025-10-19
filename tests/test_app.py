@@ -7,7 +7,7 @@ def test_check_virtual_env():
     assert isinstance(result, bool)
 
 
-# Placeholder test file for basic functionality
+# Placeholder test functions for basic functionality
 def add(a, b):
     return a + b
 
