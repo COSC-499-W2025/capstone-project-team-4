@@ -19,18 +19,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Set up Docker Buildx (for advanced builds)
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # Step 3: Build and start services
+      # Step 2: Build and start services
       - name: Build and start containers
         run: docker compose up -d --build
 
-      # Step 4: Run tests with coverage inside container
+      # Step 3: Run tests with coverage inside container
       - name: Run tests with coverage inside Docker
         run: docker compose exec -T test pytest --cov=src --cov-report=term-missing
 
-      # Step 5: Stop and clean up
+      # Step 4: Stop and clean up
       - name: Stop and remove containers
         run: docker compose down
