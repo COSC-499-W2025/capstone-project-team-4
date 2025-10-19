@@ -1,9 +1,16 @@
-version: "3.9"
-
 services:
   app:
     build: .
     container_name: capstone-container
     command: python src/main.py
     ports:
-      - "8000:8000"  # optional, only if your app exposes a port
+      - "8000:8000"
+
+  test:
+    build: .
+    container_name: test-container
+    command: sleep infinity
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app 
