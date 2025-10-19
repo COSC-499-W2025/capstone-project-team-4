@@ -1,6 +1,13 @@
+from src.main import check_virtual_env
+
+
+# Test for the check_virtual_env function
+def test_check_virtual_env():
+    result = check_virtual_env()
+    assert isinstance(result, bool)
+
+
 # Placeholder test file for basic functionality
-
-
 def add(a, b):
     return a + b
 
