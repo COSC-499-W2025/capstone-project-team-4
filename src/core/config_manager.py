@@ -1,5 +1,5 @@
 import json
-from core.database import get_connection, init_db
+from database import get_connection, init_db
 import os
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "../data/config.json")
