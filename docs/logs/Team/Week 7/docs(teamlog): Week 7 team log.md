@@ -1,18 +1,18 @@
 
-# Team 4 Week 6 Log (Oct 5 - Oct 12) 
+# Team 4 Week 6 Log (Oct 12 - Oct 19) 
 
 ## Milestones recapped
-Created environment and files for project
-Docker container created for project
-Database initialized for storing data
-Assigned development roles for everyone
+- Created environment and files for project
+- Docker container created for project
+- Database initialized for storing data
+- Assigned development roles for everyone
 
 ## Featured Planned for this Milestone 
-Created environment and files for project
-Docker container created for project
-Database initialized for storing data
-Assigned development roles for everyone
-Create issues for future tasks
+- Created environment and files for project
+- Docker container created for project
+- Database initialized for storing data
+- Assigned development roles for everyone
+- Create issues for future tasks
 
 
 ## Project Board Tasks Associated with These Features
@@ -23,12 +23,12 @@ Issue #16 - Create development branch setup
 
 
 ## Project Board Summary
-Issue #19 - Create file structures for project development
-Issue #16 - Create development branch setup  
-
+- Issue #19 - Create file structures for project development
+- Issue #16 - Create development branch setup  
+- Issue #33 - Setup Testing environment 
+- Issue #30 - Setup CI 
 ## Test Reports
-No tests done this week
-Testing will begin once features are actually implemented
+CI and Test environment was created but testing hasn't started.
 
 ## Additional Content
 This week was primarily used for setting up all environments and some starting code. 
