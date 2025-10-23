@@ -30,12 +30,20 @@ def parse_metadata(folder_path: str = ""):
                     "last_modified": timestamp,
                 }
                 results.append(result)
-            except Exception:
-                # For now, if it fails just return -1 for testing
-                return -1
+            except Exception as exception:
+                result = {
+                    "filename": file,
+                    "path": file_path,
+                    "file_type": "ERROR",
+                    "last_modified": None,
+                    "error": str(exception),
+                }
+                results.append(result)
+
             # This just adds a description for the progress bar on which folder it currently is
             progress_bar.set_postfix({"folder": os.path.basename(root)})
             progress_bar.update()
+
     progress_bar.close()
     # This is for exporting the data! Hopefully it can work to whoever was assigned with a JSON exporter
     dataframe = po.DataFrame(results)
