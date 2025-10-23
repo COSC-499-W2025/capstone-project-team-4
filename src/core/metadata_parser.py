@@ -1,5 +1,8 @@
 import os
 import magic
+
+# Yeah... Po from Kung Fu Panda!!!!
+import pandas as po
 from tqdm import tqdm
 
 
@@ -34,6 +37,9 @@ def parse_metadata(folder_path: str = ""):
             progress_bar.set_postfix({"folder": os.path.basename(root)})
             progress_bar.update()
     progress_bar.close()
+    # This is for exporting the data! Hopefully it can work to whoever was assigned with a JSON exporter
+    dataframe = po.DataFrame(results)
+    return dataframe
 
 
 test_directory = r"C:\Users\anilo\Desktop\test-directory-capstone"
