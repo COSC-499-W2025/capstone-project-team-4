@@ -79,5 +79,10 @@ desktop.ini
 # Logs
 *.log
 
+# Output files
+src/outputs/
+outputs/
+
 # Temporary files
 *.tmp
+
