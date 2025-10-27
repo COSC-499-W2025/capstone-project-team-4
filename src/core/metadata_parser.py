@@ -76,20 +76,28 @@ def save_metadata_json(dataframe: po.DataFrame, output_filename: str = "metadata
     cleaned_data = []
     
     for _, row in dataframe.iterrows():
-        # Convert timestamp to readable format if it exists
-        formatted_timestamp = None
+        # Convert timestamp to Unix timestamp if it exists
+        unix_timestamp = None
         if row.get('last_modified') is not None:
             try:
-                formatted_timestamp = datetime.fromtimestamp(row['last_modified']).isoformat()
-            except (ValueError, OSError):
-                formatted_timestamp = None
+                # Handle both datetime objects and existing Unix timestamps
+                if isinstance(row['last_modified'], datetime):
+                    unix_timestamp = row['last_modified'].timestamp()
+                elif isinstance(row['last_modified'], (int, float)):
+                    unix_timestamp = row['last_modified']
+                else:
+                    # Handle pandas Timestamp objects
+                    unix_timestamp = po.to_datetime(row['last_modified']).timestamp()
+            except (ValueError, OSError, TypeError) as e:
+                print(f"Warning: Could not convert timestamp for {row['filename']}: {e}")
+                unix_timestamp = None
         
         # Create clean record
         record = {
             "filename": str(row['filename']),
             "path": str(row['path']),
             "file_type": str(row['file_type']),
-            "last_modified": formatted_timestamp,
+            "last_modified": unix_timestamp,  # Now storing as Unix timestamp
         }
         
         # Add error information if present
@@ -104,7 +112,7 @@ def save_metadata_json(dataframe: po.DataFrame, output_filename: str = "metadata
     # Create final JSON structure with metadata
     json_output = {
         "metadata": {
-            "generated_at": datetime.now().isoformat(),
+            "generated_at": datetime.now().timestamp(),  # Unix timestamp for consistency
             "total_files": len(cleaned_data),
             "successful_parses": len([r for r in cleaned_data if r["status"] == "success"]),
             "failed_parses": len([r for r in cleaned_data if r["status"] == "error"]),
