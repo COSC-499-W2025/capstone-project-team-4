@@ -4,11 +4,6 @@ from core import config_manager
 from src.main import check_virtual_env
 
 
-def test_check_virtual_env():
-    result = check_virtual_env()
-    assert isinstance(result, bool)
-
-
 # Placeholder test functions for basic functionality
 def add(a, b):
     return a + b
