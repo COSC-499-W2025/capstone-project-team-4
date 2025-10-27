@@ -19,5 +19,8 @@ ENV PATH="/venv/bin:$PATH"
 # Copy the rest of the project
 COPY . .
 
+#Added this line to ensure src is recognized as a module
+ENV PYTHONPATH="/app"
+
 # Run your app
 CMD ["python", "src/main.py"]
