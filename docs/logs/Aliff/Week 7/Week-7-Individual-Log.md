@@ -1,4 +1,4 @@
-# Week 6 Personal Log - Aliff
+# Week 7 Personal Log - Aliff
 
 ## (Oct 12, 2025 - Oct 18, 2025)
 
