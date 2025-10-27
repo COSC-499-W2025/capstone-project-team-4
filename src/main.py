@@ -5,11 +5,11 @@ from src.core.database import init_db
 from src.core.config_manager import save_config, load_config
 # This is for testing if your local environment is running the "virtual environment"
 # It should say True
-# def check_virtual_env():
-  #  return sys.prefix != sys.base_prefix
+def check_virtual_env():
+    return sys.prefix != sys.base_prefix
 
-# if __name__ == "__main__":
-  #      print("Running in virtual env:", check_virtual_env())
+ if __name__ == "__main__":
+        print("Running in virtual env:", check_virtual_env())
 
 #Create Typer app
 app = typer.Typer( help="Mining Digital Work Artifacts CLI")
