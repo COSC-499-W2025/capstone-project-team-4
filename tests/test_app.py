@@ -1,7 +1,8 @@
 import pytest
-from core import config_manager
 
-# Test for the check_virtual_env function
+ from core import config_manager
+ from src.main import check_virtual_env
+
 def test_check_virtual_env():
     result = check_virtual_env()
     assert isinstance(result, bool)
