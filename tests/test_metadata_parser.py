@@ -1,11 +1,13 @@
 import pandas as po
+import pytest
 
 from src.core.metadata_parser import parse_metadata
 
 
-def test_parse_metadata_returns_dataframe(temp_path):
+@pytest.fixture
+def test_parse_metadata_returns_dataframe(temp):
     # Create a test directory and files
-    directory = temp_path + "/data"
+    directory = temp + "/data"
     directory.mkdir()
     file_1 = (directory + "/file1.txt").write_text("Chicken time!")
     file_2 = (directory + "/file2.log").write_text("Chicken log!")
