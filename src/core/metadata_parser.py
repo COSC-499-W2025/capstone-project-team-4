@@ -8,6 +8,9 @@ from pathlib import Path
 import pandas as po
 from tqdm import tqdm
 
+# This makes modified timestamps more human readable
+from datetime import datetime
+
 
 def parse_metadata(folder_path: str = ""):
     """
@@ -24,13 +27,14 @@ def parse_metadata(folder_path: str = ""):
         for file in files:
             file_path = os.path.join(root, file)
             try:
-                file_type = magic.from_file(file_path)
+                file_type = magic.from_file(file_path, mime=True)
                 timestamp = os.path.getmtime(file_path)
+                formatted_timestamp = datetime.fromtimestamp(timestamp)
                 result = {
                     "filename": file,
                     "path": file_path,
                     "file_type": file_type,
-                    "last_modified": timestamp,
+                    "last_modified": formatted_timestamp,
                 }
                 results.append(result)
             except Exception as exception:

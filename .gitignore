@@ -86,3 +86,7 @@ outputs/
 # Temporary files
 *.tmp
 
+# database files
+*.sqlite3   
+*.db
+*.db-journal

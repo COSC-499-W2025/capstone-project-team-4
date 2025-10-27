@@ -1,6 +1,11 @@
 # Use official Python image
 FROM python:3.14.0-slim
 
+# Install system dependencies for python-magic
+RUN apt-get update && apt-get install -y \
+    libmagic1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set working directory inside container
 WORKDIR /app
 
@@ -23,6 +28,9 @@ ENV PATH="/venv/bin:$PATH"
 
 # Copy the rest of the project
 COPY . .
+
+#Added this line to ensure src is recognized as a module
+ENV PYTHONPATH="/app"
 
 # Run your app
 CMD ["python", "src/main.py"]
