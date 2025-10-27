@@ -22,19 +22,19 @@ def mock_metadata_parser_path(tmp_path, monkeypatch):
 
 @pytest.fixture
 def sample_dataframe():
-    """Create a standard test dataframe."""
+    """Create a standard test dataframe with datetime objects (as parse_metadata returns)."""
     return po.DataFrame([
         {
             "filename": "test1.txt",
             "path": "/tmp/test1.txt",
-            "file_type": "ASCII text",
-            "last_modified": 1698345600.0
+            "file_type": "text/plain",
+            "last_modified": datetime.fromtimestamp(1698345600.0)  # datetime object
         },
         {
             "filename": "test2.jpg",
             "path": "/tmp/test2.jpg", 
-            "file_type": "JPEG image data",
-            "last_modified": 1698349200.0
+            "file_type": "image/jpeg",
+            "last_modified": datetime.fromtimestamp(1698349200.0)  # datetime object
         }
     ])
 
@@ -45,8 +45,8 @@ def error_dataframe():
         {
             "filename": "good.txt",
             "path": "/tmp/good.txt",
-            "file_type": "ASCII text",
-            "last_modified": 1698345600.0,
+            "file_type": "text/plain",
+            "last_modified": datetime.fromtimestamp(1698345600.0),  # datetime object
             "error": None
         },
         {
@@ -113,12 +113,14 @@ def test_save_metadata_json_creates_valid_json(mock_metadata_parser_path, sample
     assert json_data["metadata"]["total_files"] == 2
     assert json_data["metadata"]["successful_parses"] == 2
     assert json_data["metadata"]["failed_parses"] == 0
+    assert json_data["metadata"]["schema_version"] == "1.0"
     
-    # Check file details
+    # Check file details - now expecting Unix timestamps
     files = json_data["files"]
     assert files[0]["filename"] == "test1.txt"
     assert files[0]["status"] == "success"
-    assert files[0]["last_modified"].startswith("2023-10-26T")
+    assert files[0]["last_modified"] == 1698345600.0  # Unix timestamp, not ISO string
+    assert files[1]["last_modified"] == 1698349200.0  # Unix timestamp
     
     
 def test_save_metadata_json_handles_error_records(mock_metadata_parser_path, error_dataframe):
@@ -140,16 +142,26 @@ def test_save_metadata_json_handles_error_records(mock_metadata_parser_path, err
     
     assert error_file["status"] == "error"
     assert error_file["error"] == "Permission denied"
+    assert error_file["last_modified"] is None  # None for error records
     assert success_file["status"] == "success"
+    assert success_file["last_modified"] == 1698345600.0  # Unix timestamp
 
 
 def test_save_metadata_json_handles_invalid_timestamps(mock_metadata_parser_path):
     """Test that save_metadata_json handles invalid timestamps gracefully."""
     timestamp_data = po.DataFrame([
-        {"filename": "invalid_time.txt", "path": "/tmp/invalid_time.txt", 
-         "file_type": "ASCII text", "last_modified": -1},
-        {"filename": "no_time.txt", "path": "/tmp/no_time.txt", 
-         "file_type": "ASCII text", "last_modified": None}
+        {
+            "filename": "invalid_time.txt", 
+            "path": "/tmp/invalid_time.txt", 
+            "file_type": "text/plain", 
+            "last_modified": datetime.fromtimestamp(-1)  # Invalid but convertible datetime
+        },
+        {
+            "filename": "no_time.txt", 
+            "path": "/tmp/no_time.txt", 
+            "file_type": "text/plain", 
+            "last_modified": None
+        }
     ])
     
     result_path = save_metadata_json(timestamp_data, "timestamp_test.json")
@@ -161,7 +173,7 @@ def test_save_metadata_json_handles_invalid_timestamps(mock_metadata_parser_path
     invalid_time_file = next(f for f in files if f["filename"] == "invalid_time.txt")
     no_time_file = next(f for f in files if f["filename"] == "no_time.txt")
     
-    assert invalid_time_file["last_modified"] == "1969-12-31T23:59:59"
+    assert invalid_time_file["last_modified"] == -1.0  # Unix timestamp
     assert no_time_file["last_modified"] is None
 
 
@@ -195,8 +207,8 @@ def test_save_metadata_json_utf8_encoding(mock_metadata_parser_path):
     unicode_data = po.DataFrame([{
         "filename": "файл.txt",
         "path": "/tmp/файл.txt",
-        "file_type": "UTF-8 Unicode text",
-        "last_modified": 1698345600.0
+        "file_type": "text/plain",
+        "last_modified": datetime.fromtimestamp(1698345600.0)  # datetime object
     }])
     
     result_path = save_metadata_json(unicode_data, "utf8_test.json")
@@ -205,6 +217,41 @@ def test_save_metadata_json_utf8_encoding(mock_metadata_parser_path):
         json_data = json.load(f)
     
     assert json_data["files"][0]["filename"] == "файл.txt"
+    assert json_data["files"][0]["last_modified"] == 1698345600.0  # Unix timestamp
+
+
+def test_save_metadata_json_handles_unix_timestamps_input(mock_metadata_parser_path):
+    """Test that save_metadata_json can handle Unix timestamps as input."""
+    unix_timestamp_data = po.DataFrame([{
+        "filename": "unix_time.txt",
+        "path": "/tmp/unix_time.txt",
+        "file_type": "text/plain",
+        "last_modified": 1698345600.0  # Already Unix timestamp
+    }])
+    
+    result_path = save_metadata_json(unix_timestamp_data, "unix_test.json")
+    
+    with open(result_path, 'r', encoding='utf-8') as f:
+        json_data = json.load(f)
+    
+    assert json_data["files"][0]["last_modified"] == 1698345600.0
+
+
+def test_save_metadata_json_metadata_timestamp_is_unix(mock_metadata_parser_path, sample_dataframe):
+    """Test that the metadata generated_at field uses Unix timestamp."""
+    result_path = save_metadata_json(sample_dataframe, "metadata_time_test.json")
+    
+    with open(result_path, 'r', encoding='utf-8') as f:
+        json_data = json.load(f)
+    
+    # Check that generated_at is a Unix timestamp (number, not string)
+    generated_at = json_data["metadata"]["generated_at"]
+    assert isinstance(generated_at, (int, float))
+    
+    # Should be close to current time (within 1 minute)
+    current_time = datetime.now().timestamp()
+    assert abs(generated_at - current_time) < 60
+
 
 # Error handling tests
 def test_save_metadata_json_handles_file_write_error(mock_metadata_parser_path, sample_dataframe):
