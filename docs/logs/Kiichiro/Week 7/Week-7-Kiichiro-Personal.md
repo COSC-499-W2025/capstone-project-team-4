@@ -4,4 +4,4 @@ Tasks Worked On
 * Setting up the environment such as Docker
 * Created and reviewed PR
 * Individual logs week 7
-* Coding and testing for validating the VIP file 
+* Coding and testing for validating the ZIP file 
