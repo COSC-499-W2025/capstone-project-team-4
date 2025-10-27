@@ -3,6 +3,7 @@ import pytest
 from core import config_manager
 from src.main import check_virtual_env
 
+
 def test_check_virtual_env():
     result = check_virtual_env()
     assert isinstance(result, bool)
@@ -28,6 +29,7 @@ def test_add_floats():
     assert add(2.5, 3.5) == 6.0
     assert add(-1.0, 1.0) == 0.0
 
+
 def test_default_config_when_no_file(tmp_path, monkeypatch):
     monkeypatch.setenv("WORKMINE_HOME", str(tmp_path))
     cfg = config_manager.read_cfg()
@@ -41,11 +43,11 @@ def test_default_config_when_no_file(tmp_path, monkeypatch):
 def test_set_and_get_consent(tmp_path, monkeypatch):
     monkeypatch.setenv("WORKMINE_HOME", str(tmp_path))
     config_manager.set_consent(True)
-    cfg=config_manager.read_cfg()
+    cfg = config_manager.read_cfg()
     assert cfg["consent_granted"] is True
 
-    def test_require_consent_block(tmp_path, monkeypatch):
-        monkeypatch.setenv("WORKMINE_HOME", str(tmp_path))
-        with pytest.raises(SystemExit):
-            config_manager.require_consent()
 
+def test_require_consent_block(tmp_path, monkeypatch):
+    monkeypatch.setenv("WORKMINE_HOME", str(tmp_path))
+    with pytest.raises(SystemExit):
+        config_manager.require_consent()
