@@ -1,6 +1,8 @@
 import typer
 from core import config_manager, file_validator, metadata_parser, utils
-
+import sys
+from src.core.database import init_db
+from src.core.config_manager import save_config, load_config
 # This is for testing if your local environment is running the "virtual environment"
 # It should say True
 # def check_virtual_env():
@@ -59,4 +61,10 @@ def consent(
     5) Extract Skills and generate report
     """
       
-
+if __name__ == "__main__":
+#if __name__ == "main":
+    #print("Running in virtual env:", check_virtual_env())
+    init_db()
+    config_data = {"theme": "dark", "notifications": True}
+    save_config(config_data)
+    print("Loaded:", load_config())
