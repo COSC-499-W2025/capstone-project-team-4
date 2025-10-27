@@ -4,6 +4,11 @@ FROM python:3.14.0-slim
 # Set working directory inside container
 WORKDIR /app
 
+# Install system dependencies for python-magic
+RUN apt-get update && \
+    apt-get install -y libmagic1 && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy only dependency list first (for caching)
 COPY requirements.txt .
 
