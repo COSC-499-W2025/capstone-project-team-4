@@ -9,27 +9,23 @@ RUN apt-get update && apt-get install -y \
 # Set working directory inside container
 WORKDIR /app
 
-# Install system dependencies for python-magic
-RUN apt-get update && \
-    apt-get install -y libmagic1 && \
-    rm -rf /var/lib/apt/lists/*
-
-# Copy only dependency list first (for caching)
-COPY requirements.txt .
-
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
 # Create a virtual environment inside the container
 RUN python -m venv /venv
 
 # Activate the virtual environment
+ENV VIRTUAL_ENV="/venv"
 ENV PATH="/venv/bin:$PATH"
+
+# Copy only dependency list first (for caching)
+COPY requirements.txt .
+
+# Install dependencies in the virtual environment
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the project
 COPY . .
 
-#Added this line to ensure src is recognized as a module
+# Added this line to ensure src is recognized as a module
 ENV PYTHONPATH="/app"
 
 # Run your app
