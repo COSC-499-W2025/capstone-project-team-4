@@ -9,16 +9,16 @@ import pandas as po
 from tqdm import tqdm
 
 # This makes modified timestamps more human readable
-from datetime import datetime
+# from datetime import datetime
 
 
 def parse_metadata(folder_path: str = ""):
     """
-    Opens up a folder from a recently extracted zip file and lists the file type and
-    timestamp on file modifications
+    Opens up a folder from a recently extracted zip file and lists the file type, file size, and created/modified
+    timestamps
 
     Keyword arguments:
-    folder_path -- the path to the directory to be parsed (default "")
+    folder_path -- the path to the directory/folder to be parsed (default "")
     """
     results = []
     progress_bar = tqdm(desc="Parsing metadata", unit=" files")
@@ -28,13 +28,21 @@ def parse_metadata(folder_path: str = ""):
             file_path = os.path.join(root, file)
             try:
                 file_type = magic.from_file(file_path, mime=True)
-                timestamp = os.path.getmtime(file_path)
-                formatted_timestamp = datetime.fromtimestamp(timestamp)
+                # The number/output for each file size is in bytes
+                file_size = os.path.getsize(file_path)
+                created_timestamp = os.path.getctime(file_path)
+                modified_timestamp = os.path.getmtime(file_path)
+
+                # This is the line that will make timestamps more human readable (September 12, 2025, etc.)
+                # I kept it here in case anyone wants to use it in the future
+                # formatted_timestamp = datetime.fromtimestamp(modified_timestamp)
                 result = {
                     "filename": file,
                     "path": file_path,
                     "file_type": file_type,
-                    "last_modified": formatted_timestamp,
+                    "file_size": file_size,
+                    "created_timestamp": created_timestamp,
+                    "last_modified": modified_timestamp,
                 }
                 results.append(result)
             except Exception as exception:
@@ -47,7 +55,7 @@ def parse_metadata(folder_path: str = ""):
                 }
                 results.append(result)
 
-            # This just adds a description for the progress bar on which folder it currently is
+            # This just adds a description for the progress bar to indicate which folder it's currently on
             progress_bar.set_postfix({"folder": os.path.basename(root)})
             progress_bar.update()
 
@@ -76,28 +84,14 @@ def save_metadata_json(dataframe: po.DataFrame, output_filename: str = "metadata
     cleaned_data = []
     
     for _, row in dataframe.iterrows():
-        # Convert timestamp to Unix timestamp if it exists
-        unix_timestamp = None
-        if row.get('last_modified') is not None:
-            try:
-                # Handle both datetime objects and existing Unix timestamps
-                if isinstance(row['last_modified'], datetime):
-                    unix_timestamp = row['last_modified'].timestamp()
-                elif isinstance(row['last_modified'], (int, float)):
-                    unix_timestamp = row['last_modified']
-                else:
-                    # Handle pandas Timestamp objects
-                    unix_timestamp = po.to_datetime(row['last_modified']).timestamp()
-            except (ValueError, OSError, TypeError) as e:
-                print(f"Warning: Could not convert timestamp for {row['filename']}: {e}")
-                unix_timestamp = None
-        
-        # Create clean record
+        # Create clean record with all fields from parse_metadata
         record = {
             "filename": str(row['filename']),
             "path": str(row['path']),
             "file_type": str(row['file_type']),
-            "last_modified": unix_timestamp,  # Now storing as Unix timestamp
+            "file_size": int(row.get('file_size', 0)) if row.get('file_size') is not None else None,
+            "created_timestamp": row.get('created_timestamp'),
+            "last_modified": row.get('last_modified'),
         }
         
         # Add error information if present
@@ -109,6 +103,11 @@ def save_metadata_json(dataframe: po.DataFrame, output_filename: str = "metadata
         
         cleaned_data.append(record)
     
+    # Calculate file size statistics
+    successful_files = [r for r in cleaned_data if r["status"] == "success" and r["file_size"] is not None]
+    total_size = sum(r["file_size"] for r in successful_files) if successful_files else 0
+    avg_size = total_size / len(successful_files) if successful_files else 0
+    
     # Create final JSON structure with metadata
     json_output = {
         "metadata": {
@@ -116,7 +115,9 @@ def save_metadata_json(dataframe: po.DataFrame, output_filename: str = "metadata
             "total_files": len(cleaned_data),
             "successful_parses": len([r for r in cleaned_data if r["status"] == "success"]),
             "failed_parses": len([r for r in cleaned_data if r["status"] == "error"]),
-            "schema_version": "1.0"
+            "total_size_bytes": total_size,
+            "average_file_size_bytes": round(avg_size, 2),
+            "schema_version": "2.0"  # Updated version to reflect new fields
         },
         "files": cleaned_data
     }
@@ -140,7 +141,7 @@ if __name__ == "__main__":
     # Only run this when script is executed directly, not when imported
     # This was the initial test directory which cannot be ran in docker
     # because it is a local path
-    test_directory = r"C:\Users\anilo\Desktop\test-directory-capstone"
+    test_directory = r"tests"
     if os.path.exists(test_directory):
         print(f"Parsing metadata from: {test_directory}")
         result = parse_metadata(test_directory)
