@@ -1,4 +1,4 @@
-# parse_zip_structure.py
+# parse_zip_folder.py
 # ---------------------------------
 # Prompt the user for a ZIP file path, safely extracts it to a
 # temporary directory, recursively parses all nested folders and files,
