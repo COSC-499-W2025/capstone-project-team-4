@@ -6,16 +6,16 @@ import pandas as po
 from tqdm import tqdm
 
 # This makes modified timestamps more human readable
-from datetime import datetime
+# from datetime import datetime
 
 
 def parse_metadata(folder_path: str = ""):
     """
-    Opens up a folder from a recently extracted zip file and lists the file type and
-    timestamp on file modifications
+    Opens up a folder from a recently extracted zip file and lists the file type, file size, and created/modified
+    timestamps
 
     Keyword arguments:
-    folder_path -- the path to the directory to be parsed (default "")
+    folder_path -- the path to the directory/folder to be parsed (default "")
     """
     results = []
     progress_bar = tqdm(desc="Parsing metadata", unit=" files")
@@ -25,13 +25,21 @@ def parse_metadata(folder_path: str = ""):
             file_path = os.path.join(root, file)
             try:
                 file_type = magic.from_file(file_path, mime=True)
-                timestamp = os.path.getmtime(file_path)
-                formatted_timestamp = datetime.fromtimestamp(timestamp)
+                # The number/output for each file size is in bytes
+                file_size = os.path.getsize(file_path)
+                created_timestamp = os.path.getctime(file_path)
+                modified_timestamp = os.path.getmtime(file_path)
+
+                # This is the line that will make timestamps more human readable (September 12, 2025, etc.)
+                # I kept it here in case anyone wants to use it in the future
+                # formatted_timestamp = datetime.fromtimestamp(modified_timestamp)
                 result = {
                     "filename": file,
                     "path": file_path,
                     "file_type": file_type,
-                    "last_modified": formatted_timestamp,
+                    "file_size": file_size,
+                    "created_timestamp": created_timestamp,
+                    "last_modified": modified_timestamp,
                 }
                 results.append(result)
             except Exception as exception:
@@ -44,7 +52,7 @@ def parse_metadata(folder_path: str = ""):
                 }
                 results.append(result)
 
-            # This just adds a description for the progress bar on which folder it currently is
+            # This just adds a description for the progress bar to indicate which folder it's currently on
             progress_bar.set_postfix({"folder": os.path.basename(root)})
             progress_bar.update()
 
@@ -55,4 +63,4 @@ def parse_metadata(folder_path: str = ""):
 
 
 test_directory = r"C:\Users\anilo\Desktop\test-directory-capstone"
-print(f"The result is: \n{parse_metadata(test_directory)}")
+# print(f"The result is: \n{parse_metadata(test_directory)}")
