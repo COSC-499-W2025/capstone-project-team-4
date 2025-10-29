@@ -21,7 +21,14 @@ def test_parse_metadata_returns_dataframe(temp):
     assert len(dataframe) == 2
 
     # Check if the columns exist
-    expected_columns = {"filename", "path", "file_type", "last_modified"}
+    expected_columns = {
+        "filename",
+        "path",
+        "file_type",
+        "file_size",
+        "created_timestamp",
+        "last_modified",
+    }
     assert expected_columns.issubset(dataframe.columns)
 
 
