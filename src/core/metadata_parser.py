@@ -158,8 +158,7 @@ def save_metadata_json(dataframe: po.DataFrame, output_filename: str = "metadata
 
 if __name__ == "__main__":
     # Only run this when script is executed directly, not when imported
-    # This was the initial test directory which cannot be ran in docker
-    # because it is a local path
+    # This is to test output functionality, can be deleted later
     test_directory = r"tests"
     if os.path.exists(test_directory):
         print(f"Parsing metadata from: {test_directory}")
