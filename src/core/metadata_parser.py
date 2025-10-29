@@ -84,14 +84,33 @@ def save_metadata_json(dataframe: po.DataFrame, output_filename: str = "metadata
     cleaned_data = []
     
     for _, row in dataframe.iterrows():
+        # Handle pandas NaN values properly
+        file_size = row.get('file_size')
+        if file_size is not None and not po.isna(file_size):
+            file_size = int(file_size)
+        else:
+            file_size = None
+            
+        created_ts = row.get('created_timestamp')
+        if created_ts is not None and not po.isna(created_ts):
+            created_ts = float(created_ts)
+        else:
+            created_ts = None
+            
+        last_mod = row.get('last_modified')
+        if last_mod is not None and not po.isna(last_mod):
+            last_mod = float(last_mod)
+        else:
+            last_mod = None
+        
         # Create clean record with all fields from parse_metadata
         record = {
             "filename": str(row['filename']),
             "path": str(row['path']),
             "file_type": str(row['file_type']),
-            "file_size": int(row.get('file_size', 0)) if row.get('file_size') is not None else None,
-            "created_timestamp": row.get('created_timestamp'),
-            "last_modified": row.get('last_modified'),
+            "file_size": file_size,
+            "created_timestamp": created_ts,
+            "last_modified": last_mod,
         }
         
         # Add error information if present
