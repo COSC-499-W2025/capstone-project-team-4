@@ -14,8 +14,10 @@ import os
 
 # Default config if no file exists or file is invalid
 def _get_cfg_path() -> Path:
-    app_dir = Path(os.getenv("WORKMINE_HOME", Path.home() / ".workmine")).expanduser()
-    return app_dir / "config.json"
+    project_root = Path(__file__).resolve().parents[1]  
+    data_dir = project_root / "data"                    
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir / "consent_config.json"
 
 DEFAULT_CFG: Dict[str, Any] = {
 "consent_granted": False, # must be true before reading any zip
