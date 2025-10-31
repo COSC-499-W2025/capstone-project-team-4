@@ -3,6 +3,7 @@ import typer
 from src.core import config_manager
 from src.core.database import init_db
 from src.core.config_manager import save_config, load_config
+from typing import Optional
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
 
@@ -16,8 +17,10 @@ def check_virtual_env():
 def consent(
     grant: bool = typer.Option(False, "--grant", help="Grant consent to process files."),
     revoke: bool = typer.Option(False, "--revoke", help="Revoke consent."),
-    external: bool | None = typer.Option(
-        None, "--external", help="Allow external APIs (true/false)."
+     external: Optional[bool] = typer.Option(
+        None,
+        "--external/--no_external",
+        help="Allow (or disallow) use of external APIs/services.",
     ),
 ) -> None:
     """Manage user consent and external processing permission."""
@@ -34,10 +37,10 @@ def consent(
         config_manager.set_consent(False)
         print("Consent revoked.")
 
-    # Update external permission (if provided)
+    
     if external is not None:
-        config_manager.set_external_allowed(bool(external))
-        print(f"External services allowed = {bool(external)}")
+        config_manager.set_external_allowed(external)
+        print(f"External services allowed = {external}")
 
     # Show current configuration
     print("\nCurrent configuration:")
@@ -69,5 +72,3 @@ if __name__ == "__main__":
         print(f"Config save/load skipped or failed: {e}")
 
     app()
-
-
