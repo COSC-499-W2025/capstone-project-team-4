@@ -15,6 +15,30 @@ def make_zip_with_entries(path: Path, entries: dict[str, bytes]) -> None:
         for name, data in entries.items():
             zf.writestr(name, data)
 
+def make_crc_broken_zip(path: Path) -> None:
+    # CRC: It’s a type of checksum — a short number that helps detect accidental changes in data (like corruption or bit flips).
+    make_valid_zip(path)
+    with open(path, "r+b") as f:
+        try:
+            f.seek(-16, os.SEEK_END)
+        except OSError:
+            f.seek(0, os.SEEK_SET)
+        chunk = bytearray(f.read(16))
+        if not chunk:
+            # If file is too small, corrupt at least one byte
+            f.seek(0, os.SEEK_SET)
+            b = f.read(1)
+            if b:
+                f.seek(0, os.SEEK_SET)
+                f.write(bytes([b[0] ^ 0xFF]))
+            return
+        # Flip bits to corrupt
+        for i in range(len(chunk)):
+            chunk[i] ^= 0xAA
+        f.seek(-len(chunk), os.SEEK_END)
+        f.write(chunk)
+        for name, data in entries.items():
+            zf.writestr(name, data)
 
 def make_empty_zip(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
