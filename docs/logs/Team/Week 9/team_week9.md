@@ -17,6 +17,7 @@ Sprint planning and role assignments for next development phase
 Update documentation and comments in refactored code
 
 ## Burnup Chart
+<img width="551" height="294" alt="99ad46181245ac89194c3ca4a53ed63f" src="https://github.com/user-attachments/assets/7b9fbad2-d475-4231-aed5-012f4be99678" />
 
 
 
