@@ -52,6 +52,11 @@ def status() -> None:
     """Print current consent and external-usage settings."""
     print(config_manager.read_cfg())
 
+@app.command()
+def external_permission(service: str = "API"):
+    """Ask for and log permission to use an external service."""
+    config_manager.request_external_service_permission(service)
+
 
 if __name__ == "__main__":
     print("Running in virtual env:", check_virtual_env())
@@ -72,3 +77,6 @@ if __name__ == "__main__":
         print(f"Config save/load skipped or failed: {e}")
 
     app()
+
+
+

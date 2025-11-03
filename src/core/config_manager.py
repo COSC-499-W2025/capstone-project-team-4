@@ -10,6 +10,7 @@ import os
 import tempfile
 from typing import Dict, Any 
 from src.core.database import get_connection, init_db
+from src.core.utils import log_event
 import os
 
 # Default config if no file exists or file is invalid
@@ -143,3 +144,27 @@ def load_config():
             return json.load(f)
 
     return {}
+
+def request_external_service_permission(service_name: str = "External Service") -> bool:
+    """
+    Ask the user for permission to use an external service (e.g., LLM/API)
+    and log the decision to consent_log.json.
+    """
+    print(f"\nPermission Request: {service_name}")
+    print("This service may send limited data externally for processing.")
+    print("Only the data you select will be shared.")
+    print("You can deny to keep all processing local.\n")
+
+    response = input(f"Do you allow {service_name}? (y/n): ").strip().lower()
+    allowed = response == "y"
+
+    # Save decision in config
+    cfg = read_cfg()
+    cfg["external_allowed"] = allowed
+    write_cfg(cfg)
+
+    # Log it for auditing
+    log_event(service_name, "granted" if allowed else "denied")
+
+    print(f"Access {'granted' if allowed else 'denied'} for {service_name}.")
+    return allowed
