@@ -3,9 +3,7 @@
 ## (Oct 26, 2025 - Nov 2, 2025)
 
 
-<img width="1167" height="71" alt="Week-9-Personal-Log" src="https://github.com/user-attachments/assets/c3b921f7-7687-4a13-92d9-3229e9adae31" />
-
-**Note:** The team evaluation closed earlier than usual so I wasn't able to make an evaluation for this week
+<img width="1480" height="746" alt="Week-9-Personal-Log" src="https://github.com/user-attachments/assets/3decdb73-26d8-4a32-84dc-41da7a5a9793" />
 
 ## Things I Worked on
 
