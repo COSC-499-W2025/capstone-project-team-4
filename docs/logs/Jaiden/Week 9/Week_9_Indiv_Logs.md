@@ -2,7 +2,8 @@
 
 ### (Oct 26, 2025 - Nov 2, 2025)
 
-Peer Evaluation is closed at 7:20, cannot complete it
+<img width="1064" height="630" alt="image" src="https://github.com/user-attachments/assets/dd7cfd66-d743-4c1e-8ff9-d604abea35ce" />
+
 
 I have been involved with the following tasks either alone or helping my other classmates.
 
