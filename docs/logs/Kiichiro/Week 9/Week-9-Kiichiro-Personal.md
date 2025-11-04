@@ -1,5 +1,5 @@
-
-<img width="303" height="179" alt="Screenshot 2025-11-02 at 16 59 01" src="https://github.com/user-attachments/assets/ce27986a-6b2e-4126-ad63-8a50d62be1ba" />
+  
+<img width="1090" height="641" alt="Screenshot 2025-11-03 at 20 41 26" src="https://github.com/user-attachments/assets/6133989c-f76c-4fb9-932d-0a1ec44f323d" />
 
 ## Things I Worked on
 
@@ -7,4 +7,4 @@
 - Added unit test for zip validator
 - Team meating, discussing and assigning member tasks
 - Created and reviewed PRs for merging
-  
+
