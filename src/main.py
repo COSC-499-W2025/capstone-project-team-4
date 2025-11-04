@@ -9,6 +9,8 @@ app = typer.Typer(help="Mining Digital Work Artifacts CLI")
 
 # This is for testing if your local environment is running the "virtual environment"
 # It should say True
+
+# If you want it to run put in the command: python3 -m src.main {command name}
 def check_virtual_env():
     return sys.prefix != sys.base_prefix
 
@@ -56,6 +58,11 @@ def status() -> None:
 def external_permission(service: str = "API"):
     """Ask for and log permission to use an external service."""
     config_manager.request_external_service_permission(service)
+
+@app.command()
+def extract(file_path: str = "."):
+    """Takes a zip file, extracts it into a directory, and outputs a json file"""
+    print(file_path)
 
 
 if __name__ == "__main__":
