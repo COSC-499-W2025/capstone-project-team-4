@@ -7,13 +7,13 @@ import os
 def analyze_contributors(project_path = "."):
     """
     Opens up the project folder that analyzes the contributors on a project
-    Looks at the amount of contributors and returns an object
+    Looks at the amount of contributors and returns a list of contributors
 
-    Keyword arguments:
-    project_path -- the path to the root project (default "." or current directory)
+    Args:
+        project_path (str): The path to the root project (default "." or current directory)
 
     Returns:
-    A dictionary/hash map of contributors each having their name, commits, and the amount of work committed (percentage)
+        contributors (list[defaultdict]): A list of contributors each having an object that contain their name, email, commits, and the amount of work committed (percentage)
     """
     repo = Repo(project_path)
     author_commits = defaultdict(int)
