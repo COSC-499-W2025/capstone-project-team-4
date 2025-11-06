@@ -53,8 +53,44 @@ def calculate_project_stats(project_name, file_list):
                                  and return a proper list of files
     """
 
-    print("Calculating time!")
+    # File stats
+    total_files = len(file_list)
+    total_size = sum(file["file_size"] for file in file_list)
+    avg_size = round(total_size / total_size, 2) if total_files > 0 else 0
 
+    # Duration (in days, idk if we should use different measures of time but oh well)
+    seconds_in_day = 86_400
+    created = min(file["created_timestamp"] for file in file_list)
+    modified = max(file["last_modified"] for file in file_list)
+    # It's 86400 because there's 86400
+    duration_days = round((modified - created) / seconds_in_day, 2)
+
+    # Activity type (like the language, skills used, etc. idk man idk)
+    # Since A3 is working on that, just uh.. yeah I'll leave it blank for now
+
+    # Contributors
+    project_path = os.path.join(os.getcwd(), project_name)
+    contributors = []
+    if os.path.exists(os.path.join(project_path, ".git")):
+        contributors = analyze_contributors(project_path)
+    else :
+        # Yeah I think it makes sense if we literally just make contributors to be None
+        contributors = None
+    
+    # Find if it's a solo or collaborative
+    is_collaborative = True if not contributors is None else False
+
+    metrics = {
+        "total_files": total_files,
+        "total_size_bytes": total_size,
+        "average_file_size_bytes": avg_size,
+        "duration_days": duration_days,
+        "activity_types": "Uh.. chicken! It's not done yet!",
+        "collaborative": is_collaborative,
+        "contributors": contributors
+    }
+
+    return metrics
 if __name__ == "__main__":
     # For testing, just use the current working directory
     working_directory = os.getcwd()
