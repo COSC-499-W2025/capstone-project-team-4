@@ -42,8 +42,21 @@ def analyze_contributors(project_path = "."):
 
     print(contributors)
 
+def calculate_project_stats(project_name, file_list):
+    """
+    Calculates the metrics for a given project.
+    This includes file stats, duration, and the contributor info
+
+    Args:
+        project_name (str):  The name of the directory itself. This helps in finding if a `.git` file is found.
+        file_list (list[files]): From A1's task, this should be a list of files. A1 should have utilized the `metadata.json`
+                                 and return a proper list of files
+    """
+
+    print("Calculating time!")
 
 if __name__ == "__main__":
     # For testing, just use the current working directory
     working_directory = os.getcwd()
     analyze_contributors(working_directory);
+    calculate_project_stats("Chicken", ["file"])
