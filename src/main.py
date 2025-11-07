@@ -1,4 +1,5 @@
 import sys
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -15,10 +16,10 @@ from src.core.metadata_parser import parse_metadata, save_metadata_json
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
 
-
+# This is for testing if your local environment is running the "virtual environment"
 # It should say True
 
-# If you want it to run put in the command: python3 -m src.main {command name}
+# If you want it to run put in the command: python -m src.main {command name}
 def check_virtual_env():
     return sys.prefix != sys.base_prefix
 
@@ -77,12 +78,13 @@ def extract(
         None, "--external/--no-external", help="Allow (or disallow) external APIs/services for this run."
     ),
 ) -> None:
+    
     """
     Process a path that can be:
-      - a .zip (validate → extract to temp → parse)
+      - a .zip (validate -> extract to temp -> parse)
       - a directory (parse all files recursively)
       - a single file (parse just that file)
-    Saves metadata.json (and you can add CSV if desired).
+    Saves metadata.json in the output directory.
     """
     from src.core.run import validate_and_parse
     from src.core.metadata_parser import parse_metadata, save_metadata_json
@@ -103,7 +105,7 @@ def extract(
         typer.secho(f"Path not found: {path}", fg=typer.colors.RED)
         raise typer.Exit(code=2)
 
-    # CASE 1: .zip file → use existing pipeline
+    # CASE 1: .zip file -> use existing framework.
     if path.is_file() and path.suffix.lower() == ".zip":
         res = validate_and_parse(path)
         if not res["is_valid"]:
@@ -116,14 +118,14 @@ def extract(
         typer.secho(f"✅ Metadata saved: {json_path}", fg=typer.colors.GREEN)
         return
 
-    # CASE 2: directory → parse recursively
+    # CASE 2: directory -> parse recursively and returns each file inside of a folder 
     if path.is_dir():
         df = parse_metadata(str(path))
         json_path = save_metadata_json(df, output_filename=f"{path.name}_metadata.json")
         typer.secho(f"✅ Directory metadata saved: {json_path}", fg=typer.colors.GREEN)
         return
 
-    # CASE 3: single non-zip file → build a one-row DataFrame
+    # CASE 3: single non-zip file -> build a one-row DataFrame
     if path.is_file():
         try:
             import magic
@@ -138,8 +140,8 @@ def extract(
                 "path": str(path),
                 "file_type": mime,
                 "file_size": st.st_size,
-                "created_timestamp": st.st_ctime,
-                "last_modified": st.st_mtime,
+                "created_timestamp": os.path.getctime(path),
+                "last_modified": os.path.getmtime(path),
             }])
             json_path = save_metadata_json(df, output_filename=f"{path.stem}_metadata.json")
             typer.secho(f"✅ File metadata saved: {json_path}", fg=typer.colors.GREEN)
@@ -160,7 +162,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Database initialization skipped or failed: {e}")
 
-    
     try:
         config_data = {"theme": "dark", "notifications": True}
         save_config(config_data)
