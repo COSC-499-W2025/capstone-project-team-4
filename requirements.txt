@@ -3,6 +3,7 @@
 typer              # for CLI commands
 pandas             # for metrics & CSVs
 gitpython          # to analyze Git repos
+pyyaml             # for YAML configuration files
 # file type detection
 python-magic; sys_platform != "win32" # THIS WORKS ON UNIX OS's (Mac/Linux) but NOT ON WINDOWS!!
 python-magic-bin; sys_platform == "win32" # This works on Windows!! The conditions are there to install based on operating system...
