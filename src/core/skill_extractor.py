@@ -143,8 +143,5 @@ def analyze_repo(owner, repo, branch=None):
 
     print("\n✅ Analysis complete!")
 
-
-# --- Example usage ---
 if __name__ == "__main__":
-    # You can now specify a branch manually here 👇
     analyze_repo("COSC-499-W2025", "capstone-project-team-4", branch="development")
