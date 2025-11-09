@@ -1,5 +1,4 @@
-# Contributing to Capstone Project Team 4
-## 📝 Development Guidelines
+# 📝 Development Guidelines
 This guide will help you get started with contributing to our project.
 
 ### Branch Naming
@@ -7,7 +6,7 @@ This guide will help you get started with contributing to our project.
 - **Bug fixes**: `fix/<issue-description>`
 - **Documentation**: `docs/<what-you-are-documenting>`
 
-### Commit Messages
+## Commit Messages
 Use [Conventional Commits](https://www.conventionalcommits.org/) format:
 
 ```
