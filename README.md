@@ -19,8 +19,8 @@ pip install -r requirements.txt
 # Run the main CLI
 python -m src.main --help
 
-# Run skill extractor
-python -m src.core.skill_extractor
+# Run commands
+python -m src.main [OPTIONS] COMMAND [ARGS]...      
 ```
 
 ### Testing
