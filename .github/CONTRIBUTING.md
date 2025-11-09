@@ -1,10 +1,18 @@
 # 📝 Development Guidelines
 This guide will help you get started with contributing to our project.
 
-### Branch Naming
-- **Features**: `feature/<descriptive-name>`
-- **Bug fixes**: `fix/<issue-description>`
-- **Documentation**: `docs/<what-you-are-documenting>`
+## Branch Naming
+Use descriptive branch names with the following format:
+
+```
+type/<descriptive-name>
+
+Examples:
+feature/user-authentication
+fix/database-connection-timeout
+docs/api-documentation-update
+test/login-validation-tests
+```
 
 ## Commit Messages
 Use [Conventional Commits](https://www.conventionalcommits.org/) format:
@@ -31,6 +39,7 @@ test: add unit tests for validation
 
 ### Testing
 - Add unit tests for new functionality
+- Place tests in the `tests/` directory
 - Run tests: `pytest`
 - Check coverage: `pytest --cov=src`
 - All tests must pass before merging
