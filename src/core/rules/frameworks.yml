@@ -1,0 +1,562 @@
+rules_version: 0.2
+
+settings:
+  exclude_dirs:
+    [
+      "node_modules",
+      ".venv",
+      "venv",
+      "__pycache__",
+      "dist",
+      "build",
+      ".next",
+      ".git",
+      "target",
+    ]
+  default_min_score: 0.3 # これ未満は「検出」とみなさない（各FWで上書き可）
+
+# シグナル種別（あなたの実装がすでにサポートしている想定）
+# - pkg_json_dep: package.json の dependencies/devDependencies に contains がある
+# - pkg_json_script: package.json の scripts の値に contains がある
+# - file_exists / file_exists_glob / dir_exists / dir_exists_any
+# - import_snippet / import_snippet_any （複数候補のいずれか）
+# - req_txt_contains / toml_dep / poetry_dep / pipfile_dep
+# - pom_contains / gradle_contains / maven_contains
+# - csproj_contains / sln_contains
+# - go_mod_dep
+# - gemfile_dep / composer_dep
+# - cargo_toml_dep
+# - cfg_contains （任意テキストファイルにパターン）
+# など
+
+frameworks:
+  # --------------------------
+  # JavaScript / TypeScript
+  # --------------------------
+
+  React:
+    min_score: 0.7
+    signals:
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "react"
+        weight: 0.6
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "react-dom"
+        weight: 0.2
+      - type: file_exists_glob
+        value: ["tsconfig.json", ".babelrc", "babel.config.js"]
+        weight: 0.1
+      - type: import_snippet_any
+        value: ["import React", "from 'react'", "createRoot("]
+        weight: 0.2
+
+  Next.js:
+    min_score: 0.75
+    signals:
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "next"
+        weight: 0.7
+      - type: dir_exists_any
+        value: ["pages", "app"]
+        weight: 0.2
+      - type: file_exists
+        value: "next.config.js"
+        weight: 0.2
+      - type: pkg_json_script
+        contains: "next dev"
+        weight: 0.1
+
+  Vue.js:
+    signals:
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "vue"
+        weight: 0.7
+      - type: file_exists_glob
+        value: ["vite.config.*", "vue.config.js"]
+        weight: 0.2
+
+  Nuxt.js:
+    signals:
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "nuxt"
+        weight: 0.7
+      - type: file_exists
+        value: "nuxt.config.ts"
+        weight: 0.2
+
+  Angular:
+    signals:
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "@angular/core"
+        weight: 0.8
+      - type: file_exists
+        value: "angular.json"
+        weight: 0.2
+
+  Svelte:
+    signals:
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "svelte"
+        weight: 0.7
+      - type: file_exists_glob
+        value: ["svelte.config.js", "vite.config.*"]
+        weight: 0.2
+
+  Remix:
+    signals:
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "@remix-run"
+        weight: 0.8
+
+  Astro:
+    signals:
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "astro"
+        weight: 0.8
+
+  Express:
+    signals:
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "express"
+        weight: 0.8
+      - type: import_snippet_any
+        value: ["from 'express'", "require('express')", "app.use("]
+        weight: 0.2
+
+  NestJS:
+    signals:
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "@nestjs/core"
+        weight: 0.8
+      - type: file_exists
+        value: "nest-cli.json"
+        weight: 0.2
+
+  Fastify:
+    signals:
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "fastify"
+        weight: 0.8
+
+  Koa:
+    signals:
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "koa"
+        weight: 0.8
+
+  Hapi:
+    signals:
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "@hapi/hapi"
+        weight: 0.8
+
+  # Tooling (任意で「Framework」扱いにしないなら別カテゴリへ）
+  Vite:
+    signals:
+      - type: pkg_json_dep
+        key: "devDependencies"
+        contains: "vite"
+        weight: 0.8
+      - type: file_exists_glob
+        value: ["vite.config.*"]
+        weight: 0.2
+
+  Webpack:
+    signals:
+      - type: pkg_json_dep
+        key: "devDependencies"
+        contains: "webpack"
+        weight: 0.7
+      - type: file_exists
+        value: "webpack.config.js"
+        weight: 0.2
+
+  # Serverless / Infra JS
+  "Serverless Framework":
+    signals:
+      - type: pkg_json_dep
+        key: "devDependencies"
+        contains: "serverless"
+        weight: 0.6
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "serverless-http"
+        weight: 0.6
+      - type: file_exists_glob
+        value: ["serverless.yml", "serverless.ts"]
+        weight: 0.2
+
+  AWS CDK:
+    signals:
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "aws-cdk"
+        weight: 0.8
+
+  # --------------------------
+  # Python
+  # --------------------------
+
+  Django:
+    signals:
+      - type: req_txt_contains
+        value: "django"
+        weight: 0.6
+      - type: toml_dep
+        key: "project.dependencies"
+        contains: "django"
+        weight: 0.6
+      - type: file_exists
+        value: "manage.py"
+        weight: 0.3
+      - type: dir_exists
+        value: "migrations"
+        weight: 0.2
+
+  Flask:
+    signals:
+      - type: req_txt_contains
+        value: "flask"
+        weight: 0.7
+      - type: import_snippet_any
+        value: ["from flask import Flask", "import flask"]
+        weight: 0.2
+
+  FastAPI:
+    signals:
+      - type: req_txt_contains
+        value: "fastapi"
+        weight: 0.6
+      - type: import_snippet
+        value: "from fastapi import FastAPI"
+        weight: 0.4
+      - type: file_exists_glob
+        value: ["pyproject.toml", "requirements.txt"]
+        weight: 0.1
+
+  Tornado:
+    signals:
+      - type: req_txt_contains
+        value: "tornado"
+        weight: 0.7
+
+  Celery:
+    signals:
+      - type: req_txt_contains
+        value: "celery"
+        weight: 0.7
+      - type: import_snippet_any
+        value: ["from celery import Celery"]
+        weight: 0.2
+
+  Airflow:
+    signals:
+      - type: req_txt_contains
+        value: "apache-airflow"
+        weight: 0.8
+      - type: dir_exists
+        value: "dags"
+        weight: 0.2
+
+  # --------------------------
+  # Java
+  # --------------------------
+
+  Spring Boot:
+    signals:
+      - type: pom_contains
+        contains: "spring-boot-starter"
+        weight: 0.8
+      - type: gradle_contains
+        contains: "org.springframework.boot"
+        weight: 0.8
+      - type: dir_exists
+        value: "src/main/java"
+        weight: 0.2
+
+  Micronaut:
+    signals:
+      - type: gradle_contains
+        contains: "io.micronaut.application"
+        weight: 0.8
+      - type: pom_contains
+        contains: "micronaut"
+        weight: 0.7
+
+  Quarkus:
+    signals:
+      - type: pom_contains
+        contains: "io.quarkus"
+        weight: 0.8
+      - type: gradle_contains
+        contains: "io.quarkus"
+        weight: 0.8
+
+  Hibernate:
+    signals:
+      - type: pom_contains
+        contains: "hibernate-core"
+        weight: 0.8
+
+  # --------------------------
+  # PHP
+  # --------------------------
+
+  Laravel:
+    signals:
+      - type: composer_dep
+        contains: "laravel/framework"
+        weight: 0.9
+      - type: file_exists
+        value: "artisan"
+        weight: 0.2
+
+  Symfony:
+    signals:
+      - type: composer_dep
+        contains: "symfony/framework-bundle"
+        weight: 0.9
+
+  WordPress:
+    signals:
+      - type: file_exists
+        value: "wp-config.php"
+        weight: 0.9
+
+  # --------------------------
+  # Ruby
+  # --------------------------
+
+  "Ruby on Rails":
+    signals:
+      - type: gemfile_dep
+        contains: "rails"
+        weight: 0.9
+      - type: dir_exists_any
+        value: ["app/models", "app/controllers"]
+        weight: 0.2
+
+  Sinatra:
+    signals:
+      - type: gemfile_dep
+        contains: "sinatra"
+        weight: 0.9
+
+  # --------------------------
+  # Go
+  # --------------------------
+
+  Gin:
+    signals:
+      - type: go_mod_dep
+        contains: "github.com/gin-gonic/gin"
+        weight: 0.9
+
+  Echo:
+    signals:
+      - type: go_mod_dep
+        contains: "github.com/labstack/echo"
+        weight: 0.9
+
+  Fiber:
+    signals:
+      - type: go_mod_dep
+        contains: "github.com/gofiber/fiber"
+        weight: 0.9
+
+  # --------------------------
+  # .NET / C#
+  # --------------------------
+
+  "ASP.NET Core":
+    signals:
+      - type: csproj_contains
+        contains: '<PackageReference Include="Microsoft.AspNetCore.'
+        weight: 0.9
+      - type: file_exists_any
+        value: ["Program.cs", "Startup.cs"]
+        weight: 0.2
+
+  "Entity Framework Core":
+    signals:
+      - type: csproj_contains
+        contains: "Microsoft.EntityFrameworkCore"
+        weight: 0.9
+
+  # --------------------------
+  # Rust
+  # --------------------------
+
+  Actix Web:
+    signals:
+      - type: cargo_toml_dep
+        contains: "actix-web"
+        weight: 0.9
+
+  Rocket:
+    signals:
+      - type: cargo_toml_dep
+        contains: "rocket"
+        weight: 0.9
+
+  # --------------------------
+  # Elixir
+  # --------------------------
+
+  Phoenix:
+    signals:
+      - type: file_exists
+        value: "mix.exs"
+        weight: 0.2
+      - type: cfg_contains
+        value: "defmodule Phoenix"
+        weight: 0.7
+
+  # --------------------------
+  # Infra / Orchestration
+  # --------------------------
+
+  Terraform:
+    signals:
+      - type: file_exists_glob
+        value: ["*.tf", "*.tf.json"]
+        weight: 0.8
+
+  Pulumi:
+    signals:
+      - type: pkg_json_dep
+        key: "dependencies"
+        contains: "@pulumi/"
+        weight: 0.8
+
+  Kubernetes:
+    signals:
+      - type: file_exists_glob
+        value: ["k8s/*.yaml", "kubernetes/*.yaml", "**/deployment.yaml"]
+        weight: 0.6
+      - type: cfg_contains
+        value: "apiVersion: apps/v1"
+        weight: 0.3
+
+  Docker Compose:
+    signals:
+      - type: file_exists_glob
+        value: ["docker-compose.yml", "compose.yaml"]
+        weight: 0.9
+
+  Flutter:
+    min_score: 0.8
+    signals:
+      # 必須級：pubspec.yaml に flutter 依存
+      - type: file_exists
+        value: "pubspec.yaml"
+        weight: 0.2
+      - type: cfg_contains
+        value: "dependencies:\n  flutter:"
+        weight: 0.5
+      # 代表構造：lib と主要プラットフォームディレクトリ
+      - type: dir_exists_any
+        value: ["lib", "android", "ios"]
+        weight: 0.2
+      # さらに強化：main.dart で runApp が呼ばれている
+      - type: import_snippet_any
+        value: ["runApp(", "import 'package:flutter/"]
+        weight: 0.2
+      # Flutter 生成プロジェクトのメタ
+      - type: file_exists
+        value: ".metadata"
+        weight: 0.1
+
+  "Flutter Web":
+    min_score: 0.75
+    signals:
+      - type: file_exists
+        value: "pubspec.yaml"
+        weight: 0.2
+      - type: cfg_contains
+        value: "dependencies:\n  flutter:"
+        weight: 0.4
+      - type: dir_exists_any
+        value: ["web"]
+        weight: 0.3
+      - type: import_snippet_any
+        value: ["runApp("]
+        weight: 0.1
+
+  "Flutter Desktop":
+    min_score: 0.75
+    signals:
+      - type: file_exists
+        value: "pubspec.yaml"
+        weight: 0.2
+      - type: cfg_contains
+        value: "dependencies:\n  flutter:"
+        weight: 0.3
+      - type: dir_exists_any
+        value: ["macos", "windows", "linux"]
+        weight: 0.3
+      - type: file_exists
+        value: ".metadata"
+        weight: 0.1
+      - type: import_snippet_any
+        value: ["runApp("]
+        weight: 0.1
+
+  # Flutter ではない Dart コンソール/サーバも区別しておくと便利
+  "Dart Console/App":
+    min_score: 0.7
+    signals:
+      - type: file_exists
+        value: "pubspec.yaml"
+        weight: 0.2
+      - type: cfg_contains
+        value: "environment:"
+        weight: 0.2
+      - type: cfg_contains
+        value: "dependencies:"
+        weight: 0.2
+      - type: import_snippet_any
+        value: ["void main()", "import 'dart:io'"]
+        weight: 0.2
+      - type: dir_exists
+        value: "bin"
+        weight: 0.2
+
+  "Dart Server (Shelf/others)":
+    min_score: 0.75
+    signals:
+      - type: file_exists
+        value: "pubspec.yaml"
+        weight: 0.2
+      - type: cfg_contains
+        value: "shelf:"
+        weight: 0.4
+      - type: import_snippet_any
+        value: ["import 'package:shelf/shelf.dart'", "Pipeline(", "serve("]
+        weight: 0.2
+      - type: dir_exists_any
+        value: ["bin", "lib"]
+        weight: 0.1
+
+  ".NET Console App":
+  signals:
+    - type: csproj_contains
+      contains: "<OutputType>Exe</OutputType>"
+      weight: 0.7
+    - type: csproj_contains
+      contains: "<Sdk>Microsoft.NET.Sdk</Sdk>"
+      weight: 0.3
