@@ -129,7 +129,7 @@ def analyze_repo(owner, repo, branch=None):
                 print(f"  - {lang}: {lines} lines")
     else:
         for lang, bytes_ in langs_bytes.items():
-            est_lines = max(1, bytes_ // 16)
+            est_lines = max(1, int(bytes_) // 16)
             print(f"  - {lang}: ~{est_lines} lines ({bytes_:,} bytes)")
 
     # Skill extraction
