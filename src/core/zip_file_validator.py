@@ -8,6 +8,7 @@ ALLOWED_EXTENSIONS = {".zip"}
 MAX_FILES = 100
 MAX_NESTING = 10
 
+# return reason for validation or failure
 def validate_zip(file_path: str | Path) -> Tuple[bool, List[str]]:
 
     errors: List[str] = []
@@ -93,6 +94,7 @@ def validate_zip(file_path: str | Path) -> Tuple[bool, List[str]]:
 
     return (True, [])
 
+# It executes validate_zip on each file in the directory and returns a list of results, but since it didn't behave as expected, I passed the responsibility to file_validator. I'll refactor this later.
 def validate_dir(dir_path: str | Path) -> list[tuple[Path, bool, list[str]]]:
     d = Path(dir_path)
     results: list[tuple[Path, bool, list[str]]] = []

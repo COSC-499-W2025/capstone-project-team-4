@@ -4,7 +4,7 @@ from pathlib import Path
 from pprint import pprint
 
 # from src.core.file_validator import validate_zip
-from .file_validator import validate_zip, validate_dir
+from .zip_file_validator import validate_zip, validate_dir
 from .run import validate_and_parse
 
 

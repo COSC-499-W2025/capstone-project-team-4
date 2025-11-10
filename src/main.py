@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 from src.core import config_manager
 from src.core.database import init_db
 from src.core.config_manager import save_config, load_config
-from src.core.file_validator import validate_zip
+# from src.core.file_validator import validate_zip
 from src.core.run import validate_and_parse
 from src.core.metadata_parser import parse_metadata, save_metadata_json
 
