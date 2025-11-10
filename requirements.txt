@@ -12,4 +12,6 @@ tqdm               # progress bars
 sqlite-utils       # optional helper for DB
 pytest             # for running tests
 pytest-cov         # for test coverage reports
+dontev
+nltk
 #flake8             # for linting and code style checks
