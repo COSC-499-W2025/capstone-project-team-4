@@ -2,15 +2,10 @@ services:
   app:
     build: .
     container_name: capstone-container
-    command: python src/main.py
+    command: sleep infinity
     ports:
       - "8000:8000"
-
-  test:
-    build: .
-    container_name: test-container
-    command: sleep infinity
     volumes:
       - .:/app
     environment:
-      - PYTHONPATH=/app 
+      - PYTHONPATH=/app

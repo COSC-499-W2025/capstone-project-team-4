@@ -1,5 +1,5 @@
 import pytest
-from core import config_manager
+from src.core import config_manager
 from src.main import check_virtual_env
 
 

@@ -155,33 +155,3 @@ def save_metadata_json(dataframe: po.DataFrame, output_filename: str = "metadata
         print(f"Error saving metadata JSON: {e}")
         raise
 
-
-if __name__ == "__main__":
-    # Only run this when script is executed directly, not when imported
-    # This is to test output functionality, can be deleted later
-    test_directory = r"tests"
-    if os.path.exists(test_directory):
-        print(f"Parsing metadata from: {test_directory}")
-        result = parse_metadata(test_directory)
-        print(f"Parsed {len(result)} files")
-        print(result.head())
-        
-        # Save to JSON using the result from parse_metadata()
-        try:
-            json_path = save_metadata_json(result, "test_metadata.json")
-            print(f"JSON output saved to: {json_path}")
-        except Exception as e:
-            print(f"Failed to save JSON: {e}")
-    else:
-        print(f"Test directory not found: {test_directory}")
-        print("You can test the function with an existing directory like:")
-        print("python src/core/metadata_parser.py")
-        
-        # Test with current project directory as fallback
-        current_dir = Path(__file__).parent.parent.parent
-        if current_dir.exists():
-            print(f"\nTesting with current project directory: {current_dir}")
-            result = parse_metadata(str(current_dir))
-            print(f"Found {len(result)} files")
-            # Use the result directly
-            save_metadata_json(result, "project_metadata.json")
