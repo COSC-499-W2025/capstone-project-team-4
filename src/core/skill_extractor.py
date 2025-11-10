@@ -6,12 +6,29 @@ import nltk
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
 
+# Download required NLTK data 
+import nltk
+nltk.download('punkt', quiet=True)
+nltk.download('punkt_tab', quiet=True)
+nltk.download('wordnet', quiet=True)
+nltk.download('omw-1.4', quiet=True)
+
 # --- NLTK setup ---
 lemmatizer = WordNetLemmatizer()
 
 # --- Load environment variables ---
 load_dotenv()
 token = os.getenv("GITHUB_TOKEN")
+
+# Handle missing token gracefully
+if not token:
+    raise SystemExit(
+        "\n❌ Error: GitHub token not found.\n"
+        "Please create a `.env` file in the project root containing:\n\n"
+        "GITHUB_TOKEN=your_personal_github_token_here\n"
+        "You can generate one from GitHub → Settings → Developer Settings → Personal Access Tokens.\n"
+    )
+
 headers = {"Authorization": f"token {token}"}
 
 # --- Predefined skill keywords ---
