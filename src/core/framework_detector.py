@@ -1,143 +1,16 @@
-# from pathlib import Path
-# import yaml
-# import json
-# import argparse
-
-
-# def detect_frameworks_in_folder(folder: Path, rules: dict) -> list[dict]:
-#     """単一フォルダ内の package.json を解析してフレームワークを検出"""
-#     pj = folder / "package.json"
-#     if not pj.exists():
-#         return []
-
-#     try:
-#         data = json.loads(pj.read_text(encoding="utf-8"))
-#     except Exception:
-#         return []
-
-#     results = []
-
-#     # YAMLルールによるKnown frameworks
-#     for fw_name, spec in rules.get("frameworks", {}).items():
-#         score = 0.0
-#         signals = []
-#         for sig in spec.get("signals", []):
-#             t = sig.get("type")
-#             v = sig.get("contains") or sig.get("value")
-#             if t == "pkg_json_dep":
-#                 deps = (data.get("dependencies") or {}) | (data.get("devDependencies") or {})
-#                 if any(v.lower() in d.lower() for d in deps.keys()):
-#                     score += float(sig.get("weight", 0.6))
-#                     signals.append(f"pkg_json_dep:{v}")
-#         if score > 0:
-#             results.append({
-#                 "name": fw_name,
-#                 "confidence": min(1.0, round(score, 2)),
-#                 "signals": signals
-#             })
-
-#     return results
-
-# def detect_frameworks_recursive(project_root: Path, rules_path: str) -> dict:
-#     """ルートから再帰的にpackage.jsonを探して各サブプロジェクトを解析"""
-#     rules = yaml.safe_load(Path(rules_path).read_text(encoding="utf-8"))
-#     all_results = {}
-
-#     # 再帰探索で package.json を取得
-#     package_files = list(project_root.glob("**/package.json"))
-#     if not package_files:
-#         return {"message": "No package.json files found", "frameworks": {}}
-
-#     # 除外フォルダ
-#     exclude_dirs = {"node_modules", ".venv", "venv", "__pycache__", "dist", "build", ".next", ".git"}
-
-#     for pj in package_files:
-#         subdir = pj.parent
-
-#         # 除外ディレクトリに含まれていたらスキップ
-#         if any(part in exclude_dirs for part in subdir.parts):
-#             continue
-
-#         # 実際の解析処理
-#         relative = str(subdir.relative_to(project_root))
-#         frameworks = detect_frameworks_in_folder(subdir, rules)
-#         if frameworks:  # 結果が空でなければ登録
-#             all_results[relative or "."] = frameworks
-
-#     return {
-#         "project_root": str(project_root.resolve()),
-#         "rules_version": rules.get("rules_version", "unknown"),
-#         "frameworks": all_results
-#     }
-
-
-# def pretty_print_results(results):
-#     # Handle case where results might be a list instead of a dict
-#     if isinstance(results, list):
-#         for r in results:
-#             project_root = r.get("project_root") or r.get("path") or "(unknown path)"
-#             print(f"✅ Frameworks detected in: {project_root}\n")
-#             frameworks = r.get("frameworks", {})
-
-#             if not frameworks:
-#                 print("No known frameworks detected.")
-#                 continue
-
-#             for folder, fw_list in frameworks.items():
-#                 print(f"📁 {folder or '.'}:")
-#                 if not fw_list:
-#                     print("  (No frameworks detected)")
-#                 else:
-#                     for fw in fw_list:
-#                         name = fw.get("name", "(unknown)")
-#                         conf = fw.get("confidence", "?")
-#                         print(f"  - {name} (confidence: {conf})")
-#                         for sig in fw.get("signals", []):
-#                             print(f"     signals: {sig}")
-#                 print("")
-#         return
-
-#     # Normal dict structure
-#     project_root = results.get("project_root", "(unknown project)")
-#     print(f"✅ Frameworks detected in: {project_root}\n")
-#     frameworks = results.get("frameworks", {})
-
-#     if not frameworks:
-#         print("No known frameworks detected.")
-#         return
-
-#     for folder, fw_list in frameworks.items():
-#         print(f"📁 {folder or '.'}:")
-#         if not fw_list:
-#             print("  (No frameworks detected)")
-#         else:
-#             for fw in fw_list:
-#                 name = fw.get("name", "(unknown)")
-#                 conf = fw.get("confidence", "?")
-#                 print(f"  - {name} (confidence: {conf})")
-#                 for sig in fw.get("signals", []):
-#                     print(f"     signals: {sig}")
-#         print("")
-
-
-# if __name__ == "__main__":
-#     parser = argparse.ArgumentParser(description="Detect frameworks recursively in monorepo projects")
-#     parser.add_argument("path", help="Path to project root")
-#     parser.add_argument("--rules", default="src/core/rules/frameworks.yml", help="Path to YAML rules file")
-#     args = parser.parse_args()
-
-#     root = Path(args.path)
-#     results = detect_frameworks_recursive(root, args.rules)
-#     pretty_print_results(results)
-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+from __future__ import annotations
+from pathlib import Path
+from fnmatch import fnmatch
+import argparse
+import json
+import re
+import sys
+import yaml
 
 """
-Framework Detector (rules-driven, multi-ecosystem)
-- Recursively scans a project and detects frameworks based on YAML rules.
+- Recursively scans a project and detects frameworks based on YAML rules (frameworks.yml)
 - Supports multiple ecosystems by reading package.json, pyproject.toml,
-  requirements*.txt, cookiecutter.json, angular.json, nest-cli.json, etc.
+  requirements*.txt, angular.json, nest-cli.json, etc.
 - Honors rules: settings.exclude_dirs, settings.default_min_score, framework.min_score
 - Signal types supported (from your rules doc, subset commonly needed):
     - pkg_json_dep, pkg_json_script
@@ -147,16 +20,6 @@ Framework Detector (rules-driven, multi-ecosystem)
     - req_txt_contains
     - toml_dep, poetry_dep
 """
-
-from __future__ import annotations
-
-from pathlib import Path
-from fnmatch import fnmatch
-import argparse
-import json
-import re
-import sys
-import yaml
 
 # tomllib: Python 3.11+ / for 3.10 use tomli
 try:
@@ -329,7 +192,20 @@ def eval_signal(sig: dict, folder: Path, pkg_json: dict | None, settings: dict) 
         if needle and scan_text_any(folder, [needle], excludes):
             emitted.append(f"cfg:{needle}")
             return weight, emitted
+        # extra check for yaml files (Flutter)
+        for f in folder.rglob("*.yaml"):
+            try:
+                txt = f.read_text(encoding="utf-8")
+                if re.search(needle, txt):
+                    emitted.append(f"cfg_contains:{f.name}:{needle}")
+                    return weight, emitted
+            except Exception:
+                continue
         return 0.0, emitted
+    
+    
+    
+
 
     # --- Python: requirements*.txt ---
     if t == "req_txt_contains":
@@ -379,19 +255,40 @@ def eval_signal(sig: dict, folder: Path, pkg_json: dict | None, settings: dict) 
 
 def detect_frameworks_in_folder(folder: Path, rules: dict) -> list[dict]:
     """
-    Detect frameworks in a single folder using rules.
+    Detect frameworks in a single folder using YAML rules.
     Reads package.json if present (for pkg_json_* signals),
-    and evaluates all supported signals against files under folder.
+    and evaluates all supported signals against files under the folder.
     """
-    settings = rules.get("settings", {})
+    settings = (rules or {}).get("settings", {}) or {}
     default_min = float(settings.get("default_min_score", 0.7))
     pkg_json = load_json_safe(folder / "package.json")
 
     results: list[dict] = []
-    for fw_name, spec in (rules.get("frameworks") or {}).items():
+
+    # Prevent crashes if the 'frameworks' section is missing or invalid
+    frameworks_spec = (rules or {}).get("frameworks") or {}
+    if not isinstance(frameworks_spec, dict):
+        frameworks_spec = {}
+
+    for fw_name, spec in frameworks_spec.items():
+        # ★ This was the previous crash point — skip if the spec is not a dictionary (e.g., None, string, etc.)
+        if not isinstance(spec, dict):
+            # Optional: print a warning if needed
+            # print(f"[WARN] frameworks.{fw_name} is {type(spec).__name__}; expected dict. Skipped.")
+            continue
+
         score = 0.0
         fired: list[str] = []
-        for sig in spec.get("signals", []):
+
+        signals_list = spec.get("signals") or []
+        if not isinstance(signals_list, list):
+            # Optional: print a warning if the 'signals' field is malformed
+            # print(f"[WARN] frameworks.{fw_name}.signals is not a list. Skipped.")
+            signals_list = []
+
+        for sig in signals_list:
+            if not isinstance(sig, dict):
+                continue
             delta, msgs = eval_signal(sig, folder, pkg_json, settings)
             if delta:
                 score += delta
@@ -402,9 +299,10 @@ def detect_frameworks_in_folder(folder: Path, rules: dict) -> list[dict]:
             results.append({
                 "name": fw_name,
                 "confidence": min(1.0, round(score, 3)),
-                "signals": fired[:50],  # 過剰な冗長化を抑制
+                "signals": fired[:50],  # Prevent overly verbose outputs
             })
     return results
+
 
 
 def detect_frameworks_recursive(project_root: Path, rules_path: str) -> dict:
@@ -419,7 +317,10 @@ def detect_frameworks_recursive(project_root: Path, rules_path: str) -> dict:
       - nest-cli.json
     Excludes folders per rules.settings.exclude_dirs.
     """
-    rules = yaml.safe_load(Path(rules_path).read_text(encoding="utf-8"))
+    raw = Path(rules_path).read_text(encoding="utf-8")
+    rules = yaml.safe_load(raw) 
+    if not isinstance(rules, dict):
+        raise ValueError(f"Invalid rules file format: {rules_path}")
     settings = rules.get("settings", {})
     exclude_dirs = set(settings.get("exclude_dirs", []))
 
@@ -467,13 +368,13 @@ def pretty_print_results(results):
     if isinstance(results, list):
         for r in results:
             project_root = r.get("project_root") or r.get("path") or "(unknown path)"
-            print(f"✅ Frameworks detected in: {project_root}\n")
+            print(f" Frameworks detected in: {project_root}\n")
             frameworks = r.get("frameworks", {})
             if not frameworks:
                 print("No known frameworks detected.")
                 continue
             for folder, fw_list in frameworks.items():
-                print(f"📁 {folder or '.'}:")
+                print(f" {folder or '.'}:")
                 if not fw_list:
                     print("  (No frameworks detected)")
                 else:
@@ -488,7 +389,7 @@ def pretty_print_results(results):
 
     # Normal dict structure
     project_root = results.get("project_root", "(unknown project)")
-    print(f"✅ Frameworks detected in: {project_root}\n")
+    print(f" Frameworks detected in: {project_root}\n")
     frameworks = results.get("frameworks", {})
 
     if not frameworks:
@@ -496,7 +397,7 @@ def pretty_print_results(results):
         return
 
     for folder, fw_list in frameworks.items():
-        print(f"📁 {folder or '.'}:")
+        print(f" {folder or '.'}:")
         if not fw_list:
             print("  (No frameworks detected)")
         else:

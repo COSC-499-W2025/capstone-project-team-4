@@ -13,21 +13,7 @@ settings:
       ".git",
       "target",
     ]
-  default_min_score: 0.3 # これ未満は「検出」とみなさない（各FWで上書き可）
-
-# シグナル種別（あなたの実装がすでにサポートしている想定）
-# - pkg_json_dep: package.json の dependencies/devDependencies に contains がある
-# - pkg_json_script: package.json の scripts の値に contains がある
-# - file_exists / file_exists_glob / dir_exists / dir_exists_any
-# - import_snippet / import_snippet_any （複数候補のいずれか）
-# - req_txt_contains / toml_dep / poetry_dep / pipfile_dep
-# - pom_contains / gradle_contains / maven_contains
-# - csproj_contains / sln_contains
-# - go_mod_dep
-# - gemfile_dep / composer_dep
-# - cargo_toml_dep
-# - cfg_contains （任意テキストファイルにパターン）
-# など
+  default_min_score: 0.3 # below this score, the framework is not considered detected
 
 frameworks:
   # --------------------------
@@ -164,7 +150,7 @@ frameworks:
         contains: "@hapi/hapi"
         weight: 0.8
 
-  # Tooling (任意で「Framework」扱いにしないなら別カテゴリへ）
+  # Tooling (If not treated as “Framework,” place in a separate category)
   Vite:
     signals:
       - type: pkg_json_dep
@@ -459,27 +445,17 @@ frameworks:
         weight: 0.9
 
   Flutter:
-    min_score: 0.8
-    signals:
-      # 必須級：pubspec.yaml に flutter 依存
-      - type: file_exists
-        value: "pubspec.yaml"
-        weight: 0.2
-      - type: cfg_contains
-        value: "dependencies:\n  flutter:"
-        weight: 0.5
-      # 代表構造：lib と主要プラットフォームディレクトリ
-      - type: dir_exists_any
-        value: ["lib", "android", "ios"]
-        weight: 0.2
-      # さらに強化：main.dart で runApp が呼ばれている
-      - type: import_snippet_any
-        value: ["runApp(", "import 'package:flutter/"]
-        weight: 0.2
-      # Flutter 生成プロジェクトのメタ
-      - type: file_exists
-        value: ".metadata"
-        weight: 0.1
+  min_score: 0.7
+  signals:
+    - type: file_exists
+      value: "pubspec.yaml"
+      weight: 0.8
+    - type: cfg_contains
+      value: "sdk: flutter"
+      weight: 0.2
+
+
+
 
   "Flutter Web":
     min_score: 0.75
@@ -516,7 +492,6 @@ frameworks:
         value: ["runApp("]
         weight: 0.1
 
-  # Flutter ではない Dart コンソール/サーバも区別しておくと便利
   "Dart Console/App":
     min_score: 0.7
     signals:
@@ -552,11 +527,24 @@ frameworks:
         value: ["bin", "lib"]
         weight: 0.1
 
+  # ".NET Console App":
+  # signals:
+  #   - type: csproj_contains
+  #     contains: "<OutputType>Exe</OutputType>"
+  #     weight: 0.7
+  #   - type: csproj_contains
+  #     contains: "<Sdk>Microsoft.NET.Sdk</Sdk>"
+  #     weight: 0.3
   ".NET Console App":
+  min_score: 0.7
   signals:
-    - type: csproj_contains
-      contains: "<OutputType>Exe</OutputType>"
-      weight: 0.7
-    - type: csproj_contains
-      contains: "<Sdk>Microsoft.NET.Sdk</Sdk>"
+    - type: file_exists_glob
+      value: ["*.csproj"]
+      weight: 0.5
+    - type: cfg_contains
+      value: "<Project Sdk=\"Microsoft.NET.Sdk\">"
       weight: 0.3
+    - type: cfg_contains
+      value: "<OutputType>Exe</OutputType>"
+      weight: 0.3
+
