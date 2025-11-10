@@ -13,3 +13,4 @@ sqlite-utils       # optional helper for DB
 pytest             # for running tests
 pytest-cov         # for test coverage reports
 #flake8             # for linting and code style checks
++pyyaml>=6.0.2      # YAML loader for frameworks.yml

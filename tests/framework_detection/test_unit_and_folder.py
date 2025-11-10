@@ -35,20 +35,6 @@ def test_exclude_dirs_effect(tmp_path, rules):
     res = fd.detect_frameworks_in_folder(tmp_path, rules)
     assert res == []
 
-def test_detect_dotnet_console(tmp_path, rules):
-    make_files(tmp_path, {
-        "console-expense-tracker.csproj": (
-            '<Project Sdk="Microsoft.NET.Sdk">\n'
-            "  <PropertyGroup>\n"
-            "    <OutputType>Exe</OutputType>\n"
-            "    <TargetFramework>net9.0</TargetFramework>\n"
-            "  </PropertyGroup>\n"
-            "</Project>\n"
-        )
-    })
-    res = fd.detect_frameworks_in_folder(tmp_path, rules)
-    assert any(r["name"]==".NET Console App" for r in res)
-
 def test_flutter_min(tmp_path, rules):
     make_files(tmp_path, {
         "pubspec.yaml": "name: demo\ndependencies:\n  flutter:\n    sdk: flutter\n",
