@@ -13,6 +13,7 @@ from src.core.config_manager import save_config, load_config
 from src.core.file_validator import validate_zip
 from src.core.run import validate_and_parse
 from src.core.metadata_parser import parse_metadata, save_metadata_json
+from src.core.language_analyzer import ProjectAnalyzer, StatsFormatter
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
 
@@ -62,6 +63,19 @@ def consent(
 def status() -> None:
     """Print current consent and external-usage settings."""
     print(config_manager.read_cfg())
+
+@app.command()
+def info() -> None:
+    """Show information about the application and available commands."""
+    typer.echo("📊 Mining Digital Work Artifacts CLI")
+    typer.echo("=" * 40)
+    typer.echo("Available commands:")
+    typer.echo("  • consent     - Manage user consent")
+    typer.echo("  • status      - Show current settings")
+    typer.echo("  • extract     - Extract and analyze files/directories")
+    typer.echo("  • analyze     - Language analysis and line counting")
+    typer.echo("  • info        - Show this information")
+    typer.echo("\nUse --help with any command for detailed options.")
 
 @app.command()
 def external_permission(service: str = "API"):
@@ -152,6 +166,62 @@ def extract(
 
     typer.secho("Unsupported path type.", fg=typer.colors.RED)
     raise typer.Exit(code=2)
+
+@app.command()
+def analyze(
+    path: Path = typer.Argument(".", help="Path to analyze (default: current directory)"),
+    show_filtered: bool = typer.Option(False, "--filtered", help="Include filtered files in results"),
+    unknown_only: bool = typer.Option(False, "--unknown", help="Show only unknown file types"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json")
+) -> None:
+    """Analyze programming languages and lines of code in a project."""
+    
+    path = path.resolve()
+    if not path.exists():
+        typer.secho(f"Path not found: {path}", fg=typer.colors.RED)
+        raise typer.Exit(code=2)
+    
+    if not path.is_dir():
+        typer.secho("Language analysis requires a directory path.", fg=typer.colors.RED)
+        raise typer.Exit(code=2)
+    
+    try:
+        # Create analyzer and formatter
+        analyzer = ProjectAnalyzer()
+        formatter = StatsFormatter()
+        
+        if unknown_only:
+            # Show only unknown files
+            formatter.show_unknown_files(analyzer, str(path))
+        elif format == "json":
+            # JSON output
+            import json
+            file_stats = analyzer.analyze_project_languages(str(path), include_filtered=show_filtered)
+            loc_stats = analyzer.analyze_project_lines_of_code(str(path), include_filtered=show_filtered)
+            
+            # Convert FileStats objects to dictionaries for JSON serialization
+            json_data = {
+                "project_path": str(path),
+                "file_counts": file_stats,
+                "lines_of_code": {
+                    lang: {
+                        "files": stats.files,
+                        "total_lines": stats.total_lines,
+                        "code_lines": stats.code_lines,
+                        "comment_lines": stats.comment_lines,
+                        "blank_lines": stats.blank_lines
+                    } for lang, stats in loc_stats.items()
+                }
+            }
+            
+            print(json.dumps(json_data, indent=2))
+        else:
+            # Table output (default)
+            formatter.print_detailed_language_stats(analyzer, str(path), show_filtered=show_filtered)
+    
+    except Exception as e:
+        typer.secho(f"Analysis failed: {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
 
 if __name__ == "__main__":
     print("Running in virtual env:", check_virtual_env())
