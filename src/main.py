@@ -169,10 +169,8 @@ def extract(
 
 @app.command()
 def analyze_language(
-    path: Path = typer.Argument(".", help="Path to analyze (default: current directory)"),
-    show_filtered: bool = typer.Option(False, "--filtered", help="Include filtered files in results"),
-    unknown_only: bool = typer.Option(False, "--unknown", help="Show only unknown file types"),
-    format: str = typer.Option("table", "--format", help="Output format: table, json")
+    path: Path = typer.Argument(..., help="Path to directory to analyze (required)"),
+    unknown_only: bool = typer.Option(False, "--unknown", help="Show only unknown file types")
 ) -> None:
     """Analyze programming languages and lines of code in a project."""
     
@@ -191,33 +189,13 @@ def analyze_language(
         formatter = StatsFormatter()
         
         if unknown_only:
-            # Show only unknown files
+            # Show only unknown files (no JSON saving)
             formatter.show_unknown_files(analyzer, str(path))
-        elif format == "json":
-            # JSON output
-            import json
-            file_stats = analyzer.analyze_project_languages(str(path), include_filtered=show_filtered)
-            loc_stats = analyzer.analyze_project_lines_of_code(str(path), include_filtered=show_filtered)
-            
-            # Convert FileStats objects to dictionaries for JSON serialization
-            json_data = {
-                "project_path": str(path),
-                "file_counts": file_stats,
-                "lines_of_code": {
-                    lang: {
-                        "files": stats.files,
-                        "total_lines": stats.total_lines,
-                        "code_lines": stats.code_lines,
-                        "comment_lines": stats.comment_lines,
-                        "blank_lines": stats.blank_lines
-                    } for lang, stats in loc_stats.items()
-                }
-            }
-            
-            print(json.dumps(json_data, indent=2))
         else:
-            # Table output (default)
-            formatter.print_detailed_language_stats(analyzer, str(path), show_filtered=show_filtered)
+            # Default: Show table AND save JSON file automatically
+            formatter.print_detailed_language_stats(analyzer, str(path), show_filtered=False)
+            json_file_path = formatter.save_analysis_to_json(analyzer, str(path), include_filtered=False)
+            typer.secho(f"✅ Analysis saved to: {json_file_path}", fg=typer.colors.GREEN)
     
     except Exception as e:
         typer.secho(f"Analysis failed: {e}", fg=typer.colors.RED)

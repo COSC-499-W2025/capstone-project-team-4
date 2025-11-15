@@ -306,6 +306,56 @@ class StatsFormatter:
     """Formats and displays analysis results."""
     
     @staticmethod
+    def format_analysis_to_json(analyzer: ProjectAnalyzer, project_path: str, include_filtered: bool = False) -> dict:
+        """Format analysis results as JSON data structure."""
+        file_stats = analyzer.analyze_project_languages(project_path, include_filtered=include_filtered)
+        loc_stats = analyzer.analyze_project_lines_of_code(project_path, include_filtered=include_filtered)
+        
+        # Convert FileStats objects to dictionaries for JSON serialization
+        json_data = {
+            "project_path": str(project_path),
+            "file_counts": file_stats,
+            "lines_of_code": {
+                lang: {
+                    "files": stats.files,
+                    "total_lines": stats.total_lines,
+                    "code_lines": stats.code_lines,
+                    "comment_lines": stats.comment_lines,
+                    "blank_lines": stats.blank_lines
+                } for lang, stats in loc_stats.items()
+            }
+        }
+        
+        return json_data
+    
+    @staticmethod
+    def save_analysis_to_json(analyzer: ProjectAnalyzer, project_path: str, output_file: str = None, include_filtered: bool = False) -> str:
+        """Save analysis results to JSON file and return the file path."""
+        import json
+        from pathlib import Path
+        
+        json_data = StatsFormatter.format_analysis_to_json(analyzer, project_path, include_filtered)
+        
+        # Generate default filename if not provided
+        if output_file is None:
+            project_name = Path(project_path).name
+            output_file = f"{project_name}_language_analysis.json"
+        
+        # Ensure the output directory exists
+        output_path = Path(output_file)
+        if not output_path.is_absolute():
+            # Save to outputs directory by default
+            outputs_dir = Path.cwd() / "outputs"
+            outputs_dir.mkdir(parents=True, exist_ok=True)
+            output_path = outputs_dir / output_file
+        
+        # Write JSON file
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(json_data, f, indent=2)
+        
+        return str(output_path)
+    
+    @staticmethod
     def print_detailed_language_stats(analyzer: ProjectAnalyzer, project_path: str, show_filtered: bool = False):
         """Print comprehensive language statistics including lines of code."""
         print(f"📊 Language Analysis for: {project_path}")
