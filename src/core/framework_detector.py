@@ -239,7 +239,7 @@ def eval_signal(sig: dict, folder: Path, pkg_json: dict | None, settings: dict) 
                 names = [k.lower() for k in cur.keys()]
             elif isinstance(cur, list):
                 # ["django>=4", "fastapi"] style
-                names = [re.split(r"[<>= ]", x, 1)[0].lower() for x in cur]
+                names = [re.split(r"[<>= ]", x, maxsplit=1)[0].lower() for x in cur]
             if any(needle in n for n in names):
                 emitted.append(f"toml_dep:{key}:{needle}")
                 return weight, emitted
@@ -347,7 +347,7 @@ def detect_frameworks_recursive(project_root: Path, rules_path: str) -> dict:
 
     all_results: dict[str, list[dict]] = {}
     for folder in sorted(candidates):
-        relative = str(folder.relative_to(project_root)) if folder != project_root else "."
+        relative = str(folder.relative_to(project_root)).replace("\\", "/") if folder != project_root else "."
         fw_list = detect_frameworks_in_folder(folder, rules)
         if fw_list:
             all_results[relative] = fw_list
