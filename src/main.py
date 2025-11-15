@@ -168,7 +168,7 @@ def extract(
     raise typer.Exit(code=2)
 
 @app.command()
-def analyze(
+def analyze_language(
     path: Path = typer.Argument(".", help="Path to analyze (default: current directory)"),
     show_filtered: bool = typer.Option(False, "--filtered", help="Include filtered files in results"),
     unknown_only: bool = typer.Option(False, "--unknown", help="Show only unknown file types"),
