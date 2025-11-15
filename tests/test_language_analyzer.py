@@ -1,6 +1,7 @@
 import pytest
 import tempfile
 import json
+import yaml
 from pathlib import Path
 from unittest.mock import patch, mock_open, MagicMock
 
@@ -77,6 +78,28 @@ limits:
         config = LanguageConfig()
         assert config.extensions == {}
         assert config.filename_patterns == {}
+    
+    def test_language_config_yaml_error(self):
+        """Test LanguageConfig handles YAML parsing errors."""
+        with patch('builtins.open', mock_open(read_data="invalid: yaml: content")), \
+             patch('yaml.safe_load', side_effect=yaml.YAMLError("Invalid YAML")):
+            config = LanguageConfig()
+            assert config.extensions == {}
+            assert config.skip_extensions == []
+    
+    def test_language_config_properties(self):
+        """Test all LanguageConfig properties with empty config."""
+        config = LanguageConfig()
+        config._config = {}  # Simulate empty config
+        
+        # Test all properties return appropriate defaults
+        assert config.extensions == {}
+        assert config.filename_patterns == {}
+        assert config.skip_extensions == []
+        assert config.skip_filenames == []
+        assert config.hidden_exceptions == Constants.DEFAULT_HIDDEN_EXCEPTIONS
+        assert config.max_file_size == Constants.DEFAULT_MAX_SIZE
+        assert config.min_file_size == Constants.DEFAULT_MIN_SIZE
 
 
 class TestCommentDetector:
@@ -105,6 +128,15 @@ class TestCommentDetector:
         
         # Test unknown language fallback
         assert detector.is_comment_line("# Comment", "UnknownLang")
+        
+        # Test edge cases
+        assert not detector.is_comment_line("", "Python")  # empty line
+        assert not detector.is_comment_line("   ", "Python")  # whitespace only
+        assert detector.is_comment_line("   # indented", "Python")  # indented comment
+        
+        # Test block comment detection
+        assert detector.is_comment_line("/* start */", "JavaScript")
+        assert detector.is_comment_line("   /* indented */", "JavaScript")
 
 
 class TestFileUtils:
@@ -140,6 +172,24 @@ class TestFileUtils:
         # Test error handling
         mock_open_func.side_effect = OSError("Permission denied")
         assert FileUtils.read_file_lines("/protected/file.txt") == []
+    
+    def test_get_file_info_edge_cases(self):
+        """Test edge cases for file info extraction."""
+        # Test files with multiple dots
+        filename, extension = FileUtils.get_file_info("test.backup.py")
+        assert (filename, extension) == ("test.backup.py", ".py")
+        
+        # Test uppercase extensions
+        filename, extension = FileUtils.get_file_info("FILE.JS")
+        assert (filename, extension) == ("file.js", ".js")
+        
+        # Test path with no extension
+        filename, extension = FileUtils.get_file_info("/path/to/README")
+        assert (filename, extension) == ("readme", "")
+        
+        # Test empty filename
+        filename, extension = FileUtils.get_file_info("")
+        assert (filename, extension) == ("", "")
 
 
 class TestFileWalker:
@@ -173,6 +223,27 @@ class TestFileWalker:
             # Too small 
             with patch.object(FileUtils, 'get_file_size', return_value=0):
                 assert not walker.should_analyze_file('/path/large.py')
+    
+    def test_should_analyze_file_skip_patterns(self):
+        """Test file skipping based on extensions and filenames."""
+        config = LanguageConfig()
+        config._config = {
+            'skip_patterns': {
+                'skip_extensions': ['.exe', '.dll'],
+                'skip_filenames': ['package-lock.json']
+            }
+        }
+        walker = FileWalker(config)
+        
+        # Test skipped extension
+        with patch.object(FileUtils, 'get_file_info', return_value=('app.exe', '.exe')), \
+             patch.object(FileUtils, 'get_file_size', return_value=1000):
+            assert not walker.should_analyze_file('/path/app.exe')
+        
+        # Test skipped filename
+        with patch.object(FileUtils, 'get_file_info', return_value=('package-lock.json', '.json')), \
+             patch.object(FileUtils, 'get_file_size', return_value=1000):
+            assert not walker.should_analyze_file('/path/package-lock.json')
 
 
 @pytest.fixture
@@ -215,6 +286,16 @@ class TestFileAnalyzer:
         with patch.object(FileUtils, 'read_file_lines', return_value=[]):
             stats = file_analyzer.count_lines_of_code('/path/empty.py', 'Python')
             assert stats.files == 0
+    
+    def test_analyze_single_file_integration(self, file_analyzer):
+        """Test complete single file analysis workflow."""
+        with patch.object(file_analyzer, 'detect_language_by_extension', return_value='Python'), \
+             patch.object(file_analyzer, 'count_lines_of_code', return_value=FileStats(files=1, total_lines=10, code_lines=8)):
+            
+            language, stats = file_analyzer.analyze_single_file('/path/test.py')
+            assert language == 'Python'
+            assert stats.files == 1
+            assert stats.total_lines == 10
 
 
 @pytest.fixture
@@ -257,6 +338,27 @@ class TestProjectAnalyzer:
             unknown_files = project_analyzer.get_unknown_files('/project', limit=5)
             assert len(unknown_files) == 2
             assert all(f in unknown_files for f in ['/proj/file1.xyz', '/proj/file2.abc'])
+    
+    def test_analyze_empty_project(self, project_analyzer):
+        """Test analyzing a project with no valid files."""
+        with patch.object(project_analyzer.file_walker, 'walk_source_files', return_value=[]), \
+             patch.object(project_analyzer.file_walker, 'should_analyze_file', return_value=False):
+            
+            # Test empty project
+            result = project_analyzer.analyze_project_languages('/empty')
+            assert result == {}
+            
+            result = project_analyzer.analyze_project_lines_of_code('/empty')
+            assert result == {}
+    
+    def test_analyze_filtered_files(self, project_analyzer):
+        """Test analyzing files with some being filtered out."""
+        with patch.object(project_analyzer.file_walker, 'walk_source_files', return_value=['/proj/file1.py', '/proj/file2.exe']), \
+             patch.object(project_analyzer.file_walker, 'should_analyze_file', side_effect=[True, False]), \
+             patch.object(project_analyzer.file_analyzer, 'detect_language_by_extension', return_value='Python'):
+            
+            result = project_analyzer.analyze_project_languages('/project')
+            assert result == {'Python': 1}  # Only one file should be analyzed
 
 
 class TestStatsFormatter:
@@ -283,6 +385,21 @@ class TestStatsFormatter:
         assert result['file_counts'] == file_counts
         assert result['lines_of_code']['Python']['files'] == 5
         assert result['lines_of_code']['Python']['code_lines'] == 400
+    
+    def test_format_analysis_empty_results(self):
+        """Test formatting when no results are found."""
+        formatter = StatsFormatter()
+        mock_analyzer = MagicMock()
+        
+        # Mock empty results
+        mock_analyzer.analyze_project_languages.return_value = {}
+        mock_analyzer.analyze_project_lines_of_code.return_value = {}
+        
+        result = formatter.format_analysis_to_json(mock_analyzer, '/empty')
+        
+        assert result['project_path'] == '/empty'
+        assert result['file_counts'] == {}
+        assert result['lines_of_code'] == {}
 
 
 class TestPublicAPI:
