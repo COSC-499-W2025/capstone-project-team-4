@@ -445,17 +445,6 @@ def analyze_project_lines_of_code(project_path: str, include_filtered: bool = Fa
     analyzer = ProjectAnalyzer()
     return analyzer.analyze_project_lines_of_code(project_path, include_filtered)
 
-if __name__ == "__main__":
-    # Simple CLI when run directly
-    import sys
-    
-    project_path = sys.argv[1] if len(sys.argv) > 1 else '.'
-    
-    analyzer = ProjectAnalyzer()
-    formatter = StatsFormatter()
-    
-    formatter.print_detailed_language_stats(analyzer, project_path)
-    formatter.show_unknown_files(analyzer, project_path)
 
 
     
