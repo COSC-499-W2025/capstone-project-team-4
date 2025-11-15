@@ -4,6 +4,8 @@ import os
 DB_PATH = os.path.join(os.path.dirname(__file__), "../data/config.db")
 
 def init_db():
+    # Ensure the data directory exists
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("""
@@ -16,4 +18,6 @@ def init_db():
     conn.close()
 
 def get_connection():
+    # Ensure the data directory exists
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     return sqlite3.connect(DB_PATH)
