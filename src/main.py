@@ -169,18 +169,14 @@ def extract(
 
 @app.command()
 def analyze_language(
-    path: Path = typer.Argument(..., help="Path to directory to analyze (required)"),
+    path: Path = typer.Argument(..., help="Path to directory or ZIP file to analyze (required)"),
     unknown_only: bool = typer.Option(False, "--unknown", help="Show only unknown file types")
 ) -> None:
-    """Analyze programming languages and lines of code in a project."""
+    """Analyze programming languages and lines of code in a project directory or ZIP file."""
     
     path = path.resolve()
     if not path.exists():
         typer.secho(f"Path not found: {path}", fg=typer.colors.RED)
-        raise typer.Exit(code=2)
-    
-    if not path.is_dir():
-        typer.secho("Language analysis requires a directory path.", fg=typer.colors.RED)
         raise typer.Exit(code=2)
     
     try:
@@ -188,14 +184,40 @@ def analyze_language(
         analyzer = ProjectAnalyzer()
         formatter = StatsFormatter()
         
-        if unknown_only:
-            # Show only unknown files (no JSON saving)
-            formatter.show_unknown_files(analyzer, str(path))
+        # Handle ZIP file by extracting to temporary directory
+        if path.is_file() and path.suffix.lower() == ".zip":
+            typer.secho(f"📦 Extracting ZIP file: {path.name}", fg=typer.colors.BLUE)
+            
+            with TemporaryDirectory() as temp_dir:
+                try:
+                    with zipfile.ZipFile(path, 'r') as zip_ref:
+                        zip_ref.extractall(temp_dir)
+                    
+                    # Analyze the extracted content
+                    if unknown_only:
+                        formatter.show_unknown_files(analyzer, temp_dir)
+                    else:
+                        formatter.print_detailed_language_stats(analyzer, temp_dir, show_filtered=False)
+                        # Use original ZIP filename for output
+                        output_filename = f"{path.stem}_language_analysis.json"
+                        json_file_path = formatter.save_analysis_to_json(analyzer, temp_dir, output_file=output_filename, include_filtered=False)
+                        typer.secho(f"✅ Analysis saved to: {json_file_path}", fg=typer.colors.GREEN)
+                        
+                except zipfile.BadZipFile:
+                    typer.secho(f"❌ Invalid ZIP file: {path}", fg=typer.colors.RED)
+                    raise typer.Exit(code=2)
+                    
+        elif path.is_dir():
+            # Handle directory as before
+            if unknown_only:
+                formatter.show_unknown_files(analyzer, str(path))
+            else:
+                formatter.print_detailed_language_stats(analyzer, str(path), show_filtered=False)
+                json_file_path = formatter.save_analysis_to_json(analyzer, str(path), include_filtered=False)
+                typer.secho(f"✅ Analysis saved to: {json_file_path}", fg=typer.colors.GREEN)
         else:
-            # Default: Show table AND save JSON file automatically
-            formatter.print_detailed_language_stats(analyzer, str(path), show_filtered=False)
-            json_file_path = formatter.save_analysis_to_json(analyzer, str(path), include_filtered=False)
-            typer.secho(f"✅ Analysis saved to: {json_file_path}", fg=typer.colors.GREEN)
+            typer.secho("Language analysis requires a directory or ZIP file.", fg=typer.colors.RED)
+            raise typer.Exit(code=2)
     
     except Exception as e:
         typer.secho(f"Analysis failed: {e}", fg=typer.colors.RED)
