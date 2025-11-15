@@ -4,7 +4,7 @@ import zipfile
 import tempfile
 from typing import Optional, Dict, Any
 
-from .file_validator import validate_zip, validate_dir
+from .zip_file_validator import validate_zip, validate_dir
 from .metadata_parser import parse_metadata
 
 
