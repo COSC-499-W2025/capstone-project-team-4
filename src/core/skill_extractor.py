@@ -25,14 +25,18 @@ lemmatizer = WordNetLemmatizer()
 load_dotenv()
 token = os.getenv("GITHUB_TOKEN")
 
-# Handle missing token gracefully
-if not token:
-    raise SystemExit(
-        "\n❌ Error: GitHub token not found.\n"
-        "Please create a `.env` file in the project root containing:\n\n"
-        "GITHUB_TOKEN=your_personal_github_token_here\n"
-        "You can generate one from GitHub → Settings → Developer Settings → Personal Access Tokens.\n"
-    )
+# Allow import without token for CI & testing
+if token:
+    headers = {"Authorization": f"token {token}"}
+else:
+    headers = {}  # still allows mocked tests to run
+    # Only stop if running the analyzer directly from CLI
+    if __name__ == "__main__":
+        raise SystemExit(
+            "\n❌ Error: GitHub token not found.\n"
+            "Please create a `.env` file in the project root containing:\n\n"
+            "GITHUB_TOKEN=your_personal_github_token_here\n"
+        )
 
 headers = {"Authorization": f"token {token}"}
 
