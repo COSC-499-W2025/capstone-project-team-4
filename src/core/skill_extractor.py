@@ -1,10 +1,14 @@
 import os
 import re
+import base64
 import requests
 from dotenv import load_dotenv
+from datetime import datetime, timezone
 import nltk
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
+from collections import defaultdict, Counter
+
 
 # Download required NLTK data 
 import nltk
@@ -12,6 +16,7 @@ nltk.download('punkt', quiet=True)
 nltk.download('punkt_tab', quiet=True)
 nltk.download('wordnet', quiet=True)
 nltk.download('omw-1.4', quiet=True)
+
 
 # --- NLTK setup ---
 lemmatizer = WordNetLemmatizer()
@@ -30,6 +35,26 @@ if not token:
     )
 
 headers = {"Authorization": f"token {token}"}
+
+# --- Clean Printing Helpers ---
+
+def print_section(title):
+    print(f"\n=== {title} ===")
+
+def pretty_dict(d, indent=2):
+    for key, val in d.items():
+        print(" " * indent + f"- {key}: {val}")
+
+def print_table(rows, headers):
+    col_widths = [max(len(str(x)) for x in col) for col in zip(headers, *rows)]
+    fmt = "  ".join("{:<" + str(w) + "}" for w in col_widths)
+
+    print(fmt.format(*headers))
+    print(fmt.format(*["-" * w for w in col_widths]))
+
+    for row in rows:
+        print(fmt.format(*row))
+
 
 # --- Predefined skill keywords ---
 SKILL_KEYWORDS = [
@@ -159,6 +184,307 @@ def analyze_repo(owner, repo, branch=None):
         print("\n⚙️  No specific skills found in README.")
 
     print("\n✅ Analysis complete!")
+
+    # ===========================
+    # 🔍 GitHub Insight Sections
+    # ===========================
+
+    # --- Objective Contributions ---
+    print_section("Objective Contributions")
+    oc = get_objective_contributions(owner, repo)
+    rows = []
+    for user, stats in oc.items():
+        rows.append([user, stats["commits"], stats["add"], stats["del"], stats["files"]])
+    print_table(rows, ["User", "Commits", "Lines added", "Lines deleted", "Files touched"])
+
+    # --- Development Rhythm ---
+    print_section("Development Rhythm")
+    dr = get_development_rhythm(owner, repo)
+    for user, data in dr.items():
+        print(f"- {user}")
+        print(f"    Total commits: {data['total']}")
+        print(f"    Weekday activity: {dict(data['weekday'])}")
+        print(f"    Hour activity: {dict(data['hour'])}")
+
+    # --- Technical Decisions ---
+    print_section("Technical Decisions")
+    td = get_technical_decisions(owner, repo)
+    for user, counter in td.items():
+        print(f"- {user}: {dict(counter)}")
+
+    # --- Skill Growth Timeline ---
+    print_section("Skill Growth Timeline")
+    sg = get_skill_growth(owner, repo)
+    for user, timeline in sg.items():
+        print(f"- {user}:")
+        for entry in timeline[-3:]:  # show last 3 entries
+            print(f"    {entry['date']} → {entry['skills']}")
+
+    # --- Role Distribution ---
+    print_section("Role Distribution")
+    rd = get_role_distribution(owner, repo)
+    rows = []
+    for user, roles in rd.items():
+        rows.append([
+            user,
+            roles.get("commits", 0),
+            roles.get("opened_prs", 0),
+            roles.get("reviews", 0),
+            roles.get("comments", 0)
+        ])
+    print_table(rows, ["User", "Commits", "PRs", "Reviews", "Comments"])
+
+    # --- Team Culture ---
+    print_section("Team Culture")
+    tc = get_team_culture(owner, repo)
+    pretty_dict(tc)
+
+
+
+# --- Added Pagination Helper ---
+def _get_paginated(url, params=None, max_pages=10):
+    params = params.copy() if params else {}
+    params.setdefault("per_page", 100)
+
+    for page in range(1, max_pages + 1):
+        params["page"] = page
+        res = requests.get(url, headers=headers, params=params)
+        if res.status_code != 200:
+            break
+        chunk = res.json()
+        if not chunk:
+            break
+        for item in chunk:
+            yield item
+
+def get_objective_contributions(owner, repo, max_commits=300):
+    stats = defaultdict(lambda: {"commits": 0, "add": 0, "del": 0, "files": set()})
+
+    commits = list(_get_paginated(
+        f"https://api.github.com/repos/{owner}/{repo}/commits"
+    ))[:max_commits]
+
+    for c in commits:
+        author = c["author"]["login"] if c.get("author") else "unknown"
+        sha = c["sha"]
+
+        detail = requests.get(
+            f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}",
+            headers=headers).json()
+
+        stats[author]["commits"] += 1
+        stats[author]["add"] += detail["stats"].get("additions", 0)
+        stats[author]["del"] += detail["stats"].get("deletions", 0)
+
+        for f in detail.get("files", []):
+            stats[author]["files"].add(f["filename"])
+
+    # finalize file count
+    for a in stats:
+        stats[a]["files"] = len(stats[a]["files"])
+
+    return stats
+
+
+# --- Added the 6 GitHub API Insight Functions ---
+
+# 1 Objective contributions
+
+def get_objective_contributions(owner, repo, max_commits=300):
+    stats = defaultdict(lambda: {"commits": 0, "add": 0, "del": 0, "files": set()})
+
+    commits = list(_get_paginated(
+        f"https://api.github.com/repos/{owner}/{repo}/commits"
+    ))[:max_commits]
+
+    for c in commits:
+        author = c["author"]["login"] if c.get("author") else "unknown"
+        sha = c["sha"]
+
+        detail = requests.get(
+            f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}",
+            headers=headers).json()
+
+        stats[author]["commits"] += 1
+        stats[author]["add"] += detail["stats"].get("additions", 0)
+        stats[author]["del"] += detail["stats"].get("deletions", 0)
+
+        for f in detail.get("files", []):
+            stats[author]["files"].add(f["filename"])
+
+    # finalize file count
+    for a in stats:
+        stats[a]["files"] = len(stats[a]["files"])
+
+    return stats
+
+#2 Development Rhythm
+
+def get_development_rhythm(owner, repo, max_commits=400):
+    weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    rhythm = defaultdict(lambda: {"weekday": Counter(), "hour": Counter(), "total": 0})
+
+    commits = list(_get_paginated(
+        f"https://api.github.com/repos/{owner}/{repo}/commits"
+    ))[:max_commits]
+
+    for c in commits:
+        author = c["author"]["login"] if c.get("author") else "unknown"
+        dt = datetime.fromisoformat(
+            c["commit"]["author"]["date"].replace("Z", "+00:00")
+        ).astimezone(timezone.utc)
+
+        rhythm[author]["total"] += 1
+        rhythm[author]["weekday"][weekdays[dt.weekday()]] += 1
+        rhythm[author]["hour"][dt.hour] += 1
+
+    return rhythm
+
+#3 Technical decision-making
+
+PREFIX_MAP = {
+    "fix": "bugfix",
+    "refactor": "refactor",
+    "perf": "performance",
+    "optimize": "performance",
+    "test": "tests",
+    "doc": "docs"
+}
+
+def get_technical_decisions(owner, repo, max_commits=300):
+    signals = defaultdict(Counter)
+
+    commits = list(_get_paginated(
+        f"https://api.github.com/repos/{owner}/{repo}/commits"
+    ))[:max_commits]
+
+    for c in commits:
+        author = c["author"]["login"] if c.get("author") else "unknown"
+        msg = c["commit"]["message"].lower()
+        for key, label in PREFIX_MAP.items():
+            if msg.startswith(key):
+                signals[author][label] += 1
+    return signals
+
+#4 Skill growth timeline
+
+EXT_SKILL_MAP = {
+    ".py": "Python", ".js": "JavaScript", ".ts": "TypeScript",
+    ".java": "Java", ".cpp": "C++", ".c": "C", ".sql": "SQL"
+}
+
+def get_skill_growth(owner, repo, max_commits=400):
+    commits = list(_get_paginated(
+        f"https://api.github.com/repos/{owner}/{repo}/commits"
+    ))[:max_commits]
+
+    commits.sort(key=lambda c: c["commit"]["author"]["date"])
+
+    cumulative = defaultdict(Counter)
+    timeline = defaultdict(list)
+
+    for c in commits:
+        author = c["author"]["login"] if c.get("author") else "unknown"
+        detail = requests.get(
+            f"https://api.github.com/repos/{owner}/{repo}/commits/{c['sha']}",
+            headers=headers).json()
+
+        skills = set()
+        for f in detail.get("files", []):
+            ext = os.path.splitext(f["filename"])[1]
+            if ext in EXT_SKILL_MAP:
+                skills.add(EXT_SKILL_MAP[ext])
+            if "test" in f["filename"].lower():
+                skills.add("Testing")
+
+        for s in skills:
+            cumulative[author][s] += 1
+
+        timeline[author].append({
+            "date": c["commit"]["author"]["date"],
+            "skills": dict(cumulative[author])
+        })
+
+    return timeline
+
+#5 Role distribution
+
+def get_role_distribution(owner, repo):
+    roles = defaultdict(Counter)
+
+    # commits
+    commits = list(_get_paginated(
+        f"https://api.github.com/repos/{owner}/{repo}/commits"
+    ))
+    for c in commits:
+        author = c["author"]["login"] if c.get("author") else "unknown"
+        roles[author]["commits"] += 1
+
+    # PRs
+    prs = list(_get_paginated(
+        f"https://api.github.com/repos/{owner}/{repo}/pulls",
+        params={"state": "all"}
+    ))
+    for pr in prs:
+        opener = pr["user"]["login"]
+        roles[opener]["opened_prs"] += 1
+
+        num = pr["number"]
+
+        reviews = requests.get(
+            f"https://api.github.com/repos/{owner}/{repo}/pulls/{num}/reviews",
+            headers=headers).json()
+
+        for r in reviews:
+            reviewer = r["user"]["login"]
+            roles[reviewer]["reviews"] += 1
+
+        comments = requests.get(
+            f"https://api.github.com/repos/{owner}/{repo}/issues/{num}/comments",
+            headers=headers).json()
+
+        for c in comments:
+            roles[c["user"]["login"]]["comments"] += 1
+
+    return roles
+
+#6 Team culture metrics
+def get_team_culture(owner, repo):
+    prs = list(_get_paginated(
+        f"https://api.github.com/repos/{owner}/{repo}/pulls",
+        params={"state": "all"}
+    ))
+
+    merged_times = []
+    review_count = 0
+    comment_count = 0
+
+    for pr in prs:
+        if pr.get("merged_at"):
+            t1 = datetime.fromisoformat(pr["created_at"].replace("Z", "+00:00"))
+            t2 = datetime.fromisoformat(pr["merged_at"].replace("Z", "+00:00"))
+            merged_times.append((t2 - t1).total_seconds() / 3600)
+
+        num = pr["number"]
+
+        r = requests.get(
+            f"https://api.github.com/repos/{owner}/{repo}/pulls/{num}/reviews",
+            headers=headers).json()
+        c = requests.get(
+            f"https://api.github.com/repos/{owner}/{repo}/issues/{num}/comments",
+            headers=headers).json()
+
+        review_count += len(r)
+        comment_count += len(c)
+
+    median_merge = sorted(merged_times)[len(merged_times)//2] if merged_times else 0
+
+    return {
+        "total_prs": len(prs),
+        "median_merge_hours": median_merge,
+        "avg_reviews": review_count / len(prs) if prs else 0,
+        "avg_comments": comment_count / len(prs) if prs else 0,
+    }
 
 if __name__ == "__main__":
     analyze_repo("COSC-499-W2025", "capstone-project-team-4", branch="development")
