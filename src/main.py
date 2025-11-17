@@ -13,6 +13,7 @@ from src.core.config_manager import save_config, load_config
 # from src.core.file_validator import validate_zip
 from src.core.run import validate_and_parse
 from src.core.metadata_parser import parse_metadata, save_metadata_json
+from src.core.python_code_features import analyze_with_ollama
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
 
@@ -153,6 +154,39 @@ def extract(
     typer.secho("Unsupported path type.", fg=typer.colors.RED)
     raise typer.Exit(code=2)
 
+
+@app.command()
+def analyze_code_ollama(
+    path: Path = typer.Argument(..., help="Path to a .py file or folder."),
+    model: str = typer.Option(
+        "llama3.1",
+        "--model",
+        help="Ollama model name to use (must be installed locally).",
+    ),
+) -> None:
+    """
+    Analyze Python code, infer skills + time complexity using Ollama.
+    Combines static AST features with LLM reasoning.
+    """
+    import json
+
+    config_manager.require_consent()
+
+    try:
+        config_manager.require_external_consent()
+    except AttributeError:
+        # If you don’t have this implemented, this will just skip
+        pass
+
+    result = analyze_with_ollama(path, model=model)
+
+    typer.echo("=== Static Analysis Summary ===")
+    typer.echo(json.dumps(result["structure"]["summary"], indent=2))
+
+    typer.echo("\n=== Ollama Analysis ===\n")
+    typer.echo(result["ollama_response"])
+
+
 if __name__ == "__main__":
     print("Running in virtual env:", check_virtual_env())
 
@@ -170,6 +204,3 @@ if __name__ == "__main__":
         print(f"Config save/load skipped or failed: {e}")
 
     app()
-
-
-
