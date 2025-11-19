@@ -3,6 +3,7 @@ from git import Repo
 from collections import defaultdict
 
 import os
+import json
 
 def analyze_contributors(project_path = "."):
     """
@@ -66,6 +67,7 @@ def calculate_project_stats(project_name, file_list):
     duration_days = round((modified - created) / seconds_in_day, 2)
 
     # Activity type (like the language, skills used, etc. idk man idk)
+    # TODO: The activity type, idk lol
     # Since A3 is working on that, just uh.. yeah I'll leave it blank for now
 
     # Contributors
@@ -94,5 +96,15 @@ def calculate_project_stats(project_name, file_list):
 if __name__ == "__main__":
     # For testing, just use the current working directory
     working_directory = os.getcwd()
+    outputs_directory = os.path.join(working_directory, "outputs")
+    metadata_path = os.path.join(outputs_directory, "test_metadata.json")
     analyze_contributors(working_directory);
-    calculate_project_stats("Chicken", ["file"])
+
+    # For testing, get the metadata.json thing from the first part
+    print(outputs_directory)
+
+    with open("src/outputs/project_analyzer.py", "r") as file:
+        data = json.load(file)
+    # files = data["files"]
+    # project_name = r"outputs"
+    # metrics = calculate_project_stats(project_name, files)
