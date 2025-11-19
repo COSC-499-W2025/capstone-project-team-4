@@ -41,7 +41,9 @@ def analyze_contributors(project_path = "."):
         for email, num_of_commits in author_commits.items()
     ]
 
-    print(contributors)
+    return contributors
+
+    # print(contributors)
 
 def calculate_project_stats(project_name, file_list):
     """
@@ -96,15 +98,19 @@ def calculate_project_stats(project_name, file_list):
 if __name__ == "__main__":
     # For testing, just use the current working directory
     working_directory = os.getcwd()
-    outputs_directory = os.path.join(working_directory, "outputs")
+    outputs_directory = os.path.join(working_directory, "src/outputs")
     metadata_path = os.path.join(outputs_directory, "test_metadata.json")
-    analyze_contributors(working_directory);
+    contributors = analyze_contributors(working_directory);
+    print(f"Contributors: {contributors}")
 
     # For testing, get the metadata.json thing from the first part
-    print(outputs_directory)
+    # print(outputs_directory)
 
-    with open("src/outputs/project_analyzer.py", "r") as file:
+
+    with open(metadata_path, "r") as file:
         data = json.load(file)
-    # files = data["files"]
-    # project_name = r"outputs"
-    # metrics = calculate_project_stats(project_name, files)
+        files = data["files"]
+        project_name = r"outputs"
+        metrics = calculate_project_stats(project_name, files)
+        print()
+        print(f"Metrics: {metrics}")
