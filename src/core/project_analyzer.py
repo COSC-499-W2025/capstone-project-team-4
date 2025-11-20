@@ -148,6 +148,11 @@ if __name__ == "__main__":
     # print(outputs_directory)
 
 
+    """
+    TODO:Maybe... the metadata.json file should have the project root? Just so it can find the .git file
+     Right now, test_metadata.json just has `files` (list) and `metadata` so maybe there should be another one called
+     project_root?
+    """
     with open(metadata_path, "r") as file:
         data = json.load(file)
         files = data["files"]
