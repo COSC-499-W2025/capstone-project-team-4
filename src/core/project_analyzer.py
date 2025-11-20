@@ -5,45 +5,87 @@ from collections import defaultdict
 import os
 import json
 
-def analyze_contributors(project_path = "."):
+def analyze_contributors(project_path="."):
     """
-    Opens up the project folder that analyzes the contributors on a project
-    Looks at the amount of contributors and returns a list of contributors
-
-    Args:
-        project_path (str): The path to the root project (default "." or current directory)
-
-    Returns:
-        contributors (list[defaultdict]): A list of contributors each having an object that contain their name, email, commits, and the amount of work committed (percentage)
+    Analyze contributors using commit history.
+    Groups contributors by NAME (to avoid duplicate emails).
+    Also includes:
+      - full commit history per contributor
+      - lines added/removed
+      - files changed
     """
     repo = Repo(project_path)
-    author_commits = defaultdict(int)
-    author_info = {}
 
-    # Count the total commits for the repo
+    # Main storage
+    contributors = {}
+    commit_counts = defaultdict(int)
+
+    # Also, by default, iter_commits() will take the HEAD branch so... yeah keep that in mind
     for commit in repo.iter_commits():
-        email = commit.author.email.lower()
-        name = commit.author.name
+        name = commit.author.name.strip()
+        email = commit.author.email.lower().strip()
 
-        # Skip bots, cause who cares about them
+        # Skip GitHub bots
         if "[bot]" in name.lower():
             continue
 
-        author_commits[email] += 1
-        author_info[email] = name
-    
-    total = sum(author_commits.values())
+        key = name.lower()
 
-    # Right now, this prints the amount of collaborators twice. Asin, it prints the `.noreply.github.com`, and the
-    # author's actual email. For functionality and data, we could just keep this as is.
-    contributors = [
-        {"name": author_info[email], "email":email, "commits": num_of_commits, "percent": round((num_of_commits / total) * 100, 2)}
-        for email, num_of_commits in author_commits.items()
-    ]
+        # Initialize contributor entry if not exist
+        if key not in contributors:
+            contributors[key] = {
+                "name": name,
+                "primary_email": email,
+                "commits": 0,
+                "percent": 0, 
+                "history": [],
+                "total_lines_added": 0,
+                "total_lines_deleted": 0,
+                "files_modified": defaultdict(int)
+            }
 
-    return contributors
+        # Count commit
+        commit_counts[key] += 1
 
-    # print(contributors)
+        # Extract commit stats
+        stats = commit.stats
+
+        # Track file modifications
+        for file_path, file_stats in stats.files.items():
+            contributors[key]["files_modified"][file_path] += 1
+
+        # Track lines added/removed
+        contributors[key]["total_lines_added"] += stats.total.get("insertions", 0)
+        contributors[key]["total_lines_deleted"] += stats.total.get("deletions", 0)
+
+        # Add entry to commit history
+        contributors[key]["history"].append({
+            # Yeah idk why it's called hexsha but eh
+            "hash": commit.hexsha,
+            "message": commit.message.strip(),
+            "timestamp": commit.committed_date,
+            "files_changed": list(stats.files.keys()),
+            "insertions": stats.total.get("insertions", 0),
+            "deletions": stats.total.get("deletions", 0)
+        })
+
+    # Calculate total commits
+    total_commits = sum(commit_counts.values())
+
+    # Final formatting
+    contributor_list = []
+    for key, data in contributors.items():
+        commit_count = commit_counts[key]
+        data["commits"] = commit_count
+        data["percent"] = round((commit_count / total_commits) * 100, 2)
+
+        # Convert defaultdict to regular dict for JSON
+        data["files_modified"] = dict(data["files_modified"])
+
+        contributor_list.append(data)
+
+    return contributor_list
+
 
 def calculate_project_stats(project_name, file_list):
     """
@@ -101,7 +143,6 @@ if __name__ == "__main__":
     outputs_directory = os.path.join(working_directory, "src/outputs")
     metadata_path = os.path.join(outputs_directory, "test_metadata.json")
     contributors = analyze_contributors(working_directory);
-    print(f"Contributors: {contributors}")
 
     # For testing, get the metadata.json thing from the first part
     # print(outputs_directory)
@@ -114,3 +155,9 @@ if __name__ == "__main__":
         metrics = calculate_project_stats(project_name, files)
         print()
         print(f"Metrics: {metrics}")
+
+    filename = "src/outputs/contributor.json"
+
+    # Open the file in write mode ('w') and use json.dump() to write the data
+    with open(filename, 'w', encoding='utf-8') as json_file:
+        json.dump(contributors[0], json_file, indent=4)
