@@ -13,6 +13,7 @@ from src.core.config_manager import save_config, load_config
 # from src.core.file_validator import validate_zip
 from src.core.run import validate_and_parse
 from src.core.metadata_parser import parse_metadata, save_metadata_json
+from src.core.language_analyzer import ProjectAnalyzer, StatsFormatter
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
 
@@ -62,6 +63,19 @@ def consent(
 def status() -> None:
     """Print current consent and external-usage settings."""
     print(config_manager.read_cfg())
+
+@app.command()
+def info() -> None:
+    """Show information about the application and available commands."""
+    typer.echo("📊 Mining Digital Work Artifacts CLI")
+    typer.echo("=" * 40)
+    typer.echo("Available commands:")
+    typer.echo("  • consent     - Manage user consent")
+    typer.echo("  • status      - Show current settings")
+    typer.echo("  • extract     - Extract and analyze files/directories")
+    typer.echo("  • analyze     - Language analysis and line counting")
+    typer.echo("  • info        - Show this information")
+    typer.echo("\nUse --help with any command for detailed options.")
 
 @app.command()
 def external_permission(service: str = "API"):
@@ -152,6 +166,62 @@ def extract(
 
     typer.secho("Unsupported path type.", fg=typer.colors.RED)
     raise typer.Exit(code=2)
+
+@app.command()
+def analyze_language(
+    path: Path = typer.Argument(..., help="Path to directory or ZIP file to analyze (required)"),
+    unknown_only: bool = typer.Option(False, "--unknown", help="Show only unknown file types")
+) -> None:
+    """Analyze programming languages and lines of code in a project directory or ZIP file."""
+    
+    path = path.resolve()
+    if not path.exists():
+        typer.secho(f"Path not found: {path}", fg=typer.colors.RED)
+        raise typer.Exit(code=2)
+    
+    try:
+        # Create analyzer and formatter
+        analyzer = ProjectAnalyzer()
+        formatter = StatsFormatter()
+        
+        # Handle ZIP file by extracting to temporary directory
+        if path.is_file() and path.suffix.lower() == ".zip":
+            typer.secho(f"📦 Extracting ZIP file: {path.name}", fg=typer.colors.BLUE)
+            
+            with TemporaryDirectory() as temp_dir:
+                try:
+                    with zipfile.ZipFile(path, 'r') as zip_ref:
+                        zip_ref.extractall(temp_dir)
+                    
+                    # Analyze the extracted content
+                    if unknown_only:
+                        formatter.show_unknown_files(analyzer, temp_dir)
+                    else:
+                        formatter.print_detailed_language_stats(analyzer, temp_dir, show_filtered=False)
+                        # Use original ZIP filename for output
+                        output_filename = f"{path.stem}_language_analysis.json"
+                        json_file_path = formatter.save_analysis_to_json(analyzer, temp_dir, output_file=output_filename, include_filtered=False)
+                        typer.secho(f"✅ Analysis saved to: {json_file_path}", fg=typer.colors.GREEN)
+                        
+                except zipfile.BadZipFile:
+                    typer.secho(f"❌ Invalid ZIP file: {path}", fg=typer.colors.RED)
+                    raise typer.Exit(code=2)
+                    
+        elif path.is_dir():
+            # Handle directory as before
+            if unknown_only:
+                formatter.show_unknown_files(analyzer, str(path))
+            else:
+                formatter.print_detailed_language_stats(analyzer, str(path), show_filtered=False)
+                json_file_path = formatter.save_analysis_to_json(analyzer, str(path), include_filtered=False)
+                typer.secho(f"✅ Analysis saved to: {json_file_path}", fg=typer.colors.GREEN)
+        else:
+            typer.secho("Language analysis requires a directory or ZIP file.", fg=typer.colors.RED)
+            raise typer.Exit(code=2)
+    
+    except Exception as e:
+        typer.secho(f"Analysis failed: {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
 
 if __name__ == "__main__":
     print("Running in virtual env:", check_virtual_env())
