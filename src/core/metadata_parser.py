@@ -22,6 +22,9 @@ def parse_metadata(folder_path: str = ""):
     """
     results = []
     progress_bar = tqdm(desc="Parsing metadata", unit=" files")
+    
+    # Convert folder_path to Path object for easier manipulation
+    base_path = Path(folder_path).resolve()
 
     for root, _, files in os.walk(folder_path):
         for file in files:
@@ -33,12 +36,20 @@ def parse_metadata(folder_path: str = ""):
                 created_timestamp = os.path.getctime(file_path)
                 modified_timestamp = os.path.getmtime(file_path)
 
+                # Convert absolute path to relative path from extracted directory
+                absolute_path = Path(file_path).resolve()
+                try:
+                    relative_path = absolute_path.relative_to(base_path)
+                except ValueError:
+                    # If we can't make it relative, use just the filename
+                    relative_path = Path(file)
+
                 # This is the line that will make timestamps more human readable (September 12, 2025, etc.)
                 # I kept it here in case anyone wants to use it in the future
                 # formatted_timestamp = datetime.fromtimestamp(modified_timestamp)
                 result = {
                     "filename": file,
-                    "path": file_path,
+                    "path": str(relative_path),  # Store relative path as string
                     "file_type": file_type,
                     "file_size": file_size,
                     "created_timestamp": created_timestamp,
@@ -46,9 +57,16 @@ def parse_metadata(folder_path: str = ""):
                 }
                 results.append(result)
             except Exception as exception:
+                # Convert absolute path to relative path for errors too
+                absolute_path = Path(file_path).resolve()
+                try:
+                    relative_path = absolute_path.relative_to(base_path)
+                except ValueError:
+                    relative_path = Path(file)
+                
                 result = {
                     "filename": file,
-                    "path": file_path,
+                    "path": str(relative_path),  # Store relative path as string
                     "file_type": "ERROR",
                     "last_modified": None,
                     "error": str(exception),
