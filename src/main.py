@@ -127,15 +127,15 @@ def extract(
             for err in res["validation_errors"]:
                 typer.echo(f"  - {err}")
             raise typer.Exit(code=2)
-        df = res["metadata"]
-        json_path = save_metadata_json(df, output_filename=f"{path.stem}_metadata.json")
+        df, project_root = res["metadata"]
+        json_path = save_metadata_json(df, output_filename=f"{path.stem}_metadata.json", project_root=project_root)
         typer.secho(f"✅ Metadata saved: {json_path}", fg=typer.colors.GREEN)
         return
 
     # CASE 2: directory -> parse recursively and returns each file inside of a folder 
     if path.is_dir():
-        df = parse_metadata(str(path))
-        json_path = save_metadata_json(df, output_filename=f"{path.name}_metadata.json")
+        df, project_root = parse_metadata(str(path))
+        json_path = save_metadata_json(df, output_filename=f"{path.name}_metadata.json", project_root=project_root)
         typer.secho(f"✅ Directory metadata saved: {json_path}", fg=typer.colors.GREEN)
         return
 
@@ -157,7 +157,8 @@ def extract(
                 "created_timestamp": os.path.getctime(path),
                 "last_modified": os.path.getmtime(path),
             }])
-            json_path = save_metadata_json(df, output_filename=f"{path.stem}_metadata.json")
+            project_root = str(path.parent.resolve())
+            json_path = save_metadata_json(df, output_filename=f"{path.stem}_metadata.json", project_root=project_root)
             typer.secho(f"✅ File metadata saved: {json_path}", fg=typer.colors.GREEN)
             return
         except Exception as e:

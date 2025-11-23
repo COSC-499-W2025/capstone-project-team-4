@@ -95,10 +95,12 @@ class TestParseMetadata(TestFixtures):
             pass
 
         # Act
-        result = parse_metadata(str(directory))
+        result, project_root = parse_metadata(str(directory))
 
         # Assert
         assert isinstance(result, pd.DataFrame)
+        assert isinstance(project_root, str)
+        assert project_root == str(directory.resolve())
         
         # In Docker, the function might return empty due to permission or path issues
         if len(result) == 0:
@@ -127,11 +129,13 @@ class TestParseMetadata(TestFixtures):
             pass
 
         # Act
-        result = parse_metadata(str(directory))
+        result, project_root = parse_metadata(str(directory))
         
         # Assert
         assert isinstance(result, pd.DataFrame)
         assert result.empty
+        assert isinstance(project_root, str)
+        assert project_root == str(directory.resolve())
 
     def test_correct_file_paths(self, tmp_path):
         """Test that parse_metadata returns correct file paths."""
@@ -148,10 +152,12 @@ class TestParseMetadata(TestFixtures):
             pass
 
         # Act
-        result = parse_metadata(str(directory))
+        result, project_root = parse_metadata(str(directory))
 
         # Assert
         assert isinstance(result, pd.DataFrame)
+        assert isinstance(project_root, str)
+        assert project_root == str(directory.resolve())
         
         if len(result) == 0:
             print(f"DEBUG: No files found in {directory}")
@@ -218,7 +224,7 @@ class TestSaveMetadataJson(TestFixtures):
     def test_creates_valid_json_structure(self, mock_metadata_parser_path, sample_dataframe):
         """Test that save_metadata_json creates valid JSON with correct structure."""
         # Act
-        result_path = save_metadata_json(sample_dataframe, "test_output.json")
+        result_path = save_metadata_json(sample_dataframe, "test_output.json", "/tmp/test_project")
         
         # Assert
         assert os.path.exists(result_path)
@@ -227,14 +233,17 @@ class TestSaveMetadataJson(TestFixtures):
             json_data = json.load(f)
         
         # Check top-level structure
-        assert "metadata" in json_data and "files" in json_data
+        assert "metadata" in json_data and "files" in json_data and "project_root" in json_data
+        
+        # Check project_root field
+        assert json_data["project_root"] == "/tmp/test_project"
         
         # Check metadata fields
         metadata = json_data["metadata"]
         assert metadata["total_files"] == 2
         assert metadata["successful_parses"] == 2
         assert metadata["failed_parses"] == 0
-        assert metadata["schema_version"] == "2.1"  # Changed from "2.0" to match actual
+        assert metadata["schema_version"] == "2.2"  # Updated version to include project_root
         assert metadata["total_size_bytes"] == 3072  # 1024 + 2048
         assert metadata["average_file_size_bytes"] == 1536.0
         
@@ -249,7 +258,7 @@ class TestSaveMetadataJson(TestFixtures):
     def test_handles_error_records(self, mock_metadata_parser_path, error_dataframe):
         """Test handling of records with errors."""
         # Act
-        result_path = save_metadata_json(error_dataframe, "error_test.json")
+        result_path = save_metadata_json(error_dataframe, "error_test.json", "/tmp/error_project")
         
         # Assert
         with open(result_path, 'r', encoding='utf-8') as f:
@@ -316,7 +325,7 @@ class TestSaveMetadataJson(TestFixtures):
         ])
         
         # Act
-        result_path = save_metadata_json(timestamp_data, "timestamp_test.json")
+        result_path = save_metadata_json(timestamp_data, "timestamp_test.json", "/tmp/timestamp_project")
         
         # Assert
         with open(result_path, 'r', encoding='utf-8') as f:
@@ -337,7 +346,7 @@ class TestSaveMetadataJson(TestFixtures):
         custom_filename = "my_custom_output.json"
         
         # Act
-        result_path = save_metadata_json(sample_dataframe, custom_filename)
+        result_path = save_metadata_json(sample_dataframe, custom_filename, "/tmp/custom_project")
         
         # Assert
         assert custom_filename in result_path
@@ -355,7 +364,7 @@ class TestSaveMetadataJson(TestFixtures):
         assert not outputs_dir.exists()
         
         # Act
-        save_metadata_json(sample_dataframe, "directory_test.json")
+        save_metadata_json(sample_dataframe, "directory_test.json", "/tmp/directory_project")
         
         # Assert
         assert outputs_dir.exists()
@@ -373,7 +382,7 @@ class TestSaveMetadataJson(TestFixtures):
         }])
         
         # Act
-        result_path = save_metadata_json(unicode_data, "utf8_test.json")
+        result_path = save_metadata_json(unicode_data, "utf8_test.json", "/tmp/unicode_project")
         
         # Assert
         with open(result_path, 'r', encoding='utf-8') as f:
@@ -387,7 +396,7 @@ class TestSaveMetadataJson(TestFixtures):
     def test_metadata_timestamp_format(self, mock_metadata_parser_path, sample_dataframe):
         """Test that metadata generated_at uses Unix timestamp format."""
         # Act
-        result_path = save_metadata_json(sample_dataframe, "metadata_time_test.json")
+        result_path = save_metadata_json(sample_dataframe, "metadata_time_test.json", "/tmp/metadata_time_project")
         
         # Assert
         with open(result_path, 'r', encoding='utf-8') as f:
@@ -424,7 +433,7 @@ class TestSaveMetadataJson(TestFixtures):
         ])
         
         # Act
-        result_path = save_metadata_json(mixed_data, "size_stats_test.json")
+        result_path = save_metadata_json(mixed_data, "size_stats_test.json", "/tmp/size_stats_project")
         
         # Assert
         with open(result_path, 'r', encoding='utf-8') as f:
@@ -447,19 +456,19 @@ class TestErrorHandling(TestFixtures):
         """Test handling of file write permission errors."""
         with patch("builtins.open", side_effect=PermissionError("Permission denied")):
             with pytest.raises(PermissionError, match="Permission denied"):
-                save_metadata_json(sample_dataframe, "write_error_test.json")
+                save_metadata_json(sample_dataframe, "write_error_test.json", "/tmp/write_error_project")
 
     def test_json_serialization_error(self, mock_metadata_parser_path, sample_dataframe):
         """Test handling of JSON serialization errors."""
         with patch("json.dump", side_effect=TypeError("Object is not JSON serializable")):
             with pytest.raises(TypeError, match="Object is not JSON serializable"):
-                save_metadata_json(sample_dataframe, "json_error_test.json")
+                save_metadata_json(sample_dataframe, "json_error_test.json", "/tmp/json_error_project")
 
     def test_directory_creation_error(self, mock_metadata_parser_path, sample_dataframe):
         """Test handling of directory creation errors."""
         with patch("pathlib.Path.mkdir", side_effect=OSError("Permission denied")):
             with pytest.raises(OSError, match="Permission denied"):
-                save_metadata_json(sample_dataframe, "dir_error_test.json")
+                save_metadata_json(sample_dataframe, "dir_error_test.json", "/tmp/dir_error_project")
 
 
 # Parametrized tests for edge cases
@@ -487,7 +496,7 @@ class TestEdgeCases(TestFixtures):
         ])
         
         # Act
-        result_path = save_metadata_json(data, f"edge_case_test_{len(file_size)}.json")
+        result_path = save_metadata_json(data, f"edge_case_test_{len(file_size)}.json", "/tmp/edge_case_project")
         
         # Assert
         with open(result_path, 'r', encoding='utf-8') as f:

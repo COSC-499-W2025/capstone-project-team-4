@@ -150,6 +150,9 @@ def parse_metadata(folder_path: str = "", include_filtered: bool = False):
     Args:
         folder_path: the path to the directory/folder to be parsed (default "")
         include_filtered: if True, includes filtered files with their skip reason (default False)
+    
+    Returns:
+        tuple: (dataframe, project_root_path)
     """
     results = []
     filtered_count = 0
@@ -251,16 +254,18 @@ def parse_metadata(folder_path: str = "", include_filtered: bool = False):
     
     # This is for exporting the data! Hopefully it can work to whoever was assigned with a JSON exporter
     dataframe = po.DataFrame(results)
-    return dataframe
+    project_root = str(base_path)
+    return dataframe, project_root
 
 
-def save_metadata_json(dataframe: po.DataFrame, output_filename: str = "metadata.json") -> str:
+def save_metadata_json(dataframe: po.DataFrame, output_filename: str = "metadata.json", project_root: str = None) -> str:
     """
     Converts metadata dataframe to clean JSON format and saves to outputs directory.
     
     Args:
         dataframe: DataFrame containing metadata from parse_metadata()
         output_filename: Name of output JSON file (default: "metadata.json")
+        project_root: Absolute path to the project root directory
     
     Returns:
         str: Path to the saved JSON file
@@ -331,8 +336,9 @@ def save_metadata_json(dataframe: po.DataFrame, output_filename: str = "metadata
             "filtered_files": len(filtered_files),
             "total_size_bytes": total_size,
             "average_file_size_bytes": round(avg_size, 2),
-            "schema_version": "2.1"  # Updated version to reflect filtering
+            "schema_version": "2.2"  # Updated version to include project_root
         },
+        "project_root": project_root,
         "files": cleaned_data
     }
     
