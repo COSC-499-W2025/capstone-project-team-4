@@ -1,4 +1,4 @@
-# **Week 11 Individual Log**
+# **Week 12 Individual Log**
 This week I’ve worked on improving our library detection system using Tree-sitter, setting up the GitHub API skill extraction, and fixing environment issues related to Python versions and dependencies.
 
 <img width="762" height="537" alt="Screenshot 2025-11-23 at 22 30 40" src="https://github.com/user-attachments/assets/dcf99473-4226-4d55-9f52-ec789d291a75" />
