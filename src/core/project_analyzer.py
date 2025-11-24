@@ -38,6 +38,11 @@ def analyze_contributors(project_path=".", use_all_branches=False):
     # NOTE: By default, it will get the commits from only the current branch HEAD. If you want to get all commits,
     # input -all instead. So it would be, `repo.iter_commits('--all')`
 
+    commit_range = "--all" if use_all_branches else None
+    for commit in repo.iter_commits(commit_range):
+        name = commit.author.name.strip()
+        email = commit.author.email.strip().lower()
+
     try:
         commit_range = "--all" if use_all_branches else None
         for commit in repo.iter_commits(commit_range):
