@@ -4,10 +4,12 @@ from collections import defaultdict
 from git import Repo, InvalidGitRepositoryError
 
 
-def analyze_contributors(project_path="."):
+def analyze_contributors(project_path=".", use_all_branches=False):
     """
     Analyze commit history for all contributors.
     Groups by contributor NAME to avoid duplicates (noreply vs real email).
+    If use_all_branches=True then use '--all', otherwise just analyze the current branch
+
     Includes:
         - total commits
         - percent of total commits
@@ -27,7 +29,9 @@ def analyze_contributors(project_path="."):
 
     # NOTE: By default, it will get the commits from only the current branch HEAD. If you want to get all commits,
     # input -all instead. So it would be, `repo.iter_commits('--all')`
-    for commit in repo.iter_commits():
+
+    commit_range = '--all' if use_all_branches else None
+    for commit in repo.iter_commits(commit_range):
         name = commit.author.name.strip()
         email = commit.author.email.strip().lower()
 
@@ -98,12 +102,12 @@ def calculate_project_stats(project_path, file_list):
     compute full project-level statistics.
     """
 
-    # ---------- File Stats ----------
+    # File Stats
     total_files = len(file_list)
     total_size = sum(f.get("file_size", 0) for f in file_list if f.get("file_size") is not None)
     avg_size = round(total_size / total_files, 2) if total_files > 0 else 0
 
-    # ---------- Duration ----------
+    # Duration
     try:
         created_ts = min(f["created_timestamp"] for f in file_list if f["created_timestamp"] is not None)
         modified_ts = max(f["last_modified"] for f in file_list if f["last_modified"] is not None)
@@ -111,11 +115,12 @@ def calculate_project_stats(project_path, file_list):
     except ValueError:
         duration_days = 0
 
-    # ---------- Contributors ----------
+    # Contributors
+    # For this, we can just analyze the current branch. Set `use_all_branches=True` if all branches need the commit history
     contributors = analyze_contributors(project_path)
     is_collaborative = len(contributors) > 1
 
-    # ---------- Final Metrics ----------
+    # Final Metrics
     metrics = {
         "total_files": total_files,
         "total_size_bytes": total_size,
