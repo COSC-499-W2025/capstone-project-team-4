@@ -133,6 +133,21 @@ def calculate_project_stats(project_path, file_list):
 
     return metrics
 
+def save_project_metrics(metrics: dict, output_filename="project_metrics.json"):
+    """
+    Save project metrics (from calculate_project_stats) to JSON inside src/outputs
+    """
+
+    outputs_dir = os.path.join(os.path.dirname(__file__), "..", "outputs")
+    os.makedirs(outputs_dir, exist_ok=True)
+
+    output_path = os.path.join(outputs_dir, output_filename)
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(metrics, f, indent=2, ensure_ascii=False)
+
+    print(f"[INFO] Project metrics saved to: {output_path}")
+    return output_path
 
 if __name__ == "__main__":
     # For local testing only
@@ -153,5 +168,9 @@ if __name__ == "__main__":
 
     metrics = calculate_project_stats(project_path, file_list)
 
-    print("\nPROJECT METRICS")
-    print(json.dumps(metrics, indent=2))
+    # NOTE: I removed the print statements as now you can just read the generated json file.
+    # It clutters the terminal so yeah
+    # print("\nPROJECT METRICS")
+    # print(json.dumps(metrics, indent=2))
+
+    save_project_metrics(metrics)
