@@ -23,11 +23,11 @@ def validate_and_parse(zip_path: str | Path) -> Dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="zip_extract_") as tmpdir:
         with zipfile.ZipFile(zip_path, "r") as zf:
             zf.extractall(tmpdir)
-        df = parse_metadata(tmpdir)  # Analyze the extracted temporary directory
+        df, project_root = parse_metadata(tmpdir)  # Analyze the extracted temporary directory
         # The temporary directory is automatically cleaned up when the context exits
         return {
             "zip_name": zip_path.name,
             "is_valid": True,
             "validation_errors": [],
-            "metadata": df,
+            "metadata": (df, project_root),
         }
