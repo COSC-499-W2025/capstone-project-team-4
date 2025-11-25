@@ -1,9 +1,10 @@
 # Use official Python image
 FROM python:3.11.0-slim
 
-# Install system dependencies for python-magic
+# Install system dependencies for python-magic and git
 RUN apt-get update && apt-get install -y \
     libmagic1 \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory inside container
@@ -24,6 +25,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the project
 COPY . .
+
+# Configure Git to trust the /app directory (fixes CI/CD ownership issues)
+RUN git config --global --add safe.directory /app && \
+    git config --global --add safe.directory '*' && \
+    git config --global init.defaultBranch main
 
 # Added this line to ensure src is recognized as a module
 ENV PYTHONPATH="/app"
