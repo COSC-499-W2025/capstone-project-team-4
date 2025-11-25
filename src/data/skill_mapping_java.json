@@ -1,516 +1,319 @@
 [
     {
-        "skill": "Object-Oriented Programming (OOP)",
-        "identifiers": [
-            "\\bclass\\s+[A-Za-z_][A-Za-z0-9_]*",
-            "\\babstract\\s+class\\s+[A-Za-z_][A-Za-z0-9_]*",
-            "\\bfinal\\s+class\\s+[A-Za-z_][A-Za-z0-9_]*",
-            "\\bpublic\\s+class\\s+[A-Za-z_][A-Za-z0-9_]*",
-            "\\bprivate\\s+class\\s+[A-Za-z_][A-Za-z0-9_]*",
-            "\\bprotected\\s+class\\s+[A-Za-z_][A-Za-z0-9_]*",
-            "\\bstatic\\s+class\\s+[A-Za-z_][A-Za-z0-9_]*",
-            "\\binterface\\s+[A-Za-z_][A-Za-z0-9_]*",
-            "\\benum\\s+[A-Za-z_][A-Za-z0-9_]*",
-            "\\bnew\\s+[A-Za-z_][A-Za-z0-9_]*\\s*\\(",
-            "\\bsuper\\s*\\(",
-            "\\bthis\\s*\\(",
-            "\\bextends\\s+[A-Za-z_][A-Za-z0-9_]*",
-            "\\bimplements\\s+[A-Za-z_][A-Za-z0-9_,\\s]*",
-            "@Override",
-            "\\binstanceof\\b",
-            "\\bprivate\\b",
-            "\\bprotected\\b",
-            "\\bpublic\\b",
-            "\\bprivate\\s+[A-Za-z_][A-Za-z0-9_]*\\s+[A-Za-z_][A-Za-z0-9_]*\\s*;",
-            "\\bprotected\\s+[A-Za-z_][A-Za-z0-9_]*\\s+[A-Za-z_][A-Za-z0-9_]*\\s*;",
-            "\\bpublic\\s+[A-Za-z_][A-Za-z0-9_]*\\s+[A-Za-z_][A-Za-z0-9_]*\\s*;",
-            "\\b[A-Za-z_][A-Za-z0-9_]*\\s+\\(.*?\\)\\s*\\{",
-            "\\bpublic\\s+[A-Z][A-Za-z0-9_]*\\s*\\(",
-            "\\bprivate\\s+[A-Z][A-Za-z0-9_]*\\s*\\(",
-            "\\bprotected\\s+[A-Z][A-Za-z0-9_]*\\s*\\(",
-            "\\bget[A-Z][A-Za-z0-9_]*\\s*\\(",
-            "\\bset[A-Z][A-Za-z0-9_]*\\s*\\(",
-            "\\bthis\\.",
-            "\\bsuper\\.",
-            "\\bstatic\\b",
-            "\\bfinal\\b",
-            "\\babstract\\b",
-            "\\bsynchronized\\b",
-            "\\bclass\\s+[A-Za-z_][A-Za-z0-9_]*\\s*\\{",
-            "\\binterface\\s+[A-Za-z_][A-Za-z0-9_]*\\s*\\{",
-            "\\benum\\s+[A-Za-z_][A-Za-z0-9_]*\\s*\\{",
-            "\\bnew\\s+[A-Za-z_][A-Za-z0-9_]*\\s*\\{"
-        ],
-        "justification": "Expanded Java language constructs tied to class declarations, objects, instantiation, encapsulation, inheritance, polymorphism, abstraction, and composition."
+      "skill": "Object-Oriented Programming (OOP)",
+      "identifiers": [
+        "\\bclass\\b",
+        "\\binterface\\b",
+        "\\benum\\b",
+        "\\babstract\\b",
+        "\\bextends\\b",
+        "\\bimplements\\b",
+        "\\bthis\\b",
+        "\\bsuper\\b",
+        "\\bnew\\s+[A-Za-z_]\\w*",
+        "import\\s+java\\.lang\\.",
+        "\\bprivate\\b",
+        "\\bpublic\\b",
+        "\\bprotected\\b",
+        "\\bstatic\\b",
+        "\\bfinal\\b"
+      ]
     },
+  
     {
-        "skill": "Concurrency & Multithreading",
-        "identifiers": [
-            "new\\s+Thread\\s*\\(\\s*.*?\\s*\\)\\s*\\.start\\s*\\(\\s*\\)",
-            "class\\s+.*?\\s+implements\\s+Runnable",
-            "class\\s+.*?\\s+implements\\s+Callable\\s*<.*?>",
-            "ExecutorService\\s+.*?\\s*=\\s*Executors\\.newFixedThreadPool\\s*\\(.*?\\)",
-            "ExecutorService\\s+.*?\\s*=\\s*Executors\\.newCachedThreadPool\\s*\\(.*?\\)",
-            "ExecutorService\\s+.*?\\s*=\\s*Executors\\.newSingleThreadExecutor\\s*\\(.*?\\)",
-            "ScheduledExecutorService\\s+.*?\\s*=\\s*Executors\\.newScheduledThreadPool\\s*\\(.*?\\)",
-            "Future\\s*<.*?>\\s+.*?\\s*=\\s*.*?\\.submit\\s*\\(.*?\\)",
-            "CompletableFuture\\s*<.*?>",
-            "synchronized\\s*\\(\\s*.*?\\s*\\)\\s*\\{\\s*.*?\\s*\\}",
-            "\\bvolatile\\b\\s+.*?;",
-            "ReentrantLock\\s+.*?\\s*=\\s*new\\s+ReentrantLock\\s*\\(\\s*\\)",
-            "lock\\.lock\\s*\\(\\s*\\)",
-            "lock\\.unlock\\s*\\(\\s*\\)",
-            "Condition\\s+.*?\\s*=\\s*lock\\.newCondition\\s*\\(\\s*\\)",
-            "\\bwait\\s*\\(\\s*\\)",
-            "\\bnotify\\s*\\(\\s*\\)",
-            "\\bnotifyAll\\s*\\(\\s*\\)",
-            "thread\\.join\\s*\\(\\s*\\)",
-            "ThreadLocal\\s*<.*?>",
-            "AtomicInteger",
-            "AtomicLong",
-            "AtomicReference\\s*<.*?>",
-            "CountDownLatch\\s*<.*?>",
-            "CyclicBarrier\\s*<.*?>",
-            "Semaphore\\s*<.*?>",
-            "import\\s+.*?ExecutorService",
-            "import\\s+.*?Future",
-            "import\\s+.*?ScheduledExecutorService",
-            "Thread\\.sleep",
-            "executor\\.shutdown",
-            "executor\\.awaitTermination",
-            "ForkJoinPool",
-            "ForkJoinTask",
-            "RecursiveTask",
-            "RecursiveAction"
-        ],
-        "justification": "Actual concurrency APIs and keywords used for parallelism, thread management, and synchronization."
+      "skill": "Concurrency & Multithreading",
+      "identifiers": [
+        "\\bThread\\b",
+        "\\bRunnable\\b",
+        "\\bCallable\\b",
+        "\\bExecutorService\\b",
+        "\\bScheduledExecutorService\\b",
+        "\\bFuture\\b",
+        "\\bCompletableFuture\\b",
+        "\\bReentrantLock\\b",
+        "\\bSemaphore\\b",
+        "\\bCountDownLatch\\b",
+        "\\bCyclicBarrier\\b",
+        "\\bAtomic[A-Za-z]+\\b",
+        "import\\s+java\\.util\\.concurrent"
+      ]
     },
+  
     {
-        "skill": "Exception Handling & Robustness",
-        "identifiers": [
-            "\\btry\\s*\\{[\\s\\S]*?\\}\\s*catch\\s*\\([\\s\\S]*?\\)\\s*\\{[\\s\\S]*?\\}",
-            "\\btry\\s*\\{[\\s\\S]*?\\}\\s*catch\\s*\\([\\s\\S]*?\\)\\s*\\{[\\s\\S]*?\\}\\s*finally\\s*\\{[\\s\\S]*?\\}",
-            "\\btry\\s*\\(.*?\\)\\s*\\{[\\s\\S]*?\\}",
-            "\\bthrow\\b\\s+new\\s+[\\w<>]+\\(.*?\\)",
-            "\\bthrows\\b\\s+[\\w,\\s<>]+",
-            "Logger\\s+logger\\s*=\\s*LoggerFactory\\.getLogger\\s*\\(.*?\\)",
-            "logger\\.\\w+\\s*\\(.*?\\)",
-            "@ExceptionHandler\\s*\\(.*?\\)",
-            "\\bassert\\s+.*?;",
-            "\\bOptional\\.ofNullable\\s*\\(",
-            "\\bOptional\\.empty\\s*\\(",
-            "\\bObjects\\.requireNonNull\\s*\\(.*?\\)",
-            "\\bcatch\\s*\\([\\s\\S]*?\\)\\s*\\{[\\s\\S]*?\\}",
-            "\\bfinally\\s*\\{[\\s\\S]*?\\}"
-        ],
-        "justification": "Java exception constructs, defensive coding, and logging usage indicating robust error handling."
+      "skill": "Exception Handling & Robustness",
+      "identifiers": [
+        "\\btry\\b",
+        "\\bcatch\\b",
+        "\\bfinally\\b",
+        "\\bthrow\\b",
+        "\\bthrows\\b",
+        "\\bException\\b",
+        "\\bRuntimeException\\b",
+        "\\bIllegalArgumentException\\b",
+        "\\bIllegalStateException\\b",
+        "\\bIOException\\b",
+        "\\bOptional\\b",
+        "\\bObjects\\b",
+        "import\\s+org\\.slf4j\\.",
+        "\\blogger\\b"
+      ]
     },
+  
     {
-        "skill": "Unit Testing & TDD",
-        "identifiers": [
-            "@Test",
-            "@BeforeEach",
-            "@AfterEach",
-            "@BeforeAll",
-            "@AfterAll",
-            "@DisplayName",
-            "@ParameterizedTest",
-            "@CsvSource",
-            "@ValueSource",
-            "@Mock",
-            "@InjectMocks",
-            "@Spy",
-            "Assertions\\.assertEquals\\s*\\(.*?\\)",
-            "Assertions\\.assertNotEquals\\s*\\(.*?\\)",
-            "Assertions\\.assertTrue\\s*\\(.*?\\)",
-            "Assertions\\.assertFalse\\s*\\(.*?\\)",
-            "Assertions\\.assertNull\\s*\\(.*?\\)",
-            "Assertions\\.assertNotNull\\s*\\(.*?\\)",
-            "assertThrows\\s*\\(.*?\\)",
-            "assertDoesNotThrow\\s*\\(.*?\\)",
-            "Mockito\\.when\\s*\\(.*?\\)\\.thenReturn\\s*\\(.*?\\)",
-            "Mockito\\.when\\s*\\(.*?\\)\\.thenThrow\\s*\\(.*?\\)",
-            "Mockito\\.verify\\s*\\(.*?\\)\\.method\\s*\\(.*?\\)",
-            "Mockito\\.verify\\s*\\(.*?\\)"
-        ],
-        "justification": "JUnit 5 and Mockito constructs commonly used in unit tests and TDD practices."
+      "skill": "Unit Testing & TDD",
+      "identifiers": [
+        "@Test",
+        "@BeforeEach",
+        "@AfterEach",
+        "@BeforeAll",
+        "@AfterAll",
+        "@DisplayName",
+        "@Mock",
+        "@InjectMocks",
+        "import\\s+org\\.junit\\.",
+        "import\\s+org\\.mockito\\.",
+        "\\bAssertions\\b",
+        "\\bMockito\\b"
+      ]
     },
+  
     {
-        "skill": "RESTful API Development",
-        "identifiers": [
-            "@RestController",
-            "@Controller",
-            "@RequestMapping\\s*\\(.*?\\)",
-            "@GetMapping\\s*\\(.*?\\)",
-            "@PostMapping\\s*\\(.*?\\)",
-            "@PutMapping\\s*\\(.*?\\)",
-            "@DeleteMapping\\s*\\(.*?\\)",
-            "@PatchMapping\\s*\\(.*?\\)",
-            "@RequestBody",
-            "@RequestParam\\s*\\(.*?\\)",
-            "@PathVariable\\s*\\(.*?\\)",
-            "@ResponseStatus\\s*\\(.*?\\)",
-            "@ResponseBody",
-            "ResponseEntity\\.ok\\s*\\(.*?\\)",
-            "ResponseEntity\\.status\\s*\\(.*?\\)\\.body\\s*\\(.*?\\)",
-            "ResponseEntity\\.badRequest\\s*\\(.*?\\)",
-            "ResponseEntity\\.notFound\\s*\\(.*?\\)",
-            "ResponseEntity\\.created\\s*\\(.*?\\)",
-            "HttpStatus\\.[A-Z_]+"
-        ],
-        "justification": "Spring MVC / Spring Boot REST endpoint annotations, request/response handling, and status management."
+      "skill": "RESTful API Development",
+      "identifiers": [
+        "@RestController",
+        "@Controller",
+        "@GetMapping",
+        "@PostMapping",
+        "@PutMapping",
+        "@DeleteMapping",
+        "@PatchMapping",
+        "@RequestMapping",
+        "@RequestBody",
+        "@RequestParam",
+        "@PathVariable",
+        "\\bResponseEntity\\b",
+        "import\\s+org\\.springframework\\.web"
+      ]
     },
+  
     {
-        "skill": "Dependency Injection & IoC",
-        "identifiers": [
-            "@Autowired",
-            "@Inject",
-            "@Component",
-            "@Service",
-            "@Repository",
-            "@Controller",
-            "@RestController",
-            "@Configuration",
-            "@Bean",
-            "@Qualifier\\s*\\(.*?\\)",
-            "@Scope\\s*\\(.*?\\)",
-            "@Primary",
-            "@Lazy",
-            "@Value\\s*\\(.*?\\)",
-            "@PostConstruct",
-            "@PreDestroy",
-            "ApplicationContext\\s+.*?\\.getBean\\s*\\(.*?\\)"
-        ],
-        "justification": "Spring-style DI annotations, bean configuration, and programmatic dependency resolution patterns."
+      "skill": "Dependency Injection & IoC",
+      "identifiers": [
+        "@Autowired",
+        "@Inject",
+        "@Service",
+        "@Repository",
+        "@Component",
+        "@Configuration",
+        "@Bean",
+        "@Qualifier",
+        "@Primary",
+        "@Value",
+        "\\bApplicationContext\\b",
+        "import\\s+org\\.springframework\\.beans",
+        "import\\s+org\\.springframework\\.context"
+      ]
     },
+  
     {
-        "skill": "Functional Programming (Streams)",
-        "identifiers": [
-            "\\.\\s*stream\\s*\\(\\s*\\)",
-            "\\.\\s*parallelStream\\s*\\(\\s*\\)",
-            "\\.\\s*map\\s*\\(\\s*.*?\\s*\\)",
-            "\\.\\s*flatMap\\s*\\(\\s*.*?\\s*\\)",
-            "\\.\\s*filter\\s*\\(\\s*.*?\\s*\\)",
-            "\\.\\s*peek\\s*\\(\\s*.*?\\s*\\)",
-            "\\.\\s*reduce\\s*\\(\\s*.*?\\s*\\)",
-            "\\.\\s*collect\\s*\\(\\s*.*?\\s*\\)",
-            "\\.\\s*forEach\\s*\\(\\s*.*?\\s*\\)",
-            "\\.\\s*anyMatch\\s*\\(\\s*.*?\\s*\\)",
-            "\\.\\s*allMatch\\s*\\(\\s*.*?\\s*\\)",
-            "\\.\\s*noneMatch\\s*\\(\\s*.*?\\s*\\)",
-            "\\.\\s*findFirst\\s*\\(\\s*\\)",
-            "\\.\\s*findAny\\s*\\(\\s*\\)",
-            "Optional\\.of\\s*\\(\\s*.*?\\s*\\)",
-            "Optional\\.ofNullable\\s*\\(\\s*.*?\\s*\\)",
-            "Optional\\.empty\\s*\\(\\s*\\)",
-            "Optional\\.map\\s*\\(\\s*.*?\\s*\\)",
-            "Optional\\.flatMap\\s*\\(\\s*.*?\\s*\\)",
-            "Optional\\.filter\\s*\\(\\s*.*?\\s*\\)",
-            "Optional\\.orElse\\s*\\(\\s*.*?\\s*\\)",
-            "Optional\\.orElseGet\\s*\\(\\s*.*?\\s*\\)",
-            "Optional\\.orElseThrow\\s*\\(\\s*.*?\\s*\\)",
-            "\\b.*?::.*?"
-        ],
-        "justification": "Java 8+ Stream API and Optional usage covering map/filter/reduce/collect, terminal operations, and functional constructs."
+      "skill": "Functional Programming (Streams)",
+      "identifiers": [
+        "\\bstream\\b",
+        "\\bparallelStream\\b",
+        "\\bOptional\\b",
+        "\\bCollectors\\b",
+        "import\\s+java\\.util\\.stream"
+      ]
     },
+  
     {
-        "skill": "Data Persistence & ORM",
-        "identifiers": [
-            "@Entity",
-            "@Id",
-            "@GeneratedValue\\s*\\(.*?\\)",
-            "@Column\\s*\\(.*?\\)",
-            "@Table\\s*\\(.*?\\)",
-            "@OneToMany\\s*\\(.*?\\)",
-            "@ManyToOne\\s*\\(.*?\\)",
-            "@ManyToMany\\s*\\(.*?\\)",
-            "@OneToOne\\s*\\(.*?\\)",
-            "@JoinColumn\\s*\\(.*?\\)",
-            "@JoinTable\\s*\\(.*?\\)",
-            "@Embedded",
-            "@Embeddable",
-            "@MappedSuperclass",
-            "@Inheritance\\s*\\(.*?\\)",
-            "@Transactional",
-            "entityManager\\.persist\\s*\\(.*?\\)",
-            "entityManager\\.merge\\s*\\(.*?\\)",
-            "entityManager\\.remove\\s*\\(.*?\\)",
-            "entityManager\\.find\\s*\\(.*?\\)",
-            "repository\\.save\\s*\\(.*?\\)",
-            "repository\\.saveAll\\s*\\(.*?\\)",
-            "repository\\.findById\\s*\\(.*?\\)",
-            "repository\\.findAll\\s*\\(.*?\\)",
-            "repository\\.delete\\s*\\(.*?\\)",
-            "repository\\.deleteById\\s*\\(.*?\\)"
-        ],
-        "justification": "JPA/Hibernate and Spring Data constructs for mapping domain entities, relationships, transactions, and repository operations."
+      "skill": "Data Persistence & ORM",
+      "identifiers": [
+        "@Entity",
+        "@Id",
+        "@GeneratedValue",
+        "@Column",
+        "@Table",
+        "@OneToMany",
+        "@OneToOne",
+        "@ManyToMany",
+        "@ManyToOne",
+        "@JoinColumn",
+        "@JoinTable",
+        "@Transactional",
+        "\\bEntityManager\\b",
+        "\\brepository\\b",
+        "import\\s+jakarta\\.persistence",
+        "import\\s+org\\.springframework\\.data"
+      ]
     },
+  
     {
-        "skill": "Build Tools",
-        "identifiers": [
-            "pom\\.xml",
-            "<dependency>",
-            "<plugin>",
-            "mvn\\s+clean\\s+install",
-            "mvn\\s+clean\\s+package",
-            "mvn\\s+test",
-            "mvn\\s+verify",
-            "mvn\\s+deploy",
-            "build\\.gradle",
-            "build\\.gradle\\.kts",
-            "\\./gradlew\\s+build",
-            "\\./gradlew\\s+test",
-            "\\./gradlew\\s+assemble",
-            "\\./gradlew\\s+clean",
-            "settings\\.gradle",
-            "settings\\.gradle\\.kts"
-        ],
-        "justification": "Maven and Gradle build files, plugins, and common CLI commands used for building, testing, and deploying Java projects."
+      "skill": "Build Tools",
+      "identifiers": [
+        "pom\\.xml",
+        "build\\.gradle",
+        "settings\\.gradle",
+        "import\\s+maven",
+        "\\bmvn\\b",
+        "\\bgradle\\b"
+      ]
     },
+  
     {
-        "skill": "Data Structures & Algorithms",
-        "identifiers": [
-            "new\\s+ArrayList\\s*<.*?>\\s*\\(\\s*\\)",
-            "new\\s+LinkedList\\s*<.*?>\\s*\\(\\s*\\)",
-            "new\\s+Vector\\s*<.*?>\\s*\\(\\s*\\)",
-            "new\\s+Stack\\s*<.*?>\\s*\\(\\s*\\)",
-            "new\\s+CopyOnWriteArrayList\\s*<.*?>\\s*\\(\\s*\\)",
-            "HashMap\\s*<.*?>\\s+.*?\\s*=\\s*new\\s+HashMap\\s*<.*?>\\s*\\(\\s*\\)",
-            "LinkedHashMap\\s*<.*?>\\s+.*?\\s*=\\s*new\\s+LinkedHashMap\\s*<.*?>\\s*\\(\\s*\\)",
-            "TreeMap\\s*<.*?>",
-            "ConcurrentHashMap\\s*<.*?>\\s+.*?\\s*=\\s*new\\s+ConcurrentHashMap\\s*<.*?>\\s*\\(\\s*\\)",
-            "HashSet\\s*<.*?>\\s+.*?\\s*=\\s*new\\s+HashSet\\s*<.*?>\\s*\\(\\s*\\)",
-            "LinkedHashSet\\s*<.*?>",
-            "TreeSet\\s*<.*?>",
-            "CopyOnWriteArraySet\\s*<.*?>\\s+.*?\\s*=\\s*new\\s+CopyOnWriteArraySet\\s*<.*?>\\s*\\(\\s*\\)",
-            "PriorityQueue\\s*<.*?>\\s+.*?\\s*=\\s*new\\s+PriorityQueue\\s*<.*?>\\s*\\(\\s*\\)",
-            "Deque\\s*<.*?>\\s+.*?\\s*=\\s*new\\s+ArrayDeque\\s*<.*?>\\s*\\(\\s*\\)",
-            "Queue\\s*<.*?>",
-            "Collections\\.sort\\s*\\(\\s*.*?\\s*\\)",
-            "Arrays\\.sort\\s*\\(\\s*.*?\\s*\\)",
-            "Arrays\\.binarySearch\\s*\\(\\s*.*?\\s*\\)",
-            "Collections\\.binarySearch\\s*\\(\\s*.*?\\s*\\)",
-            "Collections\\.reverse\\s*\\(\\s*.*?\\s*\\)",
-            "Collections\\.shuffle\\s*\\(\\s*.*?\\s*\\)",
-            "Collections\\.max\\s*\\(\\s*.*?\\s*\\)",
-            "Collections\\.min\\s*\\(\\s*.*?\\s*\\)",
-            "implements\\s+Comparable\\s*<.*?>",
-            "Comparator\\.comparing\\s*\\(\\s*.*?\\s*\\)",
-            "Comparator\\.reverseOrder\\s*\\(\\s*\\)",
-            "Comparator\\.naturalOrder\\s*\\(\\s*\\)"
-        ],
-        "justification": "Java collections, sorting, and comparison constructs, capturing standard data structures and common algorithmic operations."
+      "skill": "Data Structures & Algorithms",
+      "identifiers": [
+        "\\bArrayList\\b",
+        "\\bLinkedList\\b",
+        "\\bHashMap\\b",
+        "\\bLinkedHashMap\\b",
+        "\\bTreeMap\\b",
+        "\\bHashSet\\b",
+        "\\bTreeSet\\b",
+        "\\bPriorityQueue\\b",
+        "\\bDeque\\b",
+        "\\bQueue\\b",
+        "\\bComparator\\b",
+        "import\\s+java\\.util"
+      ]
     },
+  
     {
-        "skill": "File I/O & Serialization",
-        "identifiers": [
-            "new\\s+File\\s*\\(.*?\\)",
-            "FileInputStream\\s+.*?\\s*=\\s*new\\s+FileInputStream\\s*\\(.*?\\)",
-            "FileOutputStream\\s+.*?\\s*=\\s*new\\s+FileOutputStream\\s*\\(.*?\\)",
-            "BufferedReader\\s+.*?\\s*=\\s*new\\s+BufferedReader\\s*\\(.*?\\)",
-            "BufferedWriter\\s+.*?\\s*=\\s*new\\s+BufferedWriter\\s*\\(.*?\\)",
-            "PrintWriter\\s+.*?\\s*=\\s*new\\s+PrintWriter\\s*\\(.*?\\)",
-            "Scanner\\s+.*?\\s*=\\s*new\\s+Scanner\\s*\\(.*?\\)",
-            "Files\\.readAllLines\\s*\\(.*?\\)",
-            "Files\\.write\\s*\\(.*?\\)",
-            "Files\\.copy\\s*\\(.*?\\)",
-            "Files\\.move\\s*\\(.*?\\)",
-            "ObjectOutputStream\\s+.*?\\s*=\\s*new\\s+ObjectOutputStream\\s*\\(.*?\\)",
-            "ObjectInputStream\\s+.*?\\s*=\\s*new\\s+ObjectInputStream\\s*\\(.*?\\)",
-            "implements\\s+Serializable",
-            "transient\\s+.*?;",
-            "Externalizable"
-        ],
-        "justification": "Java File I/O streams, readers/writers, NIO Files operations, and serialization constructs including Serializable and Externalizable."
+      "skill": "File I/O & Serialization",
+      "identifiers": [
+        "\\bFile\\b",
+        "\\bFileInputStream\\b",
+        "\\bFileOutputStream\\b",
+        "\\bBufferedReader\\b",
+        "\\bBufferedWriter\\b",
+        "\\bScanner\\b",
+        "\\bSerializable\\b",
+        "\\bExternalizable\\b",
+        "import\\s+java\\.io"
+      ]
     },
+  
     {
-        "skill": "Networking (Sockets)",
-        "identifiers": [
-            "Socket\\s+.*?\\s*=\\s*new\\s+Socket\\s*\\(.*?\\)",
-            "ServerSocket\\s+.*?\\s*=\\s*new\\s+ServerSocket\\s*\\(.*?\\)",
-            "DatagramSocket\\s+.*?\\s*=\\s*new\\s+DatagramSocket\\s*\\(.*?\\)",
-            "DatagramPacket\\s+.*?\\s*=\\s*new\\s+DatagramPacket\\s*\\(.*?\\)",
-            "InetAddress\\.getByName\\s*\\(.*?\\)",
-            "Socket\\.getInputStream\\s*\\(\\s*\\)",
-            "Socket\\.getOutputStream\\s*\\(\\s*\\)",
-            "ServerSocket\\.accept\\s*\\(\\s*\\)",
-            "DatagramSocket\\.send\\s*\\(.*?\\)",
-            "DatagramSocket\\.receive\\s*\\(.*?\\)",
-            "URLConnection",
-            "HttpURLConnection",
-            "HttpsURLConnection",
-            "URL\\s+.*?\\s*=\\s*new\\s+URL\\s*\\(.*?\\)",
-            "URLConnection\\.connect\\s*\\(\\s*\\)"
-        ],
-        "justification": "Low-level Java networking APIs including TCP/UDP sockets, streams, and URL/HTTP connections."
-
+      "skill": "Networking (Sockets)",
+      "identifiers": [
+        "\\bSocket\\b",
+        "\\bServerSocket\\b",
+        "\\bDatagramSocket\\b",
+        "\\bDatagramPacket\\b",
+        "\\bHttpURLConnection\\b",
+        "\\bURL\\b",
+        "import\\s+java\\.net"
+      ]
     },
+  
     {
-        "skill": "GUI Development",
-        "identifiers": [
-            "new\\s+JFrame\\s*\\(.*?\\)",
-            "JPanel\\s+.*?\\s*=\\s*new\\s+JPanel\\s*\\(\\s*\\)",
-            "JButton\\s+.*?\\s*=\\s*new\\s+JButton\\s*\\(.*?\\)",
-            "JLabel\\s+.*?\\s*=\\s*new\\s+JLabel\\s*\\(.*?\\)",
-            "JTextField\\s+.*?\\s*=\\s*new\\s+JTextField\\s*\\(.*?\\)",
-            "JTextArea\\s+.*?\\s*=\\s*new\\s+JTextArea\\s*\\(.*?\\)",
-            "JCheckBox\\s+.*?\\s*=\\s*new\\s+JCheckBox\\s*\\(.*?\\)",
-            "JComboBox\\s+.*?\\s*=\\s*new\\s+JComboBox\\s*\\(.*?\\)",
-            "JTable\\s+.*?\\s*=\\s*new\\s+JTable\\s*\\(.*?\\)",
-            "addActionListener\\s*\\(.*?\\)",
-            "addMouseListener\\s*\\(.*?\\)",
-            "addKeyListener\\s*\\(.*?\\)",
-            "extends\\s+Application",
-            "@FXML",
-            "start\\s*\\(Stage\\s+.*?\\)",
-            "Scene\\s+.*?\\s*=\\s*new\\s+Scene\\s*\\(.*?\\)",
-            "VBox\\s+.*?\\s*=\\s*new\\s+VBox\\s*\\(.*?\\)",
-            "HBox\\s+.*?\\s*=\\s*new\\s+HBox\\s*\\(.*?\\)"
-        ],
-        "justification": "Swing and JavaFX constructs including frames, panels, controls, layout containers, event listeners, and FXML usage."
-
+      "skill": "GUI Development",
+      "identifiers": [
+        "\\bJFrame\\b",
+        "\\bJPanel\\b",
+        "\\bJButton\\b",
+        "\\bJLabel\\b",
+        "\\bJTable\\b",
+        "\\bJTextField\\b",
+        "\\bFXML\\b",
+        "\\bApplication\\b",
+        "import\\s+javax\\.swing",
+        "import\\s+javafx\\."
+      ]
     },
+  
     {
-        "skill": "Design Patterns",
-        "identifiers": [
-            "\\bprivate\\s+static\\s+.*?\\s+inst;\\s+private\\s+.*?\\s*\\(\\s*\\)\\s*\\{\\s*\\}", 
-            "new\\s+Builder\\s*\\(\\s*\\)\\s*\\.set.*?\\(.*?\\)\\.build\\s*\\(\\s*\\)",
-            "Factory\\.create\\s*\\(.*?\\)",
-            "addListener\\s*\\(.*?\\)",
-            "context\\.setStrategy\\s*\\(new\\s+.*?\\)",
-            "public\\s+static\\s+.*?\\s+getInstance\\s*\\(\\s*\\)", 
-            "abstract\\s+class\\s+.*?\\s*\\{\\s*\\}", 
-            "interface\\s+.*?\\s*\\{\\s*\\}", 
-            "Decorator\\s+extends\\s+.*?", 
-            "Proxy\\s+implements\\s+.*?", 
-            "SingletonHolder",
-            "Visitor\\s+implements\\s+.*?",
-            "Command\\s+implements\\s+.*?",
-            "Observer\\s+implements\\s+.*?",
-            "Subject\\s+.*?\\{\\s*.*?\\}",
-            "templateMethod\\s*\\(.*?\\)",
-            "new\\s+Facade\\s*\\(.*?\\)"
-        ],
-        "justification": "Common Java idioms for creational, structural, and behavioral design patterns including Singleton, Builder, Factory, Observer, Strategy, Decorator, Proxy, Visitor, Command, Template, and Facade."
+      "skill": "Design Patterns",
+      "identifiers": [
+        "\\bSingleton\\b",
+        "\\bFactory\\b",
+        "\\bBuilder\\b",
+        "\\bStrategy\\b",
+        "\\bObserver\\b",
+        "\\bDecorator\\b",
+        "\\bProxy\\b",
+        "\\bTemplate\\b",
+        "\\bVisitor\\b"
+      ]
     },
+  
     {
-        "skill": "Logging & Monitoring",
-        "identifiers": [
-            "import\\s+org\\.slf4j\\.Logger",
-            "import\\s+org\\.slf4j\\.LoggerFactory",
-            "import\\s+java\\.util\\.logging\\.Logger",
-            "Logger\\s+logger\\s*=\\s*LoggerFactory\\.getLogger\\s*\\(.*?\\)",
-            "Logger\\s+logger\\s*=\\s*Logger\\.getLogger\\s*\\(.*?\\)",
-            "logger\\.info\\s*\\(.*?\\)",
-            "logger\\.debug\\s*\\(.*?\\)",
-            "logger\\.error\\s*\\(.*?\\)",
-            "logger\\.warn\\s*\\(.*?\\)",
-            "logger\\.trace\\s*\\(.*?\\)",
-            "System\\.out\\.println\\s*\\(.*?\\)",
-            "System\\.err\\.println\\s*\\(.*?\\)",
-            "@Slf4j",
-            "@Log4j",
-            "@Log4j2"
-        ],
-        "justification": "Common logging APIs and annotations including SLF4J, Log4j, Java Util Logging, and standard console logging for monitoring and instrumentation."
+      "skill": "Logging & Monitoring",
+      "identifiers": [
+        "\\blogger\\b",
+        "\\bLogger\\b",
+        "\\bLoggerFactory\\b",
+        "@Slf4j",
+        "@Log4j",
+        "import\\s+org\\.slf4j",
+        "import\\s+org\\.apache\\.logging"
+      ]
     },
+  
     {
-        "skill": "Security & Crypto",
-        "identifiers": [
-            "@PreAuthorize\\s*\\(.*?\\)",
-            "@PostAuthorize\\s*\\(.*?\\)",
-            "@Secured\\s*\\(.*?\\)",
-            "@RolesAllowed\\s*\\(.*?\\)",
-            "BCryptPasswordEncoder\\s+.*?\\s*=\\s*new\\s+BCryptPasswordEncoder\\s*\\(\\s*\\)",
-            "PasswordEncoder\\s+.*?\\s*=\\s*new\\s+.*?PasswordEncoder\\s*\\(.*?\\)",
-            "Cipher\\.getInstance\\s*\\(.*?\\)",
-            "MessageDigest\\.getInstance\\s*\\(.*?\\)",
-            "KeyPairGenerator\\.getInstance\\s*\\(.*?\\)",
-            "KeyFactory\\.getInstance\\s*\\(.*?\\)",
-            "SecretKeySpec\\s+.*?\\s*=\\s*new\\s+SecretKeySpec\\s*\\(.*?\\)",
-            "Mac\\.getInstance\\s*\\(.*?\\)",
-            "SecureRandom\\s+.*?\\s*=\\s*new\\s+SecureRandom\\s*\\(\\s*\\)"
-        ],
-        "justification": "Covers Spring Security annotations for authorization and common Java cryptography APIs including hashing, encryption, MAC, key generation, and secure randomization."
+      "skill": "Security & Crypto",
+      "identifiers": [
+        "@PreAuthorize",
+        "@PostAuthorize",
+        "@Secured",
+        "@RolesAllowed",
+        "\\bCipher\\b",
+        "\\bMessageDigest\\b",
+        "\\bKeyFactory\\b",
+        "\\bBCryptPasswordEncoder\\b",
+        "\\bSecureRandom\\b",
+        "import\\s+org\\.springframework\\.security"
+      ]
     },
+  
     {
-        "skill": "CI/CD & Deployment Automation",
-        "identifiers": [
-            "\\.github/workflows/.*?\\.ya?ml",
-            "mvn\\s+-DskipTests\\s+package",
-            "mvn\\s+clean\\s+install",
-            "Dockerfile",
-            "docker-compose\\.yml",
-            "Jenkinsfile",
-            "GitLab-CI\\.yml",
-            "circleci/config\\.yml",
-            "travis\\.yml",
-            "\\.kube/config",
-            "helm\\s+install",
-            "helm\\s+upgrade",
-            "kubectl\\s+apply\\s+-f\\s+.*?",
-            "ansible-playbook\\s+.*?",
-            "terraform\\s+apply"
-        ],
-        "justification": "Pipeline and deployment automation artifacts including GitHub Actions, Docker, Docker Compose, Jenkins, GitLab CI, CircleCI, TravisCI, Helm, Kubernetes, Ansible, and Terraform scripts and commands."
+      "skill": "CI/CD & Deployment Automation",
+      "identifiers": [
+        "\\.github/workflows",
+        "Dockerfile",
+        "docker-compose\\.yml",
+        "Jenkinsfile",
+        "\\bkubectl\\b",
+        "\\bhelm\\b",
+        "\\bterraform\\b"
+      ]
     },
+  
     {
-        "skill": "CLI / Utility",
-        "identifiers": [
-            "\\bpublic\\b\\s+static\\s+\\bvoid\\b\\s+\\bmain\\s*\\(\\s*String\\s*\\[\\s*\\]\\s+args\\s*\\)",
-            "System\\.out\\.println\\s*\\(.*?\\)",
-            "System\\.err\\.println\\s*\\(.*?\\)",
-            "Scanner\\s+.*?\\s*=\\s*new\\s+Scanner\\s*\\(.*?\\)",
-            "Console\\s+.*?\\s*=\\s*System\\.console\\s*\\(\\s*\\)",
-            "args\\s*\\[\\s*\\d+\\s*\\]",
-            "java\\.util\\.Properties\\s+.*?\\s*=\\s*new\\s+Properties\\s*\\(\\s*\\)",
-            "Properties\\.load\\s*\\(.*?\\)",
-            "Properties\\.getProperty\\s*\\(.*?\\)",
-            "Files\\.readAllLines\\s*\\(.*?\\)",
-            "Files\\.write\\s*\\(.*?\\)"
-        ],
-        "justification": "Java CLI entry points, standard input/output, console utilities, argument handling, and file-based utility operations."
+      "skill": "CLI / Utility",
+      "identifiers": [
+        "\\bpublic\\s+static\\s+void\\s+main\\b",
+        "\\bSystem\\.out\\b",
+        "\\bSystem\\.err\\b",
+        "\\bScanner\\b",
+        "\\bProperties\\b"
+      ]
     },
+  
     {
-        "skill": "Memory & Runtime Awareness",
-        "identifiers": [
-            "System\\.gc\\s*\\(\\s*\\)",
-            "Runtime\\.getRuntime\\(\\)\\.totalMemory\\s*\\(\\s*\\)",
-            "Runtime\\.getRuntime\\(\\)\\.freeMemory\\s*\\(\\s*\\)",
-            "Runtime\\.getRuntime\\(\\)\\.maxMemory\\s*\\(\\s*\\)",
-            "ThreadLocal\\s*<.*?>\\s+.*?\\s*=\\s*new\\s+ThreadLocal\\s*<.*?>\\s*\\(\\s*\\)",
-            "WeakReference\\s*<.*?>\\s+.*?\\s*=\\s*new\\s+WeakReference\\s*\\(.*?\\)",
-            "SoftReference\\s*<.*?>\\s+.*?\\s*=\\s*new\\s+SoftReference\\s*\\(.*?\\)",
-            "PhantomReference\\s*<.*?>\\s+.*?\\s*=\\s*new\\s+PhantomReference\\s*\\(.*?\\)",
-            "ReferenceQueue\\s*<.*?>\\s+.*?\\s*=\\s*new\\s+ReferenceQueue\\s*<.*?>\\s*\\(\\s*\\)",
-            "\\bprotected\\s+void\\s+finalize\\s*\\(\\s*\\)",
-            "ManagementFactory\\.getMemoryMXBean\\s*\\(\\s*\\)",
-            "ManagementFactory\\.getThreadMXBean\\s*\\(\\s*\\)"
-        ],
-        "justification": "JVM memory and runtime inspection APIs, including garbage collection calls, reference types (Weak, Soft, Phantom), ThreadLocal usage, and MXBeans for monitoring memory and threads."
+      "skill": "Memory & Runtime Awareness",
+      "identifiers": [
+        "\\bSystem\\.gc\\b",
+        "\\bThreadLocal\\b",
+        "\\bWeakReference\\b",
+        "\\bSoftReference\\b",
+        "\\bPhantomReference\\b",
+        "\\bRuntime\\.getRuntime\\b"
+      ]
     },
+  
     {
-        "skill": "Android (mobile)",
-        "identifiers": [
-            "extends\\s+Activity",
-            "extends\\s+AppCompatActivity",
-            "extends\\s+Fragment",
-            "extends\\s+DialogFragment",
-            "Intent\\s+.*?\\s*=\\s*new\\s+Intent\\s*\\(.*?\\)",
-            "Bundle\\s+.*?\\s*=\\s*new\\s+Bundle\\s*\\(\\s*\\)",
-            "RecyclerView",
-            "ViewModel",
-            "LiveData",
-            "MutableLiveData",
-            "RoomDatabase",
-            "Entity",
-            "Dao",
-            "implements\\s+Parcelable",
-            "@BindView",
-            "@OnClick",
-            "Navigation\\.findNavController\\s*\\(.*?\\)",
-            "NavController"
-        ],
-        "justification": "Android-specific APIs including Activities, Fragments, Intents, Bundles, RecyclerView, ViewModel, LiveData, Room components, Parcelable, and navigation/annotation utilities."
+      "skill": "Android (mobile)",
+      "identifiers": [
+        "\\bActivity\\b",
+        "\\bAppCompatActivity\\b",
+        "\\bFragment\\b",
+        "\\bIntent\\b",
+        "\\bBundle\\b",
+        "\\bViewModel\\b",
+        "\\bLiveData\\b",
+        "import\\s+android\\."
+      ]
     }
-]
+  ]
+  
