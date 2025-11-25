@@ -42,7 +42,7 @@ class LanguageConfig:
     
     def __init__(self, config_path: Optional[Path] = None):
         if config_path is None:
-            config_path = Path(__file__).parent / "language_config.yml"
+            config_path = Path(__file__).parent / "rules" / "language_config.yml"
         self._config = self._load_config(config_path)
     
     def _load_config(self, config_path: Path) -> Dict[str, Any]:
@@ -447,4 +447,4 @@ def analyze_project_lines_of_code(project_path: str, include_filtered: bool = Fa
 
 
 
-    
+

@@ -2,6 +2,7 @@ import sys
 import os
 from pathlib import Path
 from typing import Optional
+import json 
 
 import typer
 import zipfile
@@ -14,6 +15,8 @@ from src.core.config_manager import save_config, load_config
 from src.core.run import validate_and_parse
 from src.core.metadata_parser import parse_metadata, save_metadata_json
 from src.core.language_analyzer import ProjectAnalyzer, StatsFormatter
+from src.core.project_analyzer import analyze_project, project_analysis_to_dict
+
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
 
@@ -123,20 +126,20 @@ def extract(
     if path.is_file() and path.suffix.lower() == ".zip":
         res = validate_and_parse(path)
         if not res["is_valid"]:
-            typer.secho(f"❌ Invalid ZIP: {path.name}", fg=typer.colors.RED)
+            typer.secho(f"Invalid ZIP: {path.name}", fg=typer.colors.RED)
             for err in res["validation_errors"]:
                 typer.echo(f"  - {err}")
             raise typer.Exit(code=2)
         df = res["metadata"]
         json_path = save_metadata_json(df, output_filename=f"{path.stem}_metadata.json")
-        typer.secho(f"✅ Metadata saved: {json_path}", fg=typer.colors.GREEN)
+        typer.secho(f"Metadata saved: {json_path}", fg=typer.colors.GREEN)
         return
 
     # CASE 2: directory -> parse recursively and returns each file inside of a folder 
     if path.is_dir():
         df = parse_metadata(str(path))
         json_path = save_metadata_json(df, output_filename=f"{path.name}_metadata.json")
-        typer.secho(f"✅ Directory metadata saved: {json_path}", fg=typer.colors.GREEN)
+        typer.secho(f"Directory metadata saved: {json_path}", fg=typer.colors.GREEN)
         return
 
     # CASE 3: single non-zip file -> build a one-row DataFrame
@@ -158,7 +161,7 @@ def extract(
                 "last_modified": os.path.getmtime(path),
             }])
             json_path = save_metadata_json(df, output_filename=f"{path.stem}_metadata.json")
-            typer.secho(f"✅ File metadata saved: {json_path}", fg=typer.colors.GREEN)
+            typer.secho(f"File metadata saved: {json_path}", fg=typer.colors.GREEN)
             return
         except Exception as e:
             typer.secho(f"Failed to parse file: {e}", fg=typer.colors.RED)
@@ -186,7 +189,7 @@ def analyze_language(
         
         # Handle ZIP file by extracting to temporary directory
         if path.is_file() and path.suffix.lower() == ".zip":
-            typer.secho(f"📦 Extracting ZIP file: {path.name}", fg=typer.colors.BLUE)
+            typer.secho(f"Extracting ZIP file: {path.name}", fg=typer.colors.BLUE)
             
             with TemporaryDirectory() as temp_dir:
                 try:
@@ -201,10 +204,10 @@ def analyze_language(
                         # Use original ZIP filename for output
                         output_filename = f"{path.stem}_language_analysis.json"
                         json_file_path = formatter.save_analysis_to_json(analyzer, temp_dir, output_file=output_filename, include_filtered=False)
-                        typer.secho(f"✅ Analysis saved to: {json_file_path}", fg=typer.colors.GREEN)
+                        typer.secho(f"Analysis saved to: {json_file_path}", fg=typer.colors.GREEN)
                         
                 except zipfile.BadZipFile:
-                    typer.secho(f"❌ Invalid ZIP file: {path}", fg=typer.colors.RED)
+                    typer.secho(f"Invalid ZIP file: {path}", fg=typer.colors.RED)
                     raise typer.Exit(code=2)
                     
         elif path.is_dir():
@@ -214,7 +217,7 @@ def analyze_language(
             else:
                 formatter.print_detailed_language_stats(analyzer, str(path), show_filtered=False)
                 json_file_path = formatter.save_analysis_to_json(analyzer, str(path), include_filtered=False)
-                typer.secho(f"✅ Analysis saved to: {json_file_path}", fg=typer.colors.GREEN)
+                typer.secho(f"Analysis saved to: {json_file_path}", fg=typer.colors.GREEN)
         else:
             typer.secho("Language analysis requires a directory or ZIP file.", fg=typer.colors.RED)
             raise typer.Exit(code=2)
@@ -222,6 +225,22 @@ def analyze_language(
     except Exception as e:
         typer.secho(f"Analysis failed: {e}", fg=typer.colors.RED)
         raise typer.Exit(code=1)
+
+@app.command("analyze-code")
+def analyze_code(path: str, out: Optional[Path] = typer.Option(None, "--out", "-o")):
+    root = Path(path)
+    result = analyze_project(root)
+    data = project_analysis_to_dict(result)
+
+    if out is None:
+        out_dir = Path.cwd() / "outputs"
+        out_dir.mkdir(exist_ok=True)
+        out = out_dir / "code_complexity.json"
+
+    out.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    typer.echo(f"Saved JSON -> {out}")
+
+
 
 if __name__ == "__main__":
     print("Running in virtual env:", check_virtual_env())
@@ -240,6 +259,8 @@ if __name__ == "__main__":
         print(f"Config save/load skipped or failed: {e}")
 
     app()
+
+
 
 
 

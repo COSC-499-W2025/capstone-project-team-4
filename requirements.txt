@@ -12,5 +12,9 @@ pytest             # testing framework
 pytest-cov         # for test coverage reports
 tqdm               # progress bars
 sqlite-utils       # optional helper for DB
-python-dotenv      # for environment variables (was 'dotenv')
-nltk               # natural language toolkit
+pyyaml>=6.0.2      # YAML loader for frameworks.yml
+dotenv
+nltk
+tree-sitter==0.21.0
+tree-sitter-languages==1.7.0
+#flake8             # for linting and code style checks
