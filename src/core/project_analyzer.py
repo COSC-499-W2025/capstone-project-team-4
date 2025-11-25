@@ -30,51 +30,68 @@ def analyze_contributors(project_path=".", use_all_branches=False):
     # NOTE: By default, it will get the commits from only the current branch HEAD. If you want to get all commits,
     # input -all instead. So it would be, `repo.iter_commits('--all')`
 
-    commit_range = '--all' if use_all_branches else None
-    for commit in repo.iter_commits(commit_range):
-        name = commit.author.name.strip()
-        email = commit.author.email.strip().lower()
+    try:
+        commit_range = '--all' if use_all_branches else None
+        for commit in repo.iter_commits(commit_range):
+            name = commit.author.name.strip()
+            email = commit.author.email.strip().lower()
 
-        # Skip bots
-        if "[bot]" in name.lower():
-            continue
+            # Skip bots
+            if "[bot]" in name.lower():
+                continue
 
-        key = name.lower()  # unify identity by name
+            key = name.lower()  # unify identity by name
 
-        # Initialize contributor record
-        if key not in contributors:
-            contributors[key] = {
-                "name": name,
-                "primary_email": email,
-                "commits": 0,
-                "percent": 0,
-                "history": [],
-                "total_lines_added": 0,
-                "total_lines_deleted": 0,
-                "files_modified": defaultdict(int)
-            }
+            # Initialize contributor record
+            if key not in contributors:
+                contributors[key] = {
+                    "name": name,
+                    "primary_email": email,
+                    "commits": 0,
+                    "percent": 0,
+                    "history": [],
+                    "total_lines_added": 0,
+                    "total_lines_deleted": 0,
+                    "files_modified": defaultdict(int)
+                }
 
-        commit_counts[key] += 1
+            commit_counts[key] += 1
 
-        stats = commit.stats
+            try:
+                stats = commit.stats
+                
+                # Per-file modifications
+                for file_path, file_stats in stats.files.items():
+                    contributors[key]["files_modified"][file_path] += 1
 
-        # Per-file modifications
-        for file_path, file_stats in stats.files.items():
-            contributors[key]["files_modified"][file_path] += 1
+                # Line-level stats
+                contributors[key]["total_lines_added"] += stats.total.get("insertions", 0)
+                contributors[key]["total_lines_deleted"] += stats.total.get("deletions", 0)
 
-        # Line-level stats
-        contributors[key]["total_lines_added"] += stats.total.get("insertions", 0)
-        contributors[key]["total_lines_deleted"] += stats.total.get("deletions", 0)
-
-        # Commit history entry
-        contributors[key]["history"].append({
-            "hash": commit.hexsha,
-            "message": commit.message.strip(),
-            "timestamp": commit.committed_date,
-            "files_changed": list(stats.files.keys()),
-            "insertions": stats.total.get("insertions", 0),
-            "deletions": stats.total.get("deletions", 0)
-        })
+                # Commit history entry
+                contributors[key]["history"].append({
+                    "hash": commit.hexsha,
+                    "message": commit.message.strip(),
+                    "timestamp": commit.committed_date,
+                    "files_changed": list(stats.files.keys()),
+                    "insertions": stats.total.get("insertions", 0),
+                    "deletions": stats.total.get("deletions", 0)
+                })
+            except Exception as stats_error:
+                print(f"[WARN] Error getting stats for commit {commit.hexsha}: {stats_error}")
+                # Add commit without stats
+                contributors[key]["history"].append({
+                    "hash": commit.hexsha,
+                    "message": commit.message.strip(),
+                    "timestamp": commit.committed_date,
+                    "files_changed": [],
+                    "insertions": 0,
+                    "deletions": 0
+                })
+                
+    except Exception as e:
+        print(f"[WARN] Error accessing Git repository commits: {e}. Returning empty contributors.")
+        return []
 
     # Format contributors into final list
     total_commits = sum(commit_counts.values())
