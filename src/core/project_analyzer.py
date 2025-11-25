@@ -72,7 +72,6 @@ def analyze_contributors(project_path=".", use_all_branches=False):
 
             try:
                 stats = commit.stats
-
                 # Per-file modifications
                 for file_path, file_stats in stats.files.items():
                     contributors[key]["files_modified"][file_path] += 1
@@ -183,23 +182,6 @@ def calculate_project_stats(project_path, file_list):
     }
 
     return metrics
-
-
-def save_project_metrics(metrics: dict, output_filename="project_metrics.json"):
-    """
-    Save project metrics (from calculate_project_stats) to JSON inside src/outputs
-    """
-
-    outputs_dir = os.path.join(os.path.dirname(__file__), "..", "outputs")
-    os.makedirs(outputs_dir, exist_ok=True)
-
-    output_path = os.path.join(outputs_dir, output_filename)
-
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(metrics, f, indent=2, ensure_ascii=False)
-
-    print(f"[INFO] Project metrics saved to: {output_path}")
-    return output_path
 
 
 def save_project_metrics(metrics: dict, output_filename="project_metrics.json"):
