@@ -1,0 +1,227 @@
+[
+    {
+        "skill": "Core PHP & Procedural Programming",
+        "identifiers": [
+            "<\\?php",
+            "\\becho\\b",
+            "\\binclude\\b",
+            "\\brequire\\b",
+            "\\bglobal\\b",
+            "\\breturn\\b",
+            "\\bvar_dump\\b",
+            "\\bisset\\b",
+            "\\bempty\\b"
+        ]
+    },
+    {
+        "skill": "Object-Oriented Programming (OOP)",
+        "identifiers": [
+            "\\bclass\\b",
+            "\\binterface\\b",
+            "\\btrait\\b",
+            "\\bextends\\b",
+            "\\bimplements\\b",
+            "\\bnamespace\\b",
+            "\\buse\\b",
+            "\\babstract\\b",
+            "\\bfinal\\b",
+            "\\bprivate\\b",
+            "\\bpublic\\b",
+            "\\bprotected\\b",
+            "\\bstatic\\b",
+            "\\bself::\\b",
+            "\\bparent::\\b",
+            "\\bnew\\b"
+        ]
+    },
+    {
+        "skill": "Laravel (MVC, Eloquent, Blade)",
+        "identifiers": [
+            "use\\s+Illuminate",
+            "use\\s+App\\\\",
+            "\\bRoute::\\b",
+            "\\bRequest\\b",
+            "\\bController\\b",
+            "\\bModel\\b",
+            "\\bEloquent\\b",
+            "@extends",
+            "@section",
+            "@csrf",
+            "@foreach"
+        ]
+    },
+    {
+        "skill": "Symfony",
+        "identifiers": [
+            "use\\s+Symfony\\\\",
+            "\\bController\\\\AbstractController\\b",
+            "\\bHttpFoundation\\\\Request\\b",
+            "\\bHttpFoundation\\\\Response\\b",
+            "\\bTwig\\\\Environment\\b"
+        ]
+    },
+    {
+        "skill": "Composer & Dependency Management",
+        "identifiers": [
+            "composer\\.json",
+            "composer\\.lock",
+            "\\bvendor\\/autoload\\.php\\b",
+            "\\brequire\\s*:\\s*\\{",
+            "\\bautoload\\b"
+        ]
+    },
+    {
+        "skill": "HTTP & Web Development",
+        "identifiers": [
+            "\\b\\$_GET\\b",
+            "\\b\\$_POST\\b",
+            "\\b\\$_SERVER\\b",
+            "\\b\\$_REQUEST\\b",
+            "\\bheader\\b",
+            "\\bcurl_init\\b",
+            "\\bResponse\\b",
+            "\\bRequest\\b"
+        ]
+    },
+    {
+        "skill": "Database & SQL (PDO / MySQLi)",
+        "identifiers": [
+            "new\\s+PDO",
+            "\\bPDO::\\b",
+            "mysqli_connect",
+            "use\\s+Doctrine",
+            "\\bprepare\\b",
+            "\\bexecute\\b",
+            "\\bfetchAll\\b",
+            "\\bfetch\\b"
+        ]
+    },
+    {
+        "skill": "JSON & Serialization",
+        "identifiers": [
+            "\\bjson_encode\\b",
+            "\\bjson_decode\\b",
+            "\\bSerializable\\b",
+            "\\bunserialize\\b",
+            "\\bserialize\\b"
+        ]
+    },
+    {
+        "skill": "Error Handling",
+        "identifiers": [
+            "\\btry\\b",
+            "\\bcatch\\b",
+            "\\bfinally\\b",
+            "\\bthrow\\b",
+            "set_exception_handler",
+            "\\bErrorException\\b"
+        ]
+    },
+    {
+        "skill": "File I/O",
+        "identifiers": [
+            "\\bfopen\\b",
+            "\\bfclose\\b",
+            "\\bfgets\\b",
+            "\\bfwrite\\b",
+            "\\bfile_get_contents\\b",
+            "\\bfile_put_contents\\b",
+            "\\bis_readable\\b",
+            "\\bis_writable\\b"
+        ]
+    },
+    {
+        "skill": "Sessions & Cookies",
+        "identifiers": [
+            "\\bsession_start\\b",
+            "\\b\\$_SESSION\\b",
+            "\\bsetcookie\\b",
+            "\\b\\$_COOKIE\\b"
+        ]
+    },
+    {
+        "skill": "Security & Authentication",
+        "identifiers": [
+            "\\bpassword_hash\\b",
+            "\\bpassword_verify\\b",
+            "\\bopenssl_encrypt\\b",
+            "\\bopenssl_decrypt\\b",
+            "\\bhash_hmac\\b",
+            "\\bcsrf\\b",
+            "\\bJWT\\b"
+        ]
+    },
+    {
+        "skill": "API Development (REST, GraphQL)",
+        "identifiers": [
+            "use\\s+GuzzleHttp",
+            "use\\s+GraphQL",
+            "\\bResponse\\b",
+            "\\bRequest\\b",
+            "\\bApiController\\b",
+            "\\bJsonResponse\\b"
+        ]
+    },
+    {
+        "skill": "Testing (PHPUnit, Pest)",
+        "identifiers": [
+            "use\\s+PHPUnit",
+            "\\bTestCase\\b",
+            "\\bassertEquals\\b",
+            "\\bassertTrue\\b",
+            "\\bassertFalse\\b",
+            "\\bdescribe\\(",
+            "\\bit\\("
+        ]
+    },
+    {
+        "skill": "Regular Expressions",
+        "identifiers": [
+            "\\bpreg_match\\b",
+            "\\bpreg_replace\\b",
+            "\\bpreg_split\\b",
+            "\\bRegex\\b"
+        ]
+    },
+    {
+        "skill": "CLI & Utility",
+        "identifiers": [
+            "\\bphp_sapi_name\\b",
+            "\\bargv\\b",
+            "\\bargc\\b",
+            "\\bphp://stdin\\b",
+            "\\bphp://stdout\\b",
+            "\\bphp://stderr\\b"
+        ]
+    },
+    {
+        "skill": "Logging & Monitoring",
+        "identifiers": [
+            "use\\s+Monolog",
+            "\\bLogger\\b",
+            "\\berror_log\\b",
+            "\\bnotice\\b"
+        ]
+    },
+    {
+        "skill": "Performance & Optimization",
+        "identifiers": [
+            "\\bopcache\\b",
+            "\\bmemory_get_usage\\b",
+            "\\bprofile\\b",
+            "\\busleep\\b",
+            "\\bfastcgi_finish_request\\b"
+        ]
+    },
+    {
+        "skill": "Build & Deployment",
+        "identifiers": [
+            "Dockerfile",
+            "docker-compose\\.yml",
+            "\\.github/workflows",
+            "\\bENV\\b",
+            "\\bcomposer install\\b",
+            "\\bcomposer dump-autoload\\b"
+        ]
+    }
+]

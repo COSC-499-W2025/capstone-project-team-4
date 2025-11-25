@@ -1,0 +1,214 @@
+[
+    {
+        "skill": "Core Rust (Ownership, Borrowing, Mutability)",
+        "identifiers": [
+            "\\blet\\b",
+            "\\bmut\\b",
+            "\\bref\\b",
+            "\\bderef\\b",
+            "\\bborrow\\b",
+            "\\bBox<",
+            "\\bRc<",
+            "\\bArc<",
+            "\\bCell<",
+            "\\bRefCell<"
+        ]
+    },
+    {
+        "skill": "Enums & Pattern Matching",
+        "identifiers": [
+            "\\benum\\b",
+            "\\bmatch\\b",
+            "\\bSome\\b",
+            "\\bNone\\b",
+            "\\bOk\\b",
+            "\\bErr\\b",
+            "\\bResult<",
+            "\\bOption<"
+        ]
+    },
+    {
+        "skill": "Traits & Generics",
+        "identifiers": [
+            "\\btrait\\b",
+            "\\bimpl\\b",
+            "<[A-Za-z_][A-Za-z0-9_]*>",
+            "\\bwhere\\b",
+            "\\bSelf\\b",
+            "\\bSized\\b",
+            "\\bCopy\\b",
+            "\\bClone\\b",
+            "\\bDefault\\b",
+            "\\bSend\\b",
+            "\\bSync\\b"
+        ]
+    },
+    {
+        "skill": "Lifetimes",
+        "identifiers": [
+            "'[a-z]+",
+            "\\blifetime\\b",
+            "\\b&'static\\b"
+        ]
+    },
+    {
+        "skill": "Async Programming",
+        "identifiers": [
+            "\\basync\\b",
+            "\\bawait\\b",
+            "\\bfuture\\b",
+            "use\\s+tokio",
+            "use\\s+futures",
+            "\\bJoinHandle\\b"
+        ]
+    },
+    {
+        "skill": "Concurrency & Parallelism",
+        "identifiers": [
+            "use\\s+std::thread",
+            "use\\s+std::sync",
+            "\\bMutex<",
+            "\\bRwLock<",
+            "\\bAtomicU",
+            "\\bAtomicI",
+            "\\bthread::spawn\\b",
+            "use\\s+rayon"
+        ]
+    },
+    {
+        "skill": "Macros & Meta-programming",
+        "identifiers": [
+            "macro_rules!",
+            "\\bprintln!\\b",
+            "\\bformat!\\b",
+            "\\bvec!\\b",
+            "\\bdbg!\\b",
+            "\\b#[macro_use]\\b"
+        ]
+    },
+    {
+        "skill": "File I/O",
+        "identifiers": [
+            "use\\s+std::fs",
+            "\\bFile::open\\b",
+            "\\bFile::create\\b",
+            "use\\s+std::io",
+            "\\bRead\\b",
+            "\\bWrite\\b"
+        ]
+    },
+    {
+        "skill": "Networking (TCP/UDP, HTTP)",
+        "identifiers": [
+            "use\\s+std::net",
+            "\\bTcpStream\\b",
+            "\\bTcpListener\\b",
+            "\\bUdpSocket\\b",
+            "use\\s+reqwest",
+            "use\\s+hyper"
+        ]
+    },
+    {
+        "skill": "Web Frameworks (Actix, Rocket, Axum)",
+        "identifiers": [
+            "use\\s+actix",
+            "use\\s+actix_web",
+            "use\\s+rocket",
+            "use\\s+axum",
+            "\\b#[get]\\b",
+            "\\b#[post]\\b",
+            "\\bState<"
+        ]
+    },
+    {
+        "skill": "Serialization (Serde)",
+        "identifiers": [
+            "use\\s+serde",
+            "use\\s+serde_json",
+            "@derive\\(",
+            "\\bSerialize\\b",
+            "\\bDeserialize\\b"
+        ]
+    },
+    {
+        "skill": "Testing (Unit Tests + Property Testing)",
+        "identifiers": [
+            "\\b#[test]\\b",
+            "\\bassert_eq!\\b",
+            "\\bassert!\\b",
+            "use\\s+proptest",
+            "\\bquickcheck!\\b",
+            "use\\s+mockall"
+        ]
+    },
+    {
+        "skill": "Error Handling",
+        "identifiers": [
+            "\\bResult<",
+            "\\bOption<",
+            "\\b?\\b",
+            "use\\s+thiserror",
+            "\\banyhow\\b",
+            "\\bcontext\\b"
+        ]
+    },
+    {
+        "skill": "Build & Package Management (Cargo)",
+        "identifiers": [
+            "Cargo\\.toml",
+            "Cargo\\.lock",
+            "\\[dependencies\\]",
+            "\\[dev-dependencies\\]",
+            "\\[[A-Za-z-]+\\]"
+        ]
+    },
+    {
+        "skill": "Unsafe & Low-Level Systems Programming",
+        "identifiers": [
+            "\\bunsafe\\b",
+            "\\bextern\\b",
+            "\\bffi\\b",
+            "use\\s+std::alloc",
+            "use\\s+std::ptr",
+            "\\bvolatile\\b"
+        ]
+    },
+    {
+        "skill": "Embedded & IoT (no_std, HAL)",
+        "identifiers": [
+            "#!\\[no_std\\]",
+            "use\\s+embedded_hal",
+            "use\\s+cortex_m",
+            "use\\s+stm32",
+            "use\\s+rtic"
+        ]
+    },
+    {
+        "skill": "CLI & Utilities",
+        "identifiers": [
+            "use\\s+std::env",
+            "use\\s+clap",
+            "use\\s+structopt",
+            "\\bprintln!\\b"
+        ]
+    },
+    {
+        "skill": "Logging & Monitoring",
+        "identifiers": [
+            "use\\s+log",
+            "use\\s+env_logger",
+            "use\\s+tracing",
+            "use\\s+tracing_subscriber"
+        ]
+    },
+    {
+        "skill": "Performance & Optimization",
+        "identifiers": [
+            "\\binline\\b",
+            "use\\s+criterion",
+            "\\b#[inline]\\b",
+            "\\bbenchmark\\b",
+            "\\bperf\\b"
+        ]
+    }
+]
