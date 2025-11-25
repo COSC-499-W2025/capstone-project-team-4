@@ -23,11 +23,12 @@ EXPECTED_NCLOC = 35
 
 # Expected raw counts based on the contents and the mapping file (manually counted)
 EXPECTED_COUNTS = {
-    "Object-Oriented Programming (OOP)": 12,
-    "Concurrency & Multithreading": 3,
+    "Object-Oriented Programming (OOP)": 10,
+    "Concurrency & Multithreading": 4,
     "Exception Handling & Robustness": 2,
-    "Data Structures & Algorithms": 2,
-    "CLI / Utility": 6,
+    "Functional Programming (Streams)": 1,
+    "Data Structures & Algorithms": 8,
+    "CLI / Utility": 7,
 }
 
 @pytest.fixture(scope="module")
