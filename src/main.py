@@ -18,7 +18,7 @@ from src.core.language_analyzer import ProjectAnalyzer, StatsFormatter
 from src.core.project_analyzer import analyze_project, project_analysis_to_dict
 
 
-app = typer.Typer(help="Mining Digital Work Artifacts CLI")
+app = typer.Typer(help="Mining Digital Work Artifacts CLI - Extract metadata and professional skills from code repositories")
 
 # This is for testing if your local environment is running the "virtual environment"
 # It should say True
@@ -94,6 +94,7 @@ def extract(
     external: Optional[bool] = typer.Option(
         None, "--external/--no-external", help="Allow (or disallow) external APIs/services for this run."
     ),
+    extract_skills: bool = typer.Option(False, "--skills", help="Also extract professional skills from the project")
 ) -> None:
     
     """
@@ -133,13 +134,67 @@ def extract(
         df = res["metadata"]
         json_path = save_metadata_json(df, output_filename=f"{path.stem}_metadata.json")
         typer.secho(f"Metadata saved: {json_path}", fg=typer.colors.GREEN)
+        
+        # Extract skills if requested
+        if extract_skills:
+            try:
+                from src.core.resume_skill_extractor import analyze_project_skills
+                import json
+                from tempfile import TemporaryDirectory
+                import zipfile
+                
+                typer.secho("🧠 Extracting skills from project...", fg=typer.colors.BLUE)
+                
+                with TemporaryDirectory() as temp_dir:
+                    with zipfile.ZipFile(path, 'r') as zip_ref:
+                        zip_ref.extractall(temp_dir)
+                    
+                    skills_analysis = analyze_project_skills(temp_dir)
+                    skills_analysis['source'] = str(path)
+                    skills_analysis['source_type'] = 'zip_file'
+                    
+                    # Save skills analysis
+                    skills_path = out_dir / f"{path.stem}_skills.json"
+                    with open(skills_path, 'w', encoding='utf-8') as f:
+                        json.dump(skills_analysis, f, indent=2, ensure_ascii=False)
+                    
+                    typer.secho(f"🎯 Skills analysis saved: {skills_path}", fg=typer.colors.CYAN)
+                    typer.echo(f"   Skills found: {skills_analysis['total_skills']}")
+                    
+            except Exception as e:
+                typer.secho(f"⚠️  Skill extraction failed: {e}", fg=typer.colors.YELLOW)
+        
         return
 
     # CASE 2: directory -> parse recursively and returns each file inside of a folder 
     if path.is_dir():
-        df = parse_metadata(str(path))
+        df, project_root = parse_metadata(str(path))
         json_path = save_metadata_json(df, output_filename=f"{path.name}_metadata.json")
         typer.secho(f"Directory metadata saved: {json_path}", fg=typer.colors.GREEN)
+        
+        # Extract skills if requested
+        if extract_skills:
+            try:
+                from src.core.resume_skill_extractor import analyze_project_skills
+                import json
+                
+                typer.secho("🧠 Extracting skills from project...", fg=typer.colors.BLUE)
+                
+                skills_analysis = analyze_project_skills(path)
+                skills_analysis['source'] = str(path)
+                skills_analysis['source_type'] = 'directory'
+                
+                # Save skills analysis
+                skills_path = out_dir / f"{path.name}_skills.json"
+                with open(skills_path, 'w', encoding='utf-8') as f:
+                    json.dump(skills_analysis, f, indent=2, ensure_ascii=False)
+                
+                typer.secho(f"🎯 Skills analysis saved: {skills_path}", fg=typer.colors.CYAN)
+                typer.echo(f"   Skills found: {skills_analysis['total_skills']}")
+                
+            except Exception as e:
+                typer.secho(f"⚠️  Skill extraction failed: {e}", fg=typer.colors.YELLOW)
+        
         return
 
     # CASE 3: single non-zip file -> build a one-row DataFrame
@@ -169,6 +224,83 @@ def extract(
 
     typer.secho("Unsupported path type.", fg=typer.colors.RED)
     raise typer.Exit(code=2)
+
+@app.command()
+def extract_skills(
+    path: Path = typer.Argument(..., help="Path to directory or ZIP file to analyze for skills"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output filename (default: <project>_skills.json)")
+) -> None:
+    """Extract professional skills from a project directory or ZIP file."""
+    
+    path = path.resolve()
+    if not path.exists():
+        typer.secho(f"Path not found: {path}", fg=typer.colors.RED)
+        raise typer.Exit(code=2)
+    
+    try:
+        from src.core.resume_skill_extractor import analyze_project_skills
+        import json
+        from pathlib import Path as PathlibPath
+        
+        # Handle ZIP file by extracting to temporary directory
+        if path.is_file() and path.suffix.lower() == ".zip":
+            typer.secho(f"📦 Extracting ZIP file: {path.name}", fg=typer.colors.BLUE)
+            
+            from tempfile import TemporaryDirectory
+            import zipfile
+            
+            with TemporaryDirectory() as temp_dir:
+                try:
+                    with zipfile.ZipFile(path, 'r') as zip_ref:
+                        zip_ref.extractall(temp_dir)
+                    
+                    # Analyze the extracted content
+                    analysis = analyze_project_skills(temp_dir)
+                    analysis['source'] = str(path)
+                    analysis['source_type'] = 'zip_file'
+                    
+                except zipfile.BadZipFile:
+                    typer.secho(f"❌ Invalid ZIP file: {path}", fg=typer.colors.RED)
+                    raise typer.Exit(code=2)
+                    
+        elif path.is_dir():
+            # Handle directory 
+            analysis = analyze_project_skills(path)
+            analysis['source'] = str(path)
+            analysis['source_type'] = 'directory'
+        else:
+            typer.secho("Skill extraction requires a directory or ZIP file.", fg=typer.colors.RED)
+            raise typer.Exit(code=2)
+        
+        # Generate output filename
+        if output is None:
+            output = f"{path.stem}_skills.json"
+        
+        # Create outputs directory if it doesn't exist
+        outputs_dir = PathlibPath.cwd() / "outputs"
+        outputs_dir.mkdir(parents=True, exist_ok=True)
+        output_path = outputs_dir / output
+        
+        # Save results
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(analysis, f, indent=2, ensure_ascii=False)
+        
+        # Display summary
+        typer.secho(f"✅ Skills Analysis Complete!", fg=typer.colors.GREEN)
+        typer.echo(f"Languages detected: {len(analysis['languages'])}")
+        typer.echo(f"Frameworks detected: {len(analysis['frameworks'])}")
+        typer.echo(f"Skills extracted: {analysis['total_skills']}")
+        typer.echo(f"Skill categories: {len(analysis['skill_categories'])}")
+        
+        # Show top skills
+        if analysis['skills']:
+            typer.echo(f"\nTop skills: {', '.join(analysis['skills'][:8])}")
+        
+        typer.secho(f"📄 Full analysis saved to: {output_path}", fg=typer.colors.CYAN)
+        
+    except Exception as e:
+        typer.secho(f"Skills analysis failed: {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
 
 @app.command()
 def analyze_language(
