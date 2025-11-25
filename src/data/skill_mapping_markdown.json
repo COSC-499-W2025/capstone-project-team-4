@@ -1,0 +1,130 @@
+[
+    {
+        "skill": "Markdown Headings",
+        "identifiers": [
+            "^# ",
+            "^## ",
+            "^### ",
+            "^#### ",
+            "^##### ",
+            "^###### "
+        ]
+    },
+    {
+        "skill": "Paragraphs & Line Breaks",
+        "identifiers": [
+            "\\n\\n",
+            "  \\n"
+        ]
+    },
+    {
+        "skill": "Lists (Ordered & Unordered)",
+        "identifiers": [
+            "^\\* ",
+            "^- ",
+            "^\\+ ",
+            "^\\d+\\. "
+        ]
+    },
+    {
+        "skill": "Task Lists (GFM)",
+        "identifiers": [
+            "^- \\[ \\]",
+            "^- \\[x\\]",
+            "^\\* \\[ \\]",
+            "^\\* \\[x\\]"
+        ]
+    },
+    {
+        "skill": "Blockquotes",
+        "identifiers": [
+            "^> ",
+            "^>> ",
+            "^>>> "
+        ]
+    },
+    {
+        "skill": "Code Blocks & Inline Code",
+        "identifiers": [
+            "```",
+            "`[^`]+`",
+            "```[a-zA-Z0-9]*"
+        ]
+    },
+    {
+        "skill": "Links & Images",
+        "identifiers": [
+            "!\\[[^\\]]*\\]\\(",
+            "\\[[^\\]]*\\]\\(",
+            "\\]\\(http",
+            "\\]\\(https"
+        ]
+    },
+    {
+        "skill": "Text Formatting",
+        "identifiers": [
+            "\\*\\*[A-Za-z0-9]",
+            "__[A-Za-z0-9]",
+            "\\*[A-Za-z0-9]",
+            "_[A-Za-z0-9]",
+            "~~[A-Za-z0-9]"
+        ]
+    },
+    {
+        "skill": "Tables",
+        "identifiers": [
+            "^\\|",
+            "\\|-+",
+            "^-+\\|-+"
+        ]
+    },
+    {
+        "skill": "Frontmatter (YAML/Metadata Blocks)",
+        "identifiers": [
+            "^---$",
+            "^\\.{3}$"
+        ]
+    },
+    {
+        "skill": "Footnotes",
+        "identifiers": [
+            "\\[\\^.+?\\]:",
+            "\\[\\^[A-Za-z0-9_-]+\\]"
+        ]
+    },
+    {
+        "skill": "Mermaid Diagrams",
+        "identifiers": [
+            "```mermaid",
+            "\\bgraph (TD|LR)",
+            "flowchart"
+        ]
+    },
+    {
+        "skill": "Math (KaTeX / MathJax)",
+        "identifiers": [
+            "\\$\\$",
+            "\\$[^$]+\\$",
+            "\\\\\\(",
+            "\\\\\\)"
+        ]
+    },
+    {
+        "skill": "Table of Contents Indicators",
+        "identifiers": [
+            "\\[TOC\\]",
+            "<!-- toc -->",
+            "<!-- TOC -->"
+        ]
+    },
+    {
+        "skill": "HTML Inside Markdown",
+        "identifiers": [
+            "<div",
+            "<span",
+            "<br>",
+            "<img",
+            "<details"
+        ]
+    }
+]

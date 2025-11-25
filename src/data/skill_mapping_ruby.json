@@ -1,0 +1,214 @@
+[
+    {
+        "skill": "Core Ruby & OOP",
+        "identifiers": [
+            "\\bclass\\b",
+            "\\bmodule\\b",
+            "\\bdef\\b",
+            "\\bself\\b",
+            "\\bsuper\\b",
+            "\\battr_accessor\\b",
+            "\\battr_reader\\b",
+            "\\battr_writer\\b",
+            "\\binclude\\b",
+            "\\bextend\\b",
+            "\\bprivate\\b",
+            "\\bpublic\\b",
+            "\\bprotected\\b",
+            "\\binitialize\\b",
+            "\\bnew\\b"
+        ]
+    },
+    {
+        "skill": "Ruby Metaprogramming",
+        "identifiers": [
+            "\\bclass_eval\\b",
+            "\\bmodule_eval\\b",
+            "\\binstance_eval\\b",
+            "\\bmethod_missing\\b",
+            "\\bdefine_method\\b",
+            "\\bsend\\b",
+            "\\bconst_set\\b",
+            "\\bconst_get\\b"
+        ]
+    },
+    {
+        "skill": "Blocks, Lambdas, & Enumerables",
+        "identifiers": [
+            "\\bdo\\b",
+            "\\b\\{\\s*\\|.*\\|",
+            "\\blambda\\b",
+            "\\bproc\\b",
+            "\\bmap\\b",
+            "\\bselect\\b",
+            "\\breject\\b",
+            "\\bdetect\\b",
+            "\\breduce\\b",
+            "\\beach\\b",
+            "\\bcollect\\b",
+            "Enumerable"
+        ]
+    },
+    {
+        "skill": "Rails (MVC Framework)",
+        "identifiers": [
+            "Rails",
+            "ActiveRecord",
+            "ActionController",
+            "\\bApplicationController\\b",
+            "\\bApplicationRecord\\b",
+            "\\bbefore_action\\b",
+            "\\bhas_many\\b",
+            "\\bbelongs_to\\b",
+            "\\bhas_one\\b",
+            "\\bvalidates\\b",
+            "\\brenders\\b",
+            "routes\\.rb",
+            "\\berb\\b",
+            "ActiveSupport"
+        ]
+    },
+    {
+        "skill": "Sinatra (Lightweight Web Framework)",
+        "identifiers": [
+            "require ['\"]sinatra['\"]",
+            "\\bget ['\"]",
+            "\\bpost ['\"]",
+            "\\bput ['\"]",
+            "\\bdelete ['\"]",
+            "\\bhelpers do\\b"
+        ]
+    },
+    {
+        "skill": "JSON, YAML, Serialization",
+        "identifiers": [
+            "require ['\"]json['\"]",
+            "require ['\"]yaml['\"]",
+            "\\bJSON\\.parse\\b",
+            "\\bJSON\\.generate\\b",
+            "\\bYAML\\.load\\b",
+            "\\bYAML\\.dump\\b"
+        ]
+    },
+    {
+        "skill": "Database (ActiveRecord, Sequel)",
+        "identifiers": [
+            "ActiveRecord::Base",
+            "Sequel::Model",
+            "\\bbelongs_to\\b",
+            "\\bhas_many\\b",
+            "\\bvalidates\\b",
+            "\\bcreate_table\\b"
+        ]
+    },
+    {
+        "skill": "Networking & HTTP",
+        "identifiers": [
+            "require ['\"]net/http['\"]",
+            "require ['\"]uri['\"]",
+            "\\bNet::HTTP\\b",
+            "\\bURI::parse\\b",
+            "\\bTCPSocket\\b",
+            "\\bUDPSocket\\b"
+        ]
+    },
+    {
+        "skill": "File I/O",
+        "identifiers": [
+            "\\bFile\\.open\\b",
+            "\\bFile\\.read\\b",
+            "\\bFile\\.write\\b",
+            "\\bIO\\.read\\b",
+            "\\bIO\\.write\\b",
+            "\\bDir\\.glob\\b"
+        ]
+    },
+    {
+        "skill": "Concurrency (Threads, Fibers, Ractors)",
+        "identifiers": [
+            "\\bThread\\.new\\b",
+            "\\bThread\\b",
+            "\\bMutex\\b",
+            "\\bQueue\\b",
+            "\\bFiber\\.new\\b",
+            "\\bFiber\\b",
+            "\\bRactor\\b"
+        ]
+    },
+    {
+        "skill": "Security & Encryption",
+        "identifiers": [
+            "require ['\"]openssl['\"]",
+            "\\bOpenSSL::Cipher\\b",
+            "\\bOpenSSL::Digest\\b",
+            "\\bOpenSSL::PKey\\b",
+            "\\bHMAC\\b",
+            "\\bDigest::SHA256\\b"
+        ]
+    },
+    {
+        "skill": "Testing (RSpec, Minitest)",
+        "identifiers": [
+            "require ['\"]rspec['\"]",
+            "require ['\"]minitest",
+            "\\bdescribe ['\"]",
+            "\\bit ['\"]",
+            "\\bexpect\\(",
+            "\\bassert\\b",
+            "\\brefute\\b",
+            "\\bcontext ['\"]"
+        ]
+    },
+    {
+        "skill": "CLI / Shell Integration",
+        "identifiers": [
+            "\\bARGV\\b",
+            "\\bARGF\\b",
+            "\\bsystem\\(",
+            "\\bexec\\b",
+            "\\bgets\\b",
+            "\\bputs\\b"
+        ]
+    },
+    {
+        "skill": "Gem Ecosystem & Bundler",
+        "identifiers": [
+            "Gemfile",
+            "Gemfile\\.lock",
+            "\\bsource ['\"]rubygems['\"]",
+            "\\bgem ['\"]",
+            "\\bbundle install\\b",
+            "\\bbundler\\b"
+        ]
+    },
+    {
+        "skill": "Build Tools (Rake)",
+        "identifiers": [
+            "Rakefile",
+            "\\bnamespace :",
+            "\\btask :",
+            "\\binvoke\\b"
+        ]
+    },
+    {
+        "skill": "Error Handling",
+        "identifiers": [
+            "\\bbegin\\b",
+            "\\brescue\\b",
+            "\\bensure\\b",
+            "\\braise\\b",
+            "\\bStandardError\\b",
+            "\\bException\\b"
+        ]
+    },
+    {
+        "skill": "Performance & Optimization",
+        "identifiers": [
+            "\\bBenchmark\\b",
+            "require ['\"]benchmark['\"]",
+            "\\boptimize\\b",
+            "\\bGC\\.start\\b",
+            "\\bprofile\\b"
+        ]
+    }
+]

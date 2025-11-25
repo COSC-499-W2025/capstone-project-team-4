@@ -1,0 +1,191 @@
+[
+    {
+        "skill": "Core CSS Selectors",
+        "identifiers": [
+            "\\b[a-zA-Z0-9_-]+\\s*\\{",
+            "\\.[a-zA-Z0-9_-]+",
+            "\\#[a-zA-Z0-9_-]+",
+            "\\*\\s*\\{",
+            "\\[.+?\\]",
+            "\\b:root\\b"
+        ]
+    },
+    {
+        "skill": "Pseudo-Classes",
+        "identifiers": [
+            ":hover",
+            ":focus",
+            ":active",
+            ":visited",
+            ":checked",
+            ":disabled",
+            ":first-child",
+            ":last-child",
+            ":nth-child",
+            ":required",
+            ":valid",
+            ":invalid"
+        ]
+    },
+    {
+        "skill": "Pseudo-Elements",
+        "identifiers": [
+            "::before",
+            "::after",
+            "::placeholder",
+            "::selection",
+            "::first-letter",
+            "::first-line"
+        ]
+    },
+    {
+        "skill": "Layout (Flexbox)",
+        "identifiers": [
+            "display:\\s*flex",
+            "flex-direction",
+            "flex-wrap",
+            "justify-content",
+            "align-items",
+            "align-content",
+            "flex-grow",
+            "flex-shrink",
+            "flex-basis"
+        ]
+    },
+    {
+        "skill": "Layout (Grid)",
+        "identifiers": [
+            "display:\\s*grid",
+            "grid-template-columns",
+            "grid-template-rows",
+            "grid-area",
+            "grid-auto-flow",
+            "gap",
+            "row-gap",
+            "column-gap"
+        ]
+    },
+    {
+        "skill": "Positioning",
+        "identifiers": [
+            "position:\\s*absolute",
+            "position:\\s*relative",
+            "position:\\s*fixed",
+            "position:\\s*sticky",
+            "top:",
+            "left:",
+            "right:",
+            "bottom:",
+            "z-index"
+        ]
+    },
+    {
+        "skill": "Typography",
+        "identifiers": [
+            "font-family",
+            "font-size",
+            "font-weight",
+            "line-height",
+            "letter-spacing",
+            "word-spacing",
+            "text-align",
+            "text-transform",
+            "text-decoration"
+        ]
+    },
+    {
+        "skill": "Color & Background",
+        "identifiers": [
+            "color:",
+            "background:",
+            "background-color",
+            "background-image",
+            "opacity:",
+            "filter:"
+        ]
+    },
+    {
+        "skill": "Borders & Box Model",
+        "identifiers": [
+            "border",
+            "padding",
+            "margin",
+            "box-sizing",
+            "border-radius",
+            "outline"
+        ]
+    },
+    {
+        "skill": "Transforms & Animations",
+        "identifiers": [
+            "transform:",
+            "transition:",
+            "@keyframes",
+            "animation:",
+            "scale",
+            "rotate",
+            "translate",
+            "skew"
+        ]
+    },
+    {
+        "skill": "Responsive Design",
+        "identifiers": [
+            "@media",
+            "min-width",
+            "max-width",
+            "min-height",
+            "max-height",
+            "aspect-ratio"
+        ]
+    },
+    {
+        "skill": "CSS Variables",
+        "identifiers": [
+            "--[a-zA-Z0-9_-]+",
+            "var\\(",
+            ":root"
+        ]
+    },
+    {
+        "skill": "Accessibility (A11y)",
+        "identifiers": [
+            "outline:",
+            "cursor:",
+            "aria-",
+            ":focus-visible"
+        ]
+    },
+    {
+        "skill": "Sass / SCSS Indicators",
+        "identifiers": [
+            "\\$[a-zA-Z0-9_-]+",
+            "@mixin",
+            "@include",
+            "@extend",
+            "@function"
+        ]
+    },
+    {
+        "skill": "CSS Framework Markers",
+        "identifiers": [
+            "container mx-auto",
+            "flex ",
+            "grid ",
+            "col-",
+            "row-",
+            "btn",
+            "card",
+            "navbar"
+        ]
+    },
+    {
+        "skill": "Shadow DOM & Web Components",
+        "identifiers": [
+            "::part",
+            "::slotted",
+            ":host",
+            ":host-context"
+        ]
+    }
+]

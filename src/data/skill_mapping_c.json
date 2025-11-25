@@ -1,0 +1,205 @@
+[
+    {
+        "skill": "Procedural Programming (C Core)",
+        "identifiers": [
+            "\\bvoid\\b",
+            "\\bint\\b",
+            "\\bfloat\\b",
+            "\\bdouble\\b",
+            "\\bchar\\b",
+            "\\bunsigned\\b",
+            "\\blong\\b",
+            "\\bshort\\b",
+            "\\bstruct\\b",
+            "\\btypedef\\b",
+            "\\benum\\b",
+            "\\bunion\\b"
+        ]
+    },
+    {
+        "skill": "Pointers & Memory Management",
+        "identifiers": [
+            "\\bmalloc\\b",
+            "\\bcalloc\\b",
+            "\\brealloc\\b",
+            "\\bfree\\b",
+            "\\bmemcpy\\b",
+            "\\bmemset\\b",
+            "\\bmemmove\\b",
+            "\\bmemchr\\b",
+            "\\*&[A-Za-z_]",
+            "\\buintptr_t\\b",
+            "\\bintptr_t\\b"
+        ]
+    },
+    {
+        "skill": "Preprocessor & Macros",
+        "identifiers": [
+            "#include",
+            "#define",
+            "#ifdef",
+            "#ifndef",
+            "#endif",
+            "#pragma",
+            "\\b__FILE__\\b",
+            "\\b__LINE__\\b",
+            "\\b__func__\\b"
+        ]
+    },
+    {
+        "skill": "Standard Library Usage",
+        "identifiers": [
+            "import\\s+<stdio\\.h>",
+            "import\\s+<stdlib\\.h>",
+            "import\\s+<string\\.h>",
+            "import\\s+<math\\.h>",
+            "import\\s+<ctype\\.h>",
+            "\\bprintf\\b",
+            "\\bscanf\\b",
+            "\\bstrlen\\b",
+            "\\bstrcmp\\b",
+            "\\bstrcpy\\b"
+        ]
+    },
+    {
+        "skill": "File I/O",
+        "identifiers": [
+            "import\\s+<stdio\\.h>",
+            "\\bFILE\\b",
+            "\\bfopen\\b",
+            "\\bfclose\\b",
+            "\\bfread\\b",
+            "\\bfwrite\\b",
+            "\\bfseek\\b",
+            "\\bftell\\b"
+        ]
+    },
+    {
+        "skill": "Debugging & Logging",
+        "identifiers": [
+            "\\bassert\\b",
+            "import\\s+<assert\\.h>",
+            "\\bperror\\b",
+            "\\bfprintf\\b",
+            "\\bstderr\\b"
+        ]
+    },
+    {
+        "skill": "Math & Algorithmic Operations",
+        "identifiers": [
+            "import\\s+<math\\.h>",
+            "\\bsqrt\\b",
+            "\\bpow\\b",
+            "\\blog\\b",
+            "\\bexp\\b",
+            "\\bsin\\b",
+            "\\bcos\\b",
+            "\\btan\\b"
+        ]
+    },
+    {
+        "skill": "Networking (Sockets, POSIX)",
+        "identifiers": [
+            "import\\s+<sys/socket\\.h>",
+            "import\\s+<netinet/in\\.h>",
+            "import\\s+<arpa/inet\\.h>",
+            "import\\s+<unistd\\.h>",
+            "\\bsocket\\b",
+            "\\bbind\\b",
+            "\\blisten\\b",
+            "\\baccept\\b",
+            "\\bsend\\b",
+            "\\brecv\\b",
+            "\\bconnect\\b"
+        ]
+    },
+    {
+        "skill": "Concurrency (POSIX Threads)",
+        "identifiers": [
+            "import\\s+<pthread\\.h>",
+            "\\bpthread_t\\b",
+            "\\bpthread_create\\b",
+            "\\bpthread_join\\b",
+            "\\bpthread_mutex_t\\b",
+            "\\bpthread_mutex_lock\\b",
+            "\\bpthread_mutex_unlock\\b",
+            "\\bpthread_cond_t\\b"
+        ]
+    },
+    {
+        "skill": "Embedded & Systems Programming",
+        "identifiers": [
+            "\\bvolatile\\b",
+            "\\bregister\\b",
+            "\\bISR\\b",
+            "\\buint8_t\\b",
+            "\\buint16_t\\b",
+            "\\buint32_t\\b",
+            "import\\s+<avr",
+            "import\\s+<sys/ioctl\\.h>"
+        ]
+    },
+    {
+        "skill": "Data Structures",
+        "identifiers": [
+            "\\bstruct\\b",
+            "\\benum\\b",
+            "\\bunion\\b",
+            "\\blinked list\\b",
+            "\\bhash table\\b",
+            "\\bbinary tree\\b"
+        ]
+    },
+    {
+        "skill": "Security & Cryptography",
+        "identifiers": [
+            "import\\s+<openssl",
+            "\\bAES_\\b",
+            "\\bEVP_\\b",
+            "\\bSHA256_\\b",
+            "\\bHMAC_\\b"
+        ]
+    },
+    {
+        "skill": "Build Systems",
+        "identifiers": [
+            "Makefile",
+            "CMakeLists\\.txt",
+            "\\bgcc\\b",
+            "\\bclang\\b",
+            "\\bmake\\b",
+            "\\bcmake\\b"
+        ]
+    },
+    {
+        "skill": "CLI & Utility Programs",
+        "identifiers": [
+            "\\bmain\\s*\\(",
+            "\\bargc\\b",
+            "\\bargv\\b",
+            "\\bgetopt\\b",
+            "import\\s+<unistd\\.h>"
+        ]
+    },
+    {
+        "skill": "Signals & Process Control",
+        "identifiers": [
+            "import\\s+<signal\\.h>",
+            "\\bkill\\b",
+            "\\bsignal\\b",
+            "\\balarm\\b",
+            "\\bfork\\b",
+            "\\bexecv\\b"
+        ]
+    },
+    {
+        "skill": "Performance & Optimization",
+        "identifiers": [
+            "\\brestrict\\b",
+            "\\binline\\b",
+            "import\\s+<time\\.h>",
+            "\\bclock\\b",
+            "\\bboxed loop\\b"
+        ]
+    }
+]
