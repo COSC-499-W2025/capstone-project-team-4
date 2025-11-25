@@ -1,9 +1,10 @@
 # Use official Python image
 FROM python:3.14.0-slim
 
-# Install system dependencies for python-magic
+# Install system dependencies for python-magic and git
 RUN apt-get update && apt-get install -y \
     libmagic1 \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory inside container
