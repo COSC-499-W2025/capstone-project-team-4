@@ -1,358 +1,348 @@
+from __future__ import annotations
 import os
 import json
-import magic
-from datetime import datetime
+from collections import defaultdict
+from git import Repo, InvalidGitRepositoryError
+from dataclasses import asdict, dataclass
 from pathlib import Path
-
-# Yeah... Po from Kung Fu Panda!!!!
-import pandas as po
-from tqdm import tqdm
-
-# This makes modified timestamps more human readable
-# from datetime import datetime
-
-# Filter configuration
-SKIP_DIRECTORIES = {
-    # Version control
-    '.git', '.svn', '.hg', '.bzr',
-    
-    # Python
-    '__pycache__', '.pytest_cache', '.mypy_cache', '.coverage', 'htmlcov',
-    '.tox', '.nox', 'venv', '.venv', 'env', '.env', 'virtualenv',
-    'build', 'dist', '*.egg-info', '.eggs',
-    
-    # Node.js
-    'node_modules', '.npm', '.yarn', 'npm-debug.log*', 'yarn-debug.log*',
-    'yarn-error.log*', '.pnpm-debug.log*',
-    
-    # Java
-    'target', '.gradle', 'build', '.m2',
-    
-    # IDE and editors
-    '.vscode', '.idea', '*.swp', '*.swo', '*~', '.DS_Store',
-    '.vs', '.vscode-test',
-    
-    # Logs and temporary files
-    'logs', '*.log', 'tmp', 'temp', '.tmp', '.temp',
-    
-    # Dependencies and libraries
-    'vendor', 'bower_components', 'jspm_packages',
-    
-    # Compiled files
-    '*.pyc', '*.pyo', '*.class', '*.o', '*.obj', '*.so', '*.dylib', '*.dll',
-    
-    # Documentation build
-    '_build', 'docs/_build', 'site',
-    
-    # Testing
-    '.coverage', 'coverage', '.nyc_output',
-    
-    # OS files
-    'Thumbs.db', 'ehthumbs.db', 'Desktop.ini'
-}
-
-SKIP_EXTENSIONS = {
-    # Compiled files
-    '.pyc', '.pyo', '.class', '.o', '.obj', '.so', '.dylib', '.dll', '.exe',
-    
-    # Logs
-    '.log',
-    
-    # Temporary files
-    '.tmp', '.temp', '.swp', '.swo', '.bak', '.backup',
-    
-    # OS files
-    '.DS_Store',
-    
-    # Cache files
-    '.cache'
-}
-
-SKIP_FILENAMES = {
-    # System files
-    '.DS_Store', 'Thumbs.db', 'ehthumbs.db', 'Desktop.ini',
-    
-    # Log files
-    'npm-debug.log', 'yarn-debug.log', 'yarn-error.log',
-    
-    # Lock files (often large and not source code)
-    'package-lock.json', 'yarn.lock', 'Pipfile.lock', 'poetry.lock',
-    'composer.lock', 'Gemfile.lock',
-    
-    # IDE files
-    '.vscode', '.idea'
-}
-
-# Size limits (in bytes)
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
-MIN_FILE_SIZE = 1  # 1 byte
-
-
-def should_skip_file(file_path: str, file_name: str) -> tuple[bool, str]:
+from typing import Dict, List
+from src.core.code_complexity import (
+    FunctionMetrics,
+    analyze_file,
+    EXT_TO_LANG,
+)
+# Git/Collaboration Analysis Functions
+def analyze_contributors(project_path=".", use_all_branches=False):
     """
-    Determines if a file should be skipped based on filtering rules.
-    
-    Args:
-        file_path: Full path to the file
-        file_name: Just the filename
-    
-    Returns:
-        tuple: (should_skip: bool, reason: str)
+    Analyze commit history for all contributors.
+    Groups by contributor NAME to avoid duplicates (noreply vs real email).
+    If use_all_branches=True then use '--all', otherwise just analyze the current branch
+
+    Includes:
+        - total commits
+        - percent of total commits
+        - commit history
+        - lines added / deleted
+        - files modified
     """
-    path_obj = Path(file_path)
-    
-    # Check file extension
-    if path_obj.suffix.lower() in SKIP_EXTENSIONS:
-        return True, f"skipped extension: {path_obj.suffix}"
-    
-    # Check filename
-    if file_name in SKIP_FILENAMES:
-        return True, f"skipped filename: {file_name}"
-    
-    # Check if file is in a skipped directory
-    parts = path_obj.parts
-    for part in parts:
-        if part in SKIP_DIRECTORIES:
-            return True, f"skipped directory: {part}"
-    
-    # Check for patterns in path
-    path_str = str(path_obj).lower()
-    for skip_pattern in SKIP_DIRECTORIES:
-        if skip_pattern.startswith('*') and skip_pattern.endswith('*'):
-            # Pattern like "*debug*"
-            pattern = skip_pattern.strip('*')
-            if pattern in path_str:
-                return True, f"skipped pattern: {skip_pattern}"
-        elif skip_pattern.startswith('*'):
-            # Pattern like "*.log"
-            if path_str.endswith(skip_pattern[1:]):
-                return True, f"skipped pattern: {skip_pattern}"
-    
-    # Check file size
+
     try:
-        file_size = os.path.getsize(file_path)
-        if file_size > MAX_FILE_SIZE:
-            return True, f"file too large: {file_size} bytes"
-        if file_size < MIN_FILE_SIZE:
-            return True, f"file too small: {file_size} bytes"
-    except OSError:
-        # If we can't get file size, let it through for now
-        pass
-    
-    return False, ""
+        repo = Repo(project_path)
+    except InvalidGitRepositoryError:
+        print(
+            f"[WARN] No .git directory found at {project_path}. Returning empty contributors."
+        )
+        return []
 
+    contributors = {}
+    commit_counts = defaultdict(int)
 
-def parse_metadata(folder_path: str = "", include_filtered: bool = False):
-    """
-    Opens up a folder from a recently extracted zip file and lists the file type, file size, and created/modified
-    timestamps
+    # NOTE: By default, it will get the commits from only the current branch HEAD. If you want to get all commits,
+    # input -all instead. So it would be, `repo.iter_commits('--all')`
 
-    Args:
-        folder_path: the path to the directory/folder to be parsed (default "")
-        include_filtered: if True, includes filtered files with their skip reason (default False)
-    
-    Returns:
-        tuple: (dataframe, project_root_path)
-    """
-    results = []
-    filtered_count = 0
-    progress_bar = tqdm(desc="Parsing metadata", unit=" files")
-    
-    # Convert folder_path to Path object for easier manipulation
-    base_path = Path(folder_path).resolve()
+    commit_range = "--all" if use_all_branches else None
+    for commit in repo.iter_commits(commit_range):
+        name = commit.author.name.strip()
+        email = commit.author.email.strip().lower()
 
-    for root, dirs, files in os.walk(folder_path):
-        # Skip entire directories that are in our skip list
-        dirs[:] = [d for d in dirs if d not in SKIP_DIRECTORIES]
-        
-        for file in files:
-            file_path = os.path.join(root, file)
-            
-            # Check if file should be skipped
-            should_skip, skip_reason = should_skip_file(file_path, file)
-            
-            if should_skip:
-                filtered_count += 1
-                if include_filtered:
-                    # Convert absolute path to relative path
-                    absolute_path = Path(file_path).resolve()
-                    try:
-                        relative_path = absolute_path.relative_to(base_path)
-                    except ValueError:
-                        relative_path = Path(file)
-                    
-                    result = {
-                        "filename": file,
-                        "path": str(relative_path),
-                        "file_type": "FILTERED",
-                        "file_size": None,
-                        "created_timestamp": None,
-                        "last_modified": None,
-                        "skip_reason": skip_reason,
-                        "status": "filtered"
-                    }
-                    results.append(result)
+    try:
+        commit_range = "--all" if use_all_branches else None
+        for commit in repo.iter_commits(commit_range):
+            name = commit.author.name.strip()
+            email = commit.author.email.strip().lower()
+
+            # Skip bots
+            if "[bot]" in name.lower():
                 continue
-            
+
+            key = name.lower()  # unify identity by name
+
+            # Initialize contributor record
+            if key not in contributors:
+                contributors[key] = {
+                    "name": name,
+                    "primary_email": email,
+                    "commits": 0,
+                    "percent": 0,
+                    "history": [],
+                    "total_lines_added": 0,
+                    "total_lines_deleted": 0,
+                    "files_modified": defaultdict(int),
+                }
+
+            commit_counts[key] += 1
+
             try:
-                file_type = magic.from_file(file_path, mime=True)
-                # The number/output for each file size is in bytes
-                file_size = os.path.getsize(file_path)
-                created_timestamp = os.path.getctime(file_path)
-                modified_timestamp = os.path.getmtime(file_path)
+                stats = commit.stats
+                # Per-file modifications
+                for file_path, file_stats in stats.files.items():
+                    contributors[key]["files_modified"][file_path] += 1
 
-                # Convert absolute path to relative path from extracted directory
-                absolute_path = Path(file_path).resolve()
-                try:
-                    relative_path = absolute_path.relative_to(base_path)
-                except ValueError:
-                    # If we can't make it relative, use just the filename
-                    relative_path = Path(file)
+                # Line-level stats
+                contributors[key]["total_lines_added"] += stats.total.get(
+                    "insertions", 0
+                )
+                contributors[key]["total_lines_deleted"] += stats.total.get(
+                    "deletions", 0
+                )
 
-                # This is the line that will make timestamps more human readable (September 12, 2025, etc.)
-                # I kept it here in case anyone wants to use it in the future
-                # formatted_timestamp = datetime.fromtimestamp(modified_timestamp)
-                result = {
-                    "filename": file,
-                    "path": str(relative_path),  # Store relative path as string
-                    "file_type": file_type,
-                    "file_size": file_size,
-                    "created_timestamp": created_timestamp,
-                    "last_modified": modified_timestamp,
-                    "status": "success"
-                }
-                results.append(result)
-            except Exception as exception:
-                # Convert absolute path to relative path for errors too
-                absolute_path = Path(file_path).resolve()
-                try:
-                    relative_path = absolute_path.relative_to(base_path)
-                except ValueError:
-                    relative_path = Path(file)
-                
-                result = {
-                    "filename": file,
-                    "path": str(relative_path),  # Store relative path as string
-                    "file_type": "ERROR",
-                    "file_size": None,
-                    "created_timestamp": None,
-                    "last_modified": None,
-                    "error": str(exception),
-                    "status": "error"
-                }
-                results.append(result)
+                # Commit history entry
+                contributors[key]["history"].append(
+                    {
+                        "hash": commit.hexsha,
+                        "message": commit.message.strip(),
+                        "timestamp": commit.committed_date,
+                        "files_changed": list(stats.files.keys()),
+                        "insertions": stats.total.get("insertions", 0),
+                        "deletions": stats.total.get("deletions", 0),
+                    }
+                )
+            except Exception as stats_error:
+                print(
+                    f"[WARN] Error getting stats for commit {commit.hexsha}: {stats_error}"
+                )
+                # Add commit without stats
+                contributors[key]["history"].append(
+                    {
+                        "hash": commit.hexsha,
+                        "message": commit.message.strip(),
+                        "timestamp": commit.committed_date,
+                        "files_changed": [],
+                        "insertions": 0,
+                        "deletions": 0,
+                    }
+                )
 
-            # This just adds a description for the progress bar to indicate which folder it's currently on
-            progress_bar.set_postfix({
-                "folder": os.path.basename(root),
-                "filtered": filtered_count
-            })
-            progress_bar.update()
-
-    progress_bar.close()
-    print(f"Filtered out {filtered_count} files")
-    
-    # This is for exporting the data! Hopefully it can work to whoever was assigned with a JSON exporter
-    dataframe = po.DataFrame(results)
-    project_root = str(base_path)
-    return dataframe, project_root
-
-
-def save_metadata_json(dataframe: po.DataFrame, output_filename: str = "metadata.json", project_root: str = None) -> str:
-    """
-    Converts metadata dataframe to clean JSON format and saves to outputs directory.
-    
-    Args:
-        dataframe: DataFrame containing metadata from parse_metadata()
-        output_filename: Name of output JSON file (default: "metadata.json")
-        project_root: Absolute path to the project root directory
-    
-    Returns:
-        str: Path to the saved JSON file
-    """
-    # Create outputs directory if it doesn't exist
-    outputs_dir = Path(__file__).parent.parent / "outputs"
-    outputs_dir.mkdir(exist_ok=True)
-    
-    # Clean and format the data
-    cleaned_data = []
-    
-    for _, row in dataframe.iterrows():
-        # Handle pandas NaN values properly
-        file_size = row.get('file_size')
-        if file_size is not None and not po.isna(file_size):
-            file_size = int(file_size)
-        else:
-            file_size = None
-            
-        created_ts = row.get('created_timestamp')
-        if created_ts is not None and not po.isna(created_ts):
-            created_ts = float(created_ts)
-        else:
-            created_ts = None
-            
-        last_mod = row.get('last_modified')
-        if last_mod is not None and not po.isna(last_mod):
-            last_mod = float(last_mod)
-        else:
-            last_mod = None
-        
-        # Create clean record with all fields from parse_metadata
-        record = {
-            "filename": str(row['filename']),
-            "path": str(row['path']),
-            "file_type": str(row['file_type']),
-            "file_size": file_size,
-            "created_timestamp": created_ts,
-            "last_modified": last_mod,
-            "status": str(row.get('status', 'success'))
-        }
-        
-        # Add error information if present
-        if 'error' in row and row['error'] is not None and not po.isna(row['error']):
-            record["error"] = str(row['error'])
-        
-        # Add skip reason if present (for filtered files)
-        if 'skip_reason' in row and row['skip_reason'] is not None and not po.isna(row['skip_reason']):
-            record["skip_reason"] = str(row['skip_reason'])
-        
-        cleaned_data.append(record)
-    
-    # Calculate statistics
-    successful_files = [r for r in cleaned_data if r["status"] == "success" and r["file_size"] is not None]
-    filtered_files = [r for r in cleaned_data if r["status"] == "filtered"]
-    error_files = [r for r in cleaned_data if r["status"] == "error"]
-    
-    total_size = sum(r["file_size"] for r in successful_files) if successful_files else 0
-    avg_size = total_size / len(successful_files) if successful_files else 0
-    
-    # Create final JSON structure with metadata
-    json_output = {
-        "metadata": {
-            "generated_at": datetime.now().timestamp(),  # Unix timestamp for consistency
-            "total_files": len(cleaned_data),
-            "successful_parses": len(successful_files),
-            "failed_parses": len(error_files),
-            "filtered_files": len(filtered_files),
-            "total_size_bytes": total_size,
-            "average_file_size_bytes": round(avg_size, 2),
-            "schema_version": "2.2"  # Updated version to include project_root
-        },
-        "project_root": project_root,
-        "files": cleaned_data
-    }
-    
-    # Save to outputs directory
-    output_path = outputs_dir / output_filename
-    
-    try:
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(json_output, f, indent=2, ensure_ascii=False)
-        
-        print(f"Metadata saved to: {output_path}")
-        return str(output_path)
-        
     except Exception as e:
-        print(f"Error saving metadata JSON: {e}")
-        raise
+        print(
+            f"[WARN] Error accessing Git repository commits: {e}. Returning empty contributors."
+        )
+        return []
 
+    # Format contributors into final list
+    total_commits = sum(commit_counts.values())
+    contributor_list = []
+
+    for key, info in contributors.items():
+        commit_count = commit_counts[key]
+        info["commits"] = commit_count
+
+        if total_commits > 0:
+            info["percent"] = round((commit_count / total_commits) * 100, 2)
+        else:
+            info["percent"] = 0
+
+        # Convert defaultdict to normal dict for JSON
+        info["files_modified"] = dict(info["files_modified"])
+
+        contributor_list.append(info)
+
+    return contributor_list
+
+
+def calculate_project_stats(project_path, file_list):
+    """
+    Given the project root (with .git) and the file metadata list,
+    compute full project-level statistics.
+    """
+
+    # File Stats
+    total_files = len(file_list)
+    total_size = sum(
+        f.get("file_size", 0) for f in file_list if f.get("file_size") is not None
+    )
+    avg_size = round(total_size / total_files, 2) if total_files > 0 else 0
+
+    # Duration
+    try:
+        created_ts = min(
+            f["created_timestamp"]
+            for f in file_list
+            if f["created_timestamp"] is not None
+        )
+        modified_ts = max(
+            f["last_modified"] for f in file_list if f["last_modified"] is not None
+        )
+        duration_days = round((modified_ts - created_ts) / 86400, 2)
+    except ValueError:
+        duration_days = 0
+
+    # Contributors
+    # For this, we can just analyze the current branch. Set `use_all_branches=True` if all branches need the commit history
+    contributors = analyze_contributors(project_path)
+    is_collaborative = len(contributors) > 1
+
+    # Final Metrics
+    metrics = {
+        "total_files": total_files,
+        "total_size_bytes": total_size,
+        "average_file_size_bytes": avg_size,
+        "duration_days": duration_days,
+        "activity_types": "TODO idk someone can do that lol",
+        "collaborative": is_collaborative,
+        "contributors": contributors,
+    }
+
+    return metrics
+
+
+def save_project_metrics(metrics: dict, output_filename="project_metrics.json"):
+    """
+    Save project metrics (from calculate_project_stats) to JSON inside src/outputs
+    """
+
+    outputs_dir = os.path.join(os.path.dirname(__file__), "..", "outputs")
+    os.makedirs(outputs_dir, exist_ok=True)
+
+    output_path = os.path.join(outputs_dir, output_filename)
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(metrics, f, indent=2, ensure_ascii=False)
+
+    print(f"[INFO] Project metrics saved to: {output_path}")
+    return output_path
+
+
+if __name__ == "__main__":
+    # For local testing only
+    print("[TEST] Running project analyzer...")
+
+    cwd = os.getcwd()
+    # By default, the metadata_parser puts the json as: capstone-project-team-4_metadata.json
+    test_metadata_path = os.path.join(
+        cwd, "src/outputs/capstone-project-team-4_metadata.json"
+    )
+
+    with open(test_metadata_path, "r") as file:
+        data = json.load(file)
+
+    file_list = data["files"]
+    # This is a fallback if it's missing
+    project_path = data.get("project_root", cwd)
+
+    print(f"[INFO] Using project root: {project_path}")
+
+    metrics = calculate_project_stats(project_path, file_list)
+
+    # NOTE: I removed the print statements as now you can just read the generated json file.
+    # It clutters the terminal so yeah
+    # print("\nPROJECT METRICS")
+    # print(json.dumps(metrics, indent=2))
+
+    save_project_metrics(metrics)
+
+
+# Tree-sitter Analysis Integration
+@dataclass
+class ProjectAnalysisResult:
+    project_root: str
+    functions: List[FunctionMetrics]
+
+
+def _is_ignored(path: Path) -> bool:
+    """Skip venvs, caches, git, etc."""
+    ignored = {".venv", "venv", "__pycache__", ".git", ".pytest_cache"}
+    return any(part in ignored for part in path.parts)
+
+
+def _should_analyze(path: Path) -> bool:
+    if _is_ignored(path):
+        return False
+    return path.is_file() and path.suffix.lower() in EXT_TO_LANG
+
+
+def analyze_project(root: Path) -> ProjectAnalysisResult:
+    """
+    Walk a project folder OR analyze a single file;
+    run Tree-sitter analysis on supported languages and collect function-level metrics.
+    """
+    root = root.resolve()
+    functions: List[FunctionMetrics] = []
+
+    if root.is_file():
+        if _should_analyze(root):
+            functions.extend(analyze_file(root))
+    else:
+        for path in root.rglob("*"):
+            if _should_analyze(path):
+                functions.extend(analyze_file(path))
+
+    return ProjectAnalysisResult(
+        project_root=str(root),
+        functions=functions,
+    )
+
+
+def project_analysis_to_dict(result: ProjectAnalysisResult) -> dict:
+    """
+    Convert ProjectAnalysisResult into a JSON-ready dict with summary and per-file stats.
+    """
+    funcs = result.functions
+
+    total_functions = len(funcs)
+    total_complexity = sum(f.cyclomatic_complexity for f in funcs)
+    total_lines = sum(f.length_lines for f in funcs)
+
+    avg_complexity = total_complexity / total_functions if total_functions else 0.0
+    avg_lines = total_lines / total_functions if total_functions else 0.0
+    avg_complexity_per_10 = (
+        sum(f.complexity_per_10_lines for f in funcs) / total_functions
+        if total_functions
+        else 0.0
+    )
+    max_complexity = max((f.cyclomatic_complexity for f in funcs), default=0)
+    max_loop_depth = max((f.max_loop_depth for f in funcs), default=0)
+
+    buckets = {
+        "1-5": 0,
+        "6-10": 0,
+        "11-20": 0,
+        "21+": 0,
+    }
+    for f in funcs:
+        c = f.cyclomatic_complexity
+        if c <= 5:
+            buckets["1-5"] += 1
+        elif c <= 10:
+            buckets["6-10"] += 1
+        elif c <= 20:
+            buckets["11-20"] += 1
+        else:
+            buckets["21+"] += 1
+
+    per_file: Dict[str, dict] = {}
+    for f in funcs:
+        pf = per_file.setdefault(
+            f.file_path,
+            {
+                "function_count": 0,
+                "total_complexity": 0,
+                "max_complexity": 0,
+                "total_lines": 0,
+            },
+        )
+        pf["function_count"] += 1
+        pf["total_complexity"] += f.cyclomatic_complexity
+        pf["total_lines"] += f.length_lines
+        pf["max_complexity"] = max(pf["max_complexity"], f.cyclomatic_complexity)
+
+    for path, stats in per_file.items():
+        n = stats["function_count"]
+        stats["avg_complexity"] = round(stats["total_complexity"] / n, 2)
+        stats["avg_lines"] = round(stats["total_lines"] / n, 2)
+
+    return {
+        "project_root": result.project_root,
+        "summary": {
+            "total_functions": total_functions,
+            "total_lines": total_lines,
+            "avg_complexity": round(avg_complexity, 2),
+            "avg_lines_per_function": round(avg_lines, 2),
+            "avg_complexity_per_10_lines": round(avg_complexity_per_10, 2),
+            "max_complexity": max_complexity,
+            "complexity_buckets": buckets,
+            "max_loop_depth": max_loop_depth,
+        },
+        "per_file": per_file,
+        "functions": [asdict(f) for f in funcs],
+    }

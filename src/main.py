@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 from src.core import config_manager
 from src.core.database import init_db
 from src.core.config_manager import save_config, load_config
-# from src.core.file_validator import validate_zip
+from src.core.zip_file_validator import validate_zip
 from src.core.run import validate_and_parse
 from src.core.metadata_parser import parse_metadata, save_metadata_json
 from src.core.language_analyzer import ProjectAnalyzer, StatsFormatter
@@ -96,7 +96,6 @@ def extract(
     ),
     extract_skills: bool = typer.Option(False, "--skills", help="Also extract professional skills from the project")
 ) -> None:
-    
     """
     Process a path that can be:
       - a .zip (validate -> extract to temp -> parse)
@@ -142,7 +141,7 @@ def extract(
                 import json
                 from tempfile import TemporaryDirectory
                 import zipfile
-                
+            
                 typer.secho("🧠 Extracting skills from project...", fg=typer.colors.BLUE)
                 
                 with TemporaryDirectory() as temp_dir:
