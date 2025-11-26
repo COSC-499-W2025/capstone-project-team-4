@@ -176,9 +176,7 @@ def calculate_project_stats(project_path, file_list):
         "total_size_bytes": total_size,
         "average_file_size_bytes": avg_size,
         "duration_days": duration_days,
-        "activity_types": "TODO idk someone can do that lol",
         "collaborative": is_collaborative,
-        "contributors": contributors,
     }
 
     return metrics
