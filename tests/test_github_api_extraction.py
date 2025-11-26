@@ -30,7 +30,7 @@ class TestSkillExtractor(unittest.TestCase):
         self.assertEqual(_ext_of("index.html"), ".html")
 
     # ---------------- _get_paginated ----------------
-    @patch("src.core.skill_extractor.requests.get")
+    @patch("src.core.github_api_extraction.requests.get")
     def test__get_paginated(self, mock_get):
         # 2 pages then empty
         mock_get.side_effect = [
@@ -42,7 +42,7 @@ class TestSkillExtractor(unittest.TestCase):
         self.assertEqual(items, [{"x": 1}, {"x": 2}, {"x": 3}])
 
     # ---------------- get_language_line_counts ----------------
-    @patch("src.core.skill_extractor.requests.get")
+    @patch("src.core.github_api_extraction.requests.get")
     def test_get_language_line_counts(self, mock_get):
         """
         Ensure line counts are computed correctly and that mocking requests.get
@@ -89,7 +89,7 @@ class TestSkillExtractor(unittest.TestCase):
         self.assertEqual(counts["JavaScript"], 1)
 
     # ---------------- get_repo_data ----------------
-    @patch("src.core.skill_extractor.requests.get")
+    @patch("src.core.github_api_extraction.requests.get")
     def test_get_repo_data(self, mock_get):
         """
         Test that get_repo_data returns info, langs and decoded README.
@@ -116,7 +116,7 @@ class TestSkillExtractor(unittest.TestCase):
         self.assertIn("Hello README", readme_text)
 
     # ---------------- get_objective_contributions ----------------
-    @patch("src.core.skill_extractor.requests.get")
+    @patch("src.core.github_api_extraction.requests.get")
     def test_get_objective_contributions(self, mock_get):
         """
         Test stats aggregation: commits, additions, deletions, files.
@@ -172,7 +172,7 @@ class TestSkillExtractor(unittest.TestCase):
         self.assertEqual(stats["user2"]["del"], 1)
 
     # ---------------- get_skill_growth ----------------
-    @patch("src.core.skill_extractor.requests.get")
+    @patch("src.core.github_api_extraction.requests.get")
     def test_get_skill_growth(self, mock_get):
         """
         Test that get_skill_growth builds a timeline and accumulates skills.
@@ -227,7 +227,7 @@ class TestSkillExtractor(unittest.TestCase):
         self.assertIn("Testing", final_skills)
 
     # ---------------- get_team_culture ----------------
-    @patch("src.core.skill_extractor.requests.get")
+    @patch("src.core.github_api_extraction.requests.get")
     def test_get_team_culture_no_merged(self, mock_get):
         """
         If there are PRs but none merged, median_merge_hours should be 0.
@@ -258,7 +258,7 @@ class TestSkillExtractor(unittest.TestCase):
         self.assertEqual(culture["avg_reviews"], 0)
         self.assertEqual(culture["avg_comments"], 0)
 
-    @patch("src.core.skill_extractor.requests.get")
+    @patch("src.core.github_api_extraction.requests.get")
     def test_get_team_culture_with_merged(self, mock_get):
         """
         At least one merged PR should produce a positive or zero median_merge_hours.
@@ -302,7 +302,7 @@ class TestSkillExtractor(unittest.TestCase):
         self.assertEqual(culture["avg_comments"], 1)
 
     # ---------------- get_development_rhythm ----------------
-    @patch("src.core.skill_extractor.requests.get")
+    @patch("src.core.github_api_extraction.requests.get")
     def test_get_development_rhythm(self, mock_get):
         from src.core.github_api_extraction import get_development_rhythm
 
@@ -329,7 +329,7 @@ class TestSkillExtractor(unittest.TestCase):
         self.assertGreater(sum(rhythm["aaa"]["hour"].values()), 0)
 
     # ---------------- get_technical_decisions ----------------
-    @patch("src.core.skill_extractor.requests.get")
+    @patch("src.core.github_api_extraction.requests.get")
     def test_get_technical_decisions(self, mock_get):
         from src.core.github_api_extraction import get_technical_decisions
 
@@ -355,7 +355,7 @@ class TestSkillExtractor(unittest.TestCase):
         self.assertGreater(td["dev"]["refactor"], 0)
 
     # ---------------- get_role_distribution ----------------
-    @patch("src.core.skill_extractor.requests.get")
+    @patch("src.core.github_api_extraction.requests.get")
     def test_get_role_distribution(self, mock_get):
         from src.core.github_api_extraction import get_role_distribution
 
