@@ -118,6 +118,9 @@ CONFIG_FILE = os.path.join(os.path.dirname(__file__), "../data/config.json")
 
 def save_config(config_dict):
     """Save config to JSON and SQLite"""
+    # Ensure the data directory exists
+    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+    
     with open(CONFIG_FILE, "w") as f:
         json.dump(config_dict, f, indent=4)
 
