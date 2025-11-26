@@ -90,3 +90,6 @@ outputs/
 *.sqlite3   
 *.db
 *.db-journal
+
+# User data directory (runtime-generated config and logs)
+src/data/

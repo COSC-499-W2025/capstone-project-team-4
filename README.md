@@ -42,7 +42,14 @@ python -m src.main [OPTIONS] COMMAND [ARGS]...
 pytest
 
 # Run with coverage
+# This command will create HTML report at /htmlcov
 pytest --cov=src --cov-report=html
+
+
+# View coverage report
+open htmlcov/index.html
+
+# For windows : start htmlcov/index.html
 ```
 
 ### Docker Development
@@ -60,13 +67,7 @@ docker compose exec app python -m src.main [OPTIONS] COMMAND [ARGS]...
 docker compose exec app pytest
 
 # Run tests with coverage
-# This command will create HTML report at /htmlcov
-docker compose exec app pytest --cov=src --cov-report=html
-
-# View coverage report
-open htmlcov/index.html
-
-# For windows : start htmlcov/index.html
+docker compose exec app pytest --cov=src --cov-report=term-missing
 
 # remove container
 docker compose down
