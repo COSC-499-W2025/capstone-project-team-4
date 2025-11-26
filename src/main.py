@@ -73,11 +73,12 @@ def info() -> None:
     typer.echo("📊 Mining Digital Work Artifacts CLI")
     typer.echo("=" * 40)
     typer.echo("Available commands:")
-    typer.echo("  • consent     - Manage user consent")
-    typer.echo("  • status      - Show current settings")
-    typer.echo("  • extract     - Extract and analyze files/directories")
-    typer.echo("  • analyze     - Language analysis and line counting")
-    typer.echo("  • info        - Show this information")
+    typer.echo("  • consent           - Manage user consent")
+    typer.echo("  • status            - Show current settings")
+    typer.echo("  • extract-metadata  - Extract and analyze file metadata")
+    typer.echo("  • analyze-language  - Language analysis and line counting")
+    typer.echo("  • analyze-code      - Code complexity analysis")
+    typer.echo("  • info              - Show this information")
     typer.echo("\nUse --help with any command for detailed options.")
 
 @app.command()
@@ -85,8 +86,8 @@ def external_permission(service: str = "API"):
     """Ask for and log permission to use an external service."""
     config_manager.request_external_service_permission(service)
 
-@app.command()
-def extract(
+@app.command("extract-metadata")
+def extract_metadata(
     path: Path = typer.Argument(..., help="Path to a ZIP file, a directory, or a single file."),
     out_dir: Optional[Path] = typer.Option(
         None, "--out", "-o", help="Directory to write outputs (default: ./outputs)"
@@ -169,7 +170,7 @@ def extract(
     # CASE 2: directory -> parse recursively and returns each file inside of a folder 
     if path.is_dir():
         df, project_root = parse_metadata(str(path))
-        json_path = save_metadata_json(df, output_filename=f"{path.name}_metadata.json")
+        json_path = save_metadata_json(df, f"{path.name}_metadata.json", project_root)
         typer.secho(f"Directory metadata saved: {json_path}", fg=typer.colors.GREEN)
         
         # Extract skills if requested
@@ -360,6 +361,7 @@ def analyze_language(
 
 @app.command("analyze-code")
 def analyze_code(path: str, out: Optional[Path] = typer.Option(None, "--out", "-o")):
+    """Analyze code complexity and generate metrics for Python files."""
     root = Path(path)
     result = analyze_project(root)
     data = project_analysis_to_dict(result)
