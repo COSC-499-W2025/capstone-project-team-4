@@ -3,61 +3,56 @@ import os
 import json
 from collections import defaultdict
 
-# NEED TO CHANGE ONCE IN DEVELOPMENT TO IMPORT FILE PATH AND LANGUAGE DETECTED
+# ------------------------------------------------------
+# Supported languages
+# ------------------------------------------------------
+SUPPORTED_LANGUAGES = {
+    "javascript","typescript","java","python","c","c++","c#",
+    "go","rust","php","ruby","shell","powershell","html",
+    "css","yaml","json","markdown","sql" }
 
-# ---------------------------------------------
+# ------------------------------------------------------
 # 1. select mapping based on language
-# ---------------------------------------------
+# ------------------------------------------------------
 def get_skill_mapping_path(language):
-    """
-    Build mapping path like:
-    /Users/kusshsatija/capstone-project-team-4/src/data/skill_mapping_<language>.json
-    """
-
     base_dir = "/Users/kusshsatija/capstone-project-team-4/src/data"
     lang = language.lower()
     mapping_file = os.path.join(base_dir, f"skill_mapping_{lang}.json")
     
     if not os.path.exists(mapping_file):
-        print(f"Warning: Mapping file not found for language '{language}' at {mapping_file}")
+        print(f"⚠️  Warning: No skill mapping found for language '{language}' at {mapping_file}")
         return None
 
     return mapping_file
 
 
-# ---------------------------------------------
+# ------------------------------------------------------
 # 2. Load mapping JSON
-# ---------------------------------------------
+# ------------------------------------------------------
 def load_skill_mapping(skill_mapping_path):
     try:
-        if not os.path.exists(skill_mapping_path):
-            print(f"Error: Skill mapping file not found at {skill_mapping_path}")
-            return None
-
         with open(skill_mapping_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-
         return {entry["skill"]: entry["identifiers"] for entry in data}
-
     except Exception as e:
-        print(f"Error loading skill mapping: {e}")
+        print(f"❌ Error loading skill mapping: {e}")
         return None
 
 
-# ---------------------------------------------
-# 3. Analyze code with mapping
-# ---------------------------------------------
+# ------------------------------------------------------
+# 3. Analyze single file
+# ------------------------------------------------------
 def analyze_code_file(file_path, detected_language, loc):
     if loc is None or loc < 0:
-        return {"error": "LOC (lines of code) must be provided and non-negative."}
+        loc = 1  # placeholder to avoid division errors
 
     skill_mapping_path = get_skill_mapping_path(detected_language)
     if skill_mapping_path is None:
-        return {"error": f"No mapping found for language: {detected_language}"}
+        return {"error": f"No mapping for language: {detected_language}"}
 
     skill_mapping = load_skill_mapping(skill_mapping_path)
     if skill_mapping is None:
-        return {"error": "Failed to load skill mapping file."}
+        return {"error": "Skill mapping failed to load."}
 
     if not os.path.exists(file_path):
         return {"error": f"Code file not found: {file_path}"}
@@ -66,92 +61,126 @@ def analyze_code_file(file_path, detected_language, loc):
         with open(file_path, 'r', encoding='utf-8') as f:
             code_content = f.read()
     except Exception as e:
-        return {"error": f"Error reading code file: {e}"}
+        return {"error": f"Could not read file: {e}"}
 
     skill_scores = defaultdict(lambda: {"raw_count": 0, "identifier_list": []})
 
     for skill, patterns in skill_mapping.items():
-        count = 0
+        total_matches = 0
 
         for pattern in patterns:
             try:
                 matches = re.findall(pattern, code_content, flags=re.MULTILINE)
-                match_count = len(matches)
+                if matches:
+                    skill_scores[skill]["identifier_list"].append(
+                        f"{pattern} ({len(matches)})"
+                    )
+                total_matches += len(matches)
             except re.error as e:
-                print(f"Regex error: Skill '{skill}', Pattern '{pattern}' → {e}")
-                continue
+                print(f"⚠️ Regex error ({pattern}): {e}")
 
-            if match_count > 0:
-                skill_scores[skill]["identifier_list"].append(
-                    f"{pattern} ({match_count})"
-                )
-                count += match_count
+        skill_scores[skill]["raw_count"] = total_matches
+        skill_scores[skill]["density_score"] = round((total_matches / loc) * 100, 4)
 
-        skill_scores[skill]["raw_count"] = count
-        skill_scores[skill]["density_score"] = (
-            round(count / loc * 100, 4) if loc > 0 else 0
-        )
+    # ---------------------------------------------------------
+    # NEW: Filter out zero-count skills
+    # ---------------------------------------------------------
+    non_zero_skills = {
+        skill: data
+        for skill, data in skill_scores.items()
+        if data["raw_count"] > 0
+    }
 
     return {
+        "file_path": file_path,
         "language": detected_language,
-        "skill_mapping_used": skill_mapping_path,
-        "total_lines_of_code": loc,
-        "skill_scores": dict(skill_scores)
+        "mapping_used": skill_mapping_path,
+        "loc": loc,
+        "skill_scores": non_zero_skills   # <<< updated
     }
 
 
-# --------------------------------------------------
-# 4. MANUAL TEST CONFIGURATION + SAVE TO JSON
-# --------------------------------------------------
+# ------------------------------------------------------
+# 4. MAIN: read metadata and process multiple files
+# ------------------------------------------------------
 def main():
 
-    # >>>>> CHANGE THESE VALUES TO TEST <<<<<
-    file_path = "/Users/kusshsatija/capstone-project-team-4/src/core/framework_detector.py"
-    detected_language = "python"
-    loc = 429
+    metadata_path = "/Users/kusshsatija/capstone-project-team-4/src/outputs/app_metadata.json"
 
-    print("\nRunning manual skill extraction test...\n")
-
-    result = analyze_code_file(file_path, detected_language, loc)
-
-    if "error" in result:
-        print("❌ Error:", result["error"])
+    if not os.path.exists(metadata_path):
+        print("❌ app_metadata.json not found.")
         return
 
-    # -----------------------------
-    # Save results to a JSON file
-    # -----------------------------
+    with open(metadata_path, "r", encoding="utf-8") as f:
+        metadata = json.load(f)
+
+    files = metadata.get("files", [])
+    results = []
+
+    summary = {
+        "total_files_in_metadata": len(files),
+        "files_analyzed": 0,
+        "files_skipped": 0,
+        "languages_encountered": set(),
+        "reports_generated": 0,
+        "unsupported_languages": {},
+        "global_skill_counts": defaultdict(int)
+    }
+
+    print("\n🔍 Starting skill extraction for metadata files...\n")
+
+    for entry in files:
+        lang = entry.get("language", "").lower()
+        file_path = entry.get("path")
+
+        if not lang or not file_path:
+            summary["files_skipped"] += 1
+            continue
+
+        if lang not in SUPPORTED_LANGUAGES:
+            summary["unsupported_languages"].setdefault(lang, 0)
+            summary["unsupported_languages"][lang] += 1
+            summary["files_skipped"] += 1
+            continue
+
+        absolute_path = file_path.replace(
+            "/app", "/Users/kusshsatija/capstone-project-team-4"
+        )
+        summary["languages_encountered"].add(lang)
+
+        loc = 1  # placeholder
+
+        result = analyze_code_file(absolute_path, lang, loc)
+
+        if "error" in result:
+            summary["files_skipped"] += 1
+            continue
+
+        # Aggregate skill counts (only non-zero inside result)
+        for skill, info in result["skill_scores"].items():
+            summary["global_skill_counts"][skill] += info["raw_count"]
+
+        results.append(result)
+        summary["files_analyzed"] += 1
+        summary["reports_generated"] += 1
+
+    summary["languages_encountered"] = list(summary["languages_encountered"])
+
+    summary["global_skill_counts"] = dict(
+        sorted(summary["global_skill_counts"].items(), key=lambda x: x[1], reverse=True)
+    )
+
     output_path = "/Users/kusshsatija/capstone-project-team-4/src/outputs/alternate_skill_extraction_output.json"
 
-    try:
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(result, f, indent=4)
-        print(f"\n💾 Results saved to: {output_path}")
-    except Exception as e:
-        print(f"❌ Error saving JSON file: {e}")
+    final_output = {
+        "summary": summary,
+        "file_reports": results
+    }
 
-    # -----------------------------
-    # Terminal display
-    # -----------------------------
-    print("\n=====================================")
-    print("        SKILL EXTRACTION RESULTS     ")
-    print("=====================================")
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(final_output, f, indent=4)
 
-    print(f"📌 Language: {result['language']}")
-    print(f"📄 Mapping File: {result['skill_mapping_used']}")
-    print(f"📏 Total LOC: {result['total_lines_of_code']}")
-
-    print("\n🧠 Identified Skills:")
-    for skill, info in result["skill_scores"].items():
-        if info["raw_count"] > 0:
-            print(f"\n🔹 {skill}")
-            print(f"   Count: {info['raw_count']}")
-            print(f"   Density: {info['density_score']}%")
-            print(f"   Matches:")
-            for match in info["identifier_list"]:
-                print(f"      - {match}")
-
-    print("\nDone ✔")
+    print(f"\n💾 Skill extraction complete! Saved to:\n{output_path}\n")
 
 
 if __name__ == "__main__":
