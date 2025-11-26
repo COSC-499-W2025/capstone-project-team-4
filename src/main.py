@@ -137,8 +137,8 @@ def extract(
 
     # CASE 2: directory -> parse recursively and returns each file inside of a folder 
     if path.is_dir():
-        df = parse_metadata(str(path))
-        json_path = save_metadata_json(df, output_filename=f"{path.name}_metadata.json")
+        df, project_root = parse_metadata(str(path))
+        json_path = save_metadata_json(df, f"{path.name}_metadata.json", project_root)
         typer.secho(f"Directory metadata saved: {json_path}", fg=typer.colors.GREEN)
         return
 
