@@ -8,6 +8,9 @@ from pathlib import Path
 import pandas as po
 from tqdm import tqdm
 
+# Import language analyzer
+from .language_analyzer import LanguageConfig, FileAnalyzer, CommentDetector, FileWalker
+
 # This makes modified timestamps more human readable
 # from datetime import datetime
 
@@ -160,6 +163,12 @@ def parse_metadata(folder_path: str = "", include_filtered: bool = False):
     
     # Convert folder_path to Path object for easier manipulation
     base_path = Path(folder_path).resolve()
+    
+    # Initialize language analyzer components
+    config = LanguageConfig()
+    comment_detector = CommentDetector()
+    file_walker = FileWalker(config)
+    file_analyzer = FileAnalyzer(config, comment_detector, file_walker)
 
     for root, dirs, files in os.walk(folder_path):
         # Skip entire directories that are in our skip list
@@ -185,9 +194,11 @@ def parse_metadata(folder_path: str = "", include_filtered: bool = False):
                         "filename": file,
                         "path": str(relative_path),
                         "file_type": "FILTERED",
+                        "language": "Filtered",
                         "file_size": None,
                         "created_timestamp": None,
                         "last_modified": None,
+                        "lines_of_code": None,
                         "skip_reason": skip_reason,
                         "status": "filtered"
                     }
@@ -196,29 +207,37 @@ def parse_metadata(folder_path: str = "", include_filtered: bool = False):
             
             try:
                 file_type = magic.from_file(file_path, mime=True)
-                # The number/output for each file size is in bytes
                 file_size = os.path.getsize(file_path)
                 created_timestamp = os.path.getctime(file_path)
                 modified_timestamp = os.path.getmtime(file_path)
+
+                # Use the existing method from FileAnalyzer
+                language = file_analyzer.detect_language_by_extension(file_path)
+                
+                # Calculate lines of code using FileAnalyzer's count_lines_of_code method
+                try:
+                    file_stats = file_analyzer.count_lines_of_code(file_path, language)
+                    lines_of_code = file_stats.code_lines if file_stats else None
+                except Exception as loc_error:
+                    print(f"[WARN] Could not calculate LOC for {file_path}: {loc_error}")
+                    lines_of_code = None
 
                 # Convert absolute path to relative path from extracted directory
                 absolute_path = Path(file_path).resolve()
                 try:
                     relative_path = absolute_path.relative_to(base_path)
                 except ValueError:
-                    # If we can't make it relative, use just the filename
                     relative_path = Path(file)
 
-                # This is the line that will make timestamps more human readable (September 12, 2025, etc.)
-                # I kept it here in case anyone wants to use it in the future
-                # formatted_timestamp = datetime.fromtimestamp(modified_timestamp)
                 result = {
                     "filename": file,
-                    "path": str(relative_path),  # Store relative path as string
+                    "path": str(relative_path),
                     "file_type": file_type,
+                    "language": language,
                     "file_size": file_size,
                     "created_timestamp": created_timestamp,
                     "last_modified": modified_timestamp,
+                    "lines_of_code": lines_of_code,  # Now should have actual LOC
                     "status": "success"
                 }
                 results.append(result)
@@ -232,17 +251,19 @@ def parse_metadata(folder_path: str = "", include_filtered: bool = False):
                 
                 result = {
                     "filename": file,
-                    "path": str(relative_path),  # Store relative path as string
+                    "path": str(relative_path),
                     "file_type": "ERROR",
+                    "language": "Unknown",
                     "file_size": None,
                     "created_timestamp": None,
                     "last_modified": None,
+                    "lines_of_code": None,  # Add LOC field for errors
                     "error": str(exception),
                     "status": "error"
                 }
                 results.append(result)
 
-            # This just adds a description for the progress bar to indicate which folder it's currently on
+            # Progress bar update
             progress_bar.set_postfix({
                 "folder": os.path.basename(root),
                 "filtered": filtered_count
@@ -252,7 +273,6 @@ def parse_metadata(folder_path: str = "", include_filtered: bool = False):
     progress_bar.close()
     print(f"Filtered out {filtered_count} files")
     
-    # This is for exporting the data! Hopefully it can work to whoever was assigned with a JSON exporter
     dataframe = po.DataFrame(results)
     project_root = str(base_path)
     return dataframe, project_root
@@ -270,8 +290,8 @@ def save_metadata_json(dataframe: po.DataFrame, output_filename: str = "metadata
     Returns:
         str: Path to the saved JSON file
     """
-    # Create outputs directory if it doesn't exist
-    outputs_dir = Path(__file__).parent.parent / "outputs"
+    # Create outputs directory at project root level, not in src/
+    outputs_dir = Path.cwd() / "outputs"  # Changed from Path(__file__).parent.parent / "outputs"
     outputs_dir.mkdir(exist_ok=True)
     
     # Clean and format the data
@@ -296,13 +316,29 @@ def save_metadata_json(dataframe: po.DataFrame, output_filename: str = "metadata
             last_mod = float(last_mod)
         else:
             last_mod = None
+            
+        # Handle lines of code
+        lines_of_code = row.get('lines_of_code')
+        if lines_of_code is not None and not po.isna(lines_of_code):
+            lines_of_code = int(lines_of_code)
+        else:
+            lines_of_code = None
+            
+        # Handle language field
+        language = row.get('language')
+        if language is not None and not po.isna(language):
+            language = str(language)
+        else:
+            language = "Unknown"
         
         # Create clean record with all fields from parse_metadata
         record = {
             "filename": str(row['filename']),
             "path": str(row['path']),
             "file_type": str(row['file_type']),
+            "language": language,  # Add language field
             "file_size": file_size,
+            "lines_of_code": lines_of_code,  # Add LOC field
             "created_timestamp": created_ts,
             "last_modified": last_mod,
             "status": str(row.get('status', 'success'))
@@ -318,7 +354,7 @@ def save_metadata_json(dataframe: po.DataFrame, output_filename: str = "metadata
         
         cleaned_data.append(record)
     
-    # Calculate statistics
+    # Calculate statistics including LOC
     successful_files = [r for r in cleaned_data if r["status"] == "success" and r["file_size"] is not None]
     filtered_files = [r for r in cleaned_data if r["status"] == "filtered"]
     error_files = [r for r in cleaned_data if r["status"] == "error"]
@@ -326,17 +362,25 @@ def save_metadata_json(dataframe: po.DataFrame, output_filename: str = "metadata
     total_size = sum(r["file_size"] for r in successful_files) if successful_files else 0
     avg_size = total_size / len(successful_files) if successful_files else 0
     
+    # Calculate total LOC
+    files_with_loc = [r for r in successful_files if r["lines_of_code"] is not None]
+    total_loc = sum(r["lines_of_code"] for r in files_with_loc) if files_with_loc else 0
+    avg_loc = total_loc / len(files_with_loc) if files_with_loc else 0
+    
     # Create final JSON structure with metadata
     json_output = {
         "metadata": {
-            "generated_at": datetime.now().timestamp(),  # Unix timestamp for consistency
+            "generated_at": datetime.now().timestamp(),
             "total_files": len(cleaned_data),
             "successful_parses": len(successful_files),
             "failed_parses": len(error_files),
             "filtered_files": len(filtered_files),
             "total_size_bytes": total_size,
             "average_file_size_bytes": round(avg_size, 2),
-            "schema_version": "2.2"  # Updated version to include project_root
+            "total_lines_of_code": total_loc,  # Add total LOC
+            "average_lines_of_code": round(avg_loc, 2),  # Add average LOC
+            "files_with_loc": len(files_with_loc),  # Files that had LOC calculated
+            "schema_version": "2.3"  # Updated version to include LOC
         },
         "project_root": project_root,
         "files": cleaned_data
