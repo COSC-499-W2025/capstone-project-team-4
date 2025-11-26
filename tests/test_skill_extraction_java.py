@@ -2,6 +2,8 @@ import pytest
 import os
 import sys
 
+# NEED TO CHANGE ONCE IN DEVELOPMENT WTO TEST WITH FILEPATH AND LANGUAGE DETECTED
+
 # Path setup - got file not found error and this solved it
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 CORE_DIR = os.path.join(PROJECT_ROOT, 'src', 'core') 
