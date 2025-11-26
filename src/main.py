@@ -16,6 +16,8 @@ from src.core.run import validate_and_parse
 from src.core.metadata_parser import parse_metadata, save_metadata_json
 from src.core.language_analyzer import ProjectAnalyzer, StatsFormatter
 from src.core.project_analyzer import analyze_project, project_analysis_to_dict
+from src.core.alternate_skill_extractor import run_skill_extraction
+
 
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
@@ -242,7 +244,22 @@ def analyze_code(path: str, out: Optional[Path] = typer.Option(None, "--out", "-
     out.write_text(json.dumps(data, indent=2), encoding="utf-8")
     typer.echo(f"Saved JSON -> {out}")
 
+@app.command("analyze-skills")
+def analyze_skills():
+    """
+    Run full skill extraction using FIXED metadata and output paths.
+    """
+    metadata_path = "/Users/kusshsatija/capstone-project-team-4/outputs/capstone-project-team-4_metadata.json"
+    output_path = "/Users/kusshsatija/capstone-project-team-4/src/outputs/alternate_skill_extraction_output.json"
+    typer.echo("Running skill extraction...")
+    result = run_skill_extraction(metadata_path, output_path)
 
+    if "error" in result:
+        typer.secho(result["error"], fg="red")
+        raise typer.Exit(code=1)
+
+    typer.secho(f"Skills extracted successfully!", fg="green")
+    typer.secho(f"Output saved to: {output_path}", fg="cyan")
 
 if __name__ == "__main__":
     print("Running in virtual env:", check_virtual_env())
