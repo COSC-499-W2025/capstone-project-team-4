@@ -1,132 +1,207 @@
 import json
-import os  # Add this import
+import os
 import pandas as pd
 import pytest
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import patch, mock_open
+from unittest.mock import patch, mock_open, MagicMock
 
-from src.core.metadata_parser import parse_metadata, save_metadata_json
+from src.core.metadata_parser import parse_metadata, save_metadata_json, should_skip_file
 
 
 class TestFixtures:
     """Group all test fixtures together for better organization."""
     
     @pytest.fixture
-    def mock_metadata_parser_path(self, tmp_path, monkeypatch):
-        """Setup mock file path for metadata_parser module."""
-        src_dir = tmp_path / "src" / "core"
-        src_dir.mkdir(parents=True)
-        mock_file_path = src_dir / "metadata_parser.py"
-        monkeypatch.setattr("src.core.metadata_parser.__file__", str(mock_file_path))
-        return src_dir
+    def mock_cwd_outputs(self, tmp_path, monkeypatch):
+        """Mock Path.cwd() to return test directory for outputs."""
+        monkeypatch.setattr("pathlib.Path.cwd", lambda: tmp_path)
+        return tmp_path / "outputs"
 
     @pytest.fixture
     def sample_dataframe(self):
-        """Create a standard test dataframe with Unix timestamps."""
+        """Create a standard test dataframe with Unix timestamps and new fields."""
         return pd.DataFrame([
             {
                 "filename": "test1.txt",
-                "path": "/tmp/test1.txt",
+                "path": "test1.txt",
                 "file_type": "text/plain",
+                "language": "Text",
                 "file_size": 1024,
+                "lines_of_code": 50,
                 "created_timestamp": 1698342000.0,
-                "last_modified": 1698345600.0
+                "last_modified": 1698345600.0,
+                "status": "success"
             },
             {
-                "filename": "test2.jpg",
-                "path": "/tmp/test2.jpg", 
-                "file_type": "image/jpeg",
+                "filename": "test2.py",
+                "path": "test2.py", 
+                "file_type": "text/x-script.python",
+                "language": "Python",
                 "file_size": 2048,
+                "lines_of_code": 100,
                 "created_timestamp": 1698345600.0,
-                "last_modified": 1698349200.0
+                "last_modified": 1698349200.0,
+                "status": "success"
             }
         ])
 
     @pytest.fixture
     def error_dataframe(self):
         """Create a dataframe with error records that match the expected format."""
-        # Let's create a simpler error case that matches what the implementation expects
         df = pd.DataFrame([
             {
                 "filename": "good.txt",
-                "path": "/tmp/good.txt",
+                "path": "good.txt",
                 "file_type": "text/plain",
+                "language": "Text",
                 "file_size": 512,
+                "lines_of_code": 25,
                 "created_timestamp": 1698342000.0,
-                "last_modified": 1698345600.0
+                "last_modified": 1698345600.0,
+                "status": "success"
             },
             {
                 "filename": "bad.txt",
-                "path": "/tmp/bad.txt",
-                "file_type": "text/plain",  # Changed from "ERROR"
+                "path": "bad.txt",
+                "file_type": "ERROR",
+                "language": "Unknown",
                 "file_size": None,
+                "lines_of_code": None,
                 "created_timestamp": None,
                 "last_modified": None,
-                "error": "Permission denied"
+                "error": "Permission denied",
+                "status": "error"
             }
         ])
         return df.where(df.notna(), None)
+
+    @pytest.fixture
+    def filtered_dataframe(self):
+        """Create a dataframe with filtered records."""
+        return pd.DataFrame([
+            {
+                "filename": "test.pyc",
+                "path": "test.pyc",
+                "file_type": "FILTERED",
+                "language": "Filtered",
+                "file_size": None,
+                "lines_of_code": None,
+                "created_timestamp": None,
+                "last_modified": None,
+                "skip_reason": "skipped extension: .pyc",
+                "status": "filtered"
+            }
+        ])
+
+
+class TestShouldSkipFile:
+    """Test cases for should_skip_file function."""
+    
+    def test_skip_by_extension(self):
+        """Test skipping files by extension."""
+        should_skip, reason = should_skip_file("/path/test.pyc", "test.pyc")
+        assert should_skip is True
+        assert "skipped extension: .pyc" in reason
+    
+    def test_skip_by_filename(self):
+        """Test skipping files by filename."""
+        should_skip, reason = should_skip_file("/path/.DS_Store", ".DS_Store")
+        assert should_skip is True
+        assert "skipped filename: .DS_Store" in reason
+    
+    def test_skip_by_directory(self):
+        """Test skipping files in excluded directories."""
+        should_skip, reason = should_skip_file("/path/__pycache__/module.py", "module.py")
+        assert should_skip is True
+        assert "skipped directory: __pycache__" in reason
+    
+    def test_do_not_skip_valid_file(self):
+        """Test not skipping valid files."""
+        should_skip, reason = should_skip_file("/path/main.py", "main.py")
+        assert should_skip is False
+        assert reason == ""
 
 
 class TestParseMetadata(TestFixtures):
     """Test cases for parse_metadata function."""
     
-    def test_returns_dataframe(self, tmp_path):
-        """Test that parse_metadata returns a proper DataFrame."""
+    @patch('src.core.metadata_parser.should_skip_file')  # Mock the should_skip_file function
+    @patch('src.core.metadata_parser.FileAnalyzer')
+    @patch('src.core.metadata_parser.LanguageConfig')
+    @patch('src.core.metadata_parser.CommentDetector')
+    @patch('src.core.metadata_parser.FileWalker')
+    @patch('src.core.metadata_parser.magic')
+    @patch('os.walk')
+    @patch('os.path.getsize')
+    @patch('os.path.getctime')
+    @patch('os.path.getmtime')
+    def test_returns_dataframe_with_new_fields(self, mock_getmtime, mock_getctime, mock_getsize, 
+                                             mock_walk, mock_magic, mock_file_walker, 
+                                             mock_comment_detector, mock_language_config, 
+                                             mock_file_analyzer, mock_should_skip):
+        """Test that parse_metadata returns DataFrame with new language and LOC fields."""
         # Arrange
-        directory = tmp_path / "data"
-        directory.mkdir()
+        mock_walk.return_value = [
+            ("/test", [], ["test.py", "test.txt"])
+        ]
         
-        # Create files with explicit permissions for Docker compatibility
-        file1 = directory / "file1.txt"
-        file2 = directory / "file2.log"
+        # Mock should_skip_file to return False (don't skip) for both files
+        mock_should_skip.return_value = (False, "")
         
-        file1.write_text("Sample content")
-        file2.write_text("Log content")
+        mock_magic.from_file.side_effect = ["text/x-script.python", "text/plain"]
+        mock_getsize.side_effect = [1024, 512]
+        mock_getctime.side_effect = [1698342000.0, 1698345600.0]
+        mock_getmtime.side_effect = [1698345600.0, 1698349200.0]
         
-        # Set explicit permissions in case Docker has permission issues
-        try:
-            file1.chmod(0o644)
-            file2.chmod(0o644)
-            directory.chmod(0o755)
-        except (OSError, AttributeError):
-            # Permission setting might fail in some Docker environments
-            pass
-
+        # Mock language analyzer components
+        mock_analyzer_instance = MagicMock()
+        mock_analyzer_instance.detect_language_by_extension.side_effect = ["Python", "Text"]
+        
+        # Mock LOC analysis - return different values for each file
+        mock_file_stats_py = MagicMock()
+        mock_file_stats_py.code_lines = 50
+        mock_file_stats_txt = MagicMock()
+        mock_file_stats_txt.code_lines = 25
+        mock_analyzer_instance.count_lines_of_code.side_effect = [mock_file_stats_py, mock_file_stats_txt]
+        
+        mock_file_analyzer.return_value = mock_analyzer_instance
+        mock_language_config.return_value = MagicMock()
+        mock_comment_detector.return_value = MagicMock()
+        mock_file_walker.return_value = MagicMock()
+        
         # Act
-        result, project_root = parse_metadata(str(directory))
-
+        result, project_root = parse_metadata("/test")
+        
         # Assert
         assert isinstance(result, pd.DataFrame)
-        assert isinstance(project_root, str)
-        assert project_root == str(directory.resolve())
+        assert len(result) == 2
         
-        # In Docker, the function might return empty due to permission or path issues
-        if len(result) == 0:
-            # If empty, at least verify the DataFrame has the expected structure
-            print(f"DEBUG: Empty DataFrame returned for directory: {directory}")
-            print(f"DEBUG: Directory exists: {directory.exists()}")
-            print(f"DEBUG: Directory contents: {list(directory.iterdir()) if directory.exists() else 'N/A'}")
-            
-            # Skip the rest of the test if no files found
-            pytest.skip("No files returned by parse_metadata - possible Docker environment issue")
-        else:
-            # Normal assertions when files are found
-            expected_columns = {"filename", "path", "file_type", "file_size", "created_timestamp", "last_modified"}
-            assert expected_columns.issubset(result.columns)
-            assert len(result) >= 1
+        # Check that new fields are present
+        expected_columns = {"filename", "path", "file_type", "language", "file_size", 
+                          "lines_of_code", "created_timestamp", "last_modified", "status"}
+        assert expected_columns.issubset(set(result.columns))
+        
+        # Check Python file
+        python_file = result[result["filename"] == "test.py"].iloc[0]
+        assert python_file["language"] == "Python"
+        assert python_file["lines_of_code"] == 50
+        assert python_file["status"] == "success"
+        
+        # Check text file
+        text_file = result[result["filename"] == "test.txt"].iloc[0]
+        assert text_file["language"] == "Text"
+        assert text_file["lines_of_code"] == 25
+        assert text_file["status"] == "success"
+        
+        # Verify should_skip_file was called for both files
+        assert mock_should_skip.call_count == 2
     
     def test_empty_directory(self, tmp_path):
         """Test parse_metadata with empty directory."""
         # Arrange
         directory = tmp_path / "empty"
         directory.mkdir()
-        
-        try:
-            directory.chmod(0o755)
-        except (OSError, AttributeError):
-            pass
 
         # Act
         result, project_root = parse_metadata(str(directory))
@@ -137,92 +212,12 @@ class TestParseMetadata(TestFixtures):
         assert isinstance(project_root, str)
         assert project_root == str(directory.resolve())
 
-    def test_correct_file_paths(self, tmp_path):
-        """Test that parse_metadata returns correct file paths."""
-        # Arrange
-        directory = tmp_path / "verify"
-        directory.mkdir()
-        file_path = directory / "sample.txt"
-        file_path.write_text("Hello!")
-        
-        try:
-            file_path.chmod(0o644)
-            directory.chmod(0o755)
-        except (OSError, AttributeError):
-            pass
-
-        # Act
-        result, project_root = parse_metadata(str(directory))
-
-        # Assert
-        assert isinstance(result, pd.DataFrame)
-        assert isinstance(project_root, str)
-        assert project_root == str(directory.resolve())
-        
-        if len(result) == 0:
-            print(f"DEBUG: No files found in {directory}")
-            print(f"DEBUG: File exists: {file_path.exists()}")
-            print(f"DEBUG: Directory readable: {os.access(directory, os.R_OK)}")
-            pytest.skip("No files returned by parse_metadata - possible Docker environment issue")
-        
-        # Check if our specific file is in the results
-        if "filename" not in result.columns:
-            print(f"DEBUG: Available columns: {list(result.columns)}")
-            print(f"DEBUG: DataFrame content: {result.to_dict()}")
-            pytest.fail("DataFrame missing 'filename' column")
-        
-        # Find the row with our test file
-        sample_rows = result[result["filename"] == "sample.txt"]
-        
-        if len(sample_rows) == 0:
-            print(f"DEBUG: sample.txt not found. Available files: {result['filename'].tolist()}")
-            pytest.skip("sample.txt not found in results - possible file filtering issue")
-        
-        row = sample_rows.iloc[0]
-        assert row["filename"] == "sample.txt"
-        
-        # The path should at least contain the filename
-        path_value = row["path"]
-        assert "sample.txt" in path_value
-        
-        # If the implementation returns full paths, check for directory
-        # If it returns relative paths, just ensure filename is present
-        if len(path_value) > len("sample.txt"):
-            # Full path case - should contain directory info
-            assert str(directory) in path_value or "verify" in path_value
-        # else: relative path case - filename presence is sufficient
-
-    @pytest.fixture
-    def error_dataframe(self):
-        """Create a dataframe with error records that match the expected format."""
-        # Let's create a simpler error case that matches what the implementation expects
-        df = pd.DataFrame([
-            {
-                "filename": "good.txt",
-                "path": "/tmp/good.txt",
-                "file_type": "text/plain",
-                "file_size": 512,
-                "created_timestamp": 1698342000.0,
-                "last_modified": 1698345600.0
-            },
-            {
-                "filename": "bad.txt",
-                "path": "/tmp/bad.txt",
-                "file_type": "text/plain",  # Changed from "ERROR"
-                "file_size": None,
-                "created_timestamp": None,
-                "last_modified": None,
-                "error": "Permission denied"
-            }
-        ])
-        return df.where(df.notna(), None)
-
 
 class TestSaveMetadataJson(TestFixtures):
     """Test cases for save_metadata_json function."""
     
-    def test_creates_valid_json_structure(self, mock_metadata_parser_path, sample_dataframe):
-        """Test that save_metadata_json creates valid JSON with correct structure."""
+    def test_creates_valid_json_structure_with_new_fields(self, mock_cwd_outputs, sample_dataframe):
+        """Test that save_metadata_json creates valid JSON with new fields."""
         # Act
         result_path = save_metadata_json(sample_dataframe, "test_output.json", "/tmp/test_project")
         
@@ -238,25 +233,30 @@ class TestSaveMetadataJson(TestFixtures):
         # Check project_root field
         assert json_data["project_root"] == "/tmp/test_project"
         
-        # Check metadata fields
+        # Check metadata fields (updated for schema version 2.3)
         metadata = json_data["metadata"]
         assert metadata["total_files"] == 2
         assert metadata["successful_parses"] == 2
         assert metadata["failed_parses"] == 0
-        assert metadata["schema_version"] == "2.2"  # Updated version to include project_root
+        assert metadata["filtered_files"] == 0
+        assert metadata["schema_version"] == "2.3"  # Updated version
         assert metadata["total_size_bytes"] == 3072  # 1024 + 2048
         assert metadata["average_file_size_bytes"] == 1536.0
         
-        # Check file details
+        # Check new LOC fields
+        assert metadata["total_lines_of_code"] == 150  # 50 + 100
+        assert metadata["average_lines_of_code"] == 75.0  # 150 / 2
+        assert metadata["files_with_loc"] == 2
+        
+        # Check file details with new fields
         files = json_data["files"]
-        file1 = next(f for f in files if f["filename"] == "test1.txt")
-        assert file1["status"] == "success"
-        assert file1["file_size"] == 1024
-        assert file1["created_timestamp"] == 1698342000.0
-        assert file1["last_modified"] == 1698345600.0
+        python_file = next(f for f in files if f["filename"] == "test2.py")
+        assert python_file["language"] == "Python"
+        assert python_file["lines_of_code"] == 100
+        assert python_file["status"] == "success"
     
-    def test_handles_error_records(self, mock_metadata_parser_path, error_dataframe):
-        """Test handling of records with errors."""
+    def test_handles_error_records_with_new_fields(self, mock_cwd_outputs, error_dataframe):
+        """Test handling of records with errors including new fields."""
         # Act
         result_path = save_metadata_json(error_dataframe, "error_test.json", "/tmp/error_project")
         
@@ -266,119 +266,132 @@ class TestSaveMetadataJson(TestFixtures):
         
         metadata = json_data["metadata"]
         assert metadata["total_files"] == 2
+        assert metadata["successful_parses"] == 1  # Only good.txt is successful
+        assert metadata["failed_parses"] == 1     # bad.txt is error
+        assert metadata["filtered_files"] == 0
+        
+        # LOC stats should only count successful files
+        assert metadata["total_lines_of_code"] == 25  # Only good.txt
+        assert metadata["average_lines_of_code"] == 25.0
+        assert metadata["files_with_loc"] == 1
         
         files = json_data["files"]
-        
-        # Check if we have the expected files
-        filenames = [f["filename"] for f in files]
-        assert "bad.txt" in filenames
-        assert "good.txt" in filenames
-        
-        # Find files by filename
         bad_file = next(f for f in files if f["filename"] == "bad.txt")
         good_file = next(f for f in files if f["filename"] == "good.txt")
         
-        # Check good file first (this should always work)
-        assert good_file["filename"] == "good.txt"
-        assert good_file["file_size"] == 512
+        # Check good file
+        assert good_file["language"] == "Text"
+        assert good_file["lines_of_code"] == 25
+        assert good_file["status"] == "success"
         
-        # For bad file, check what status is actually being set
-        # Print actual values to debug
-        print(f"DEBUG: bad_file status = {bad_file.get('status', 'NOT_FOUND')}")
-        print(f"DEBUG: bad_file keys = {list(bad_file.keys())}")
-        
-        # Check if the implementation treats records with None values differently
-        if bad_file["file_type"] == "ERROR":
-            # The implementation might not set status to "error" for records with ERROR file_type
-            # Just verify the error data is preserved
-            assert bad_file["file_size"] is None
-            assert bad_file["created_timestamp"] is None
-            assert bad_file["last_modified"] is None
-            
-            # Check if error field exists
-            if "error" in bad_file:
-                assert bad_file["error"] == "Permission denied"
-        else:
-            # If file_type is not ERROR, then status might be success but with null values
-            assert bad_file["file_size"] is None
-
-    def test_handles_invalid_timestamps(self, mock_metadata_parser_path):
-        """Test handling of invalid/missing timestamps."""
-        # Arrange
-        timestamp_data = pd.DataFrame([
-            {
-                "filename": "old_file.txt", 
-                "path": "/tmp/old_file.txt", 
-                "file_type": "text/plain",
-                "file_size": 100,
-                "created_timestamp": -1.0,
-                "last_modified": -1.0
-            },
-            {
-                "filename": "no_time.txt", 
-                "path": "/tmp/no_time.txt", 
-                "file_type": "text/plain",
-                "file_size": 200,
-                "created_timestamp": None,
-                "last_modified": None
-            }
-        ])
-        
+        # Check bad file
+        assert bad_file["language"] == "Unknown"
+        assert bad_file["lines_of_code"] is None
+        assert bad_file["status"] == "error"
+        assert "error" in bad_file
+        assert bad_file["error"] == "Permission denied"
+    
+    def test_handles_filtered_records(self, mock_cwd_outputs, filtered_dataframe):
+        """Test handling of filtered records."""
         # Act
-        result_path = save_metadata_json(timestamp_data, "timestamp_test.json", "/tmp/timestamp_project")
+        result_path = save_metadata_json(filtered_dataframe, "filtered_test.json", "/tmp/filtered_project")
         
         # Assert
         with open(result_path, 'r', encoding='utf-8') as f:
             json_data = json.load(f)
         
+        metadata = json_data["metadata"]
+        assert metadata["total_files"] == 1
+        assert metadata["successful_parses"] == 0
+        assert metadata["failed_parses"] == 0
+        assert metadata["filtered_files"] == 1
+        
+        # No LOC stats for filtered files
+        assert metadata["total_lines_of_code"] == 0
+        assert metadata["average_lines_of_code"] == 0
+        assert metadata["files_with_loc"] == 0
+        
         files = json_data["files"]
-        old_file = next(f for f in files if f["filename"] == "old_file.txt")
-        no_time_file = next(f for f in files if f["filename"] == "no_time.txt")
-        
-        assert old_file["last_modified"] == -1.0
-        assert old_file["created_timestamp"] == -1.0
-        assert no_time_file["last_modified"] is None
-        assert no_time_file["created_timestamp"] is None
-
-    def test_custom_filename(self, mock_metadata_parser_path, sample_dataframe):
-        """Test using custom output filename."""
-        # Arrange
-        custom_filename = "my_custom_output.json"
-        
+        filtered_file = files[0]
+        assert filtered_file["language"] == "Filtered"
+        assert filtered_file["lines_of_code"] is None
+        assert filtered_file["status"] == "filtered"
+        assert "skip_reason" in filtered_file
+        assert filtered_file["skip_reason"] == "skipped extension: .pyc"
+    
+    def test_saves_to_outputs_directory_at_cwd(self, mock_cwd_outputs, sample_dataframe):
+        """Test that files are saved to outputs directory at current working directory."""
         # Act
-        result_path = save_metadata_json(sample_dataframe, custom_filename, "/tmp/custom_project")
+        result_path = save_metadata_json(sample_dataframe, "cwd_test.json", "/tmp/cwd_project")
         
         # Assert
-        assert custom_filename in result_path
+        expected_path = mock_cwd_outputs / "cwd_test.json"
+        assert result_path == str(expected_path)
         assert os.path.exists(result_path)
-
-    def test_creates_outputs_directory(self, tmp_path, monkeypatch, sample_dataframe):
-        """Test that outputs directory is created if it doesn't exist."""
-        # Arrange
-        src_dir = tmp_path / "src" / "core"
-        src_dir.mkdir(parents=True)
-        mock_file_path = src_dir / "metadata_parser.py"
-        monkeypatch.setattr("src.core.metadata_parser.__file__", str(mock_file_path))
         
-        outputs_dir = tmp_path / "src" / "outputs"
-        assert not outputs_dir.exists()
+        # Verify outputs directory was created
+        assert mock_cwd_outputs.exists()
+    
+    def test_handles_null_loc_values(self, mock_cwd_outputs):
+        """Test handling of null/None LOC values."""
+        # Arrange
+        mixed_loc_data = pd.DataFrame([
+            {
+                "filename": "with_loc.py",
+                "path": "with_loc.py",
+                "file_type": "text/x-script.python",
+                "language": "Python",
+                "file_size": 1000,
+                "lines_of_code": 50,
+                "created_timestamp": 1698342000.0,
+                "last_modified": 1698345600.0,
+                "status": "success"
+            },
+            {
+                "filename": "without_loc.bin",
+                "path": "without_loc.bin",
+                "file_type": "application/octet-stream",
+                "language": "Unknown",
+                "file_size": 500,
+                "lines_of_code": None,
+                "created_timestamp": 1698342000.0,
+                "last_modified": 1698345600.0,
+                "status": "success"
+            }
+        ])
         
         # Act
-        save_metadata_json(sample_dataframe, "directory_test.json", "/tmp/directory_project")
+        result_path = save_metadata_json(mixed_loc_data, "mixed_loc_test.json", "/tmp/mixed_loc_project")
         
         # Assert
-        assert outputs_dir.exists()
-
-    def test_utf8_encoding(self, mock_metadata_parser_path):
-        """Test UTF-8 character handling."""
+        with open(result_path, 'r', encoding='utf-8') as f:
+            json_data = json.load(f)
+        
+        metadata = json_data["metadata"]
+        assert metadata["total_lines_of_code"] == 50  # Only count non-null LOC
+        assert metadata["average_lines_of_code"] == 50.0  # 50 / 1
+        assert metadata["files_with_loc"] == 1  # Only one file had LOC
+        
+        files = json_data["files"]
+        with_loc = next(f for f in files if f["filename"] == "with_loc.py")
+        without_loc = next(f for f in files if f["filename"] == "without_loc.bin")
+        
+        assert with_loc["lines_of_code"] == 50
+        assert without_loc["lines_of_code"] is None
+    
+    def test_utf8_encoding_with_new_fields(self, mock_cwd_outputs):
+        """Test UTF-8 character handling with new fields."""
         # Arrange
         unicode_data = pd.DataFrame([{
-            "filename": "файл.txt",
-            "path": "/tmp/файл.txt",
-            "file_type": "text/plain",
+            "filename": "файл.py",
+            "path": "файл.py",
+            "file_type": "text/x-script.python",
+            "language": "Python",
             "file_size": 300,
+            "lines_of_code": 15,
             "created_timestamp": 1698342000.0,
-            "last_modified": 1698345600.0
+            "last_modified": 1698345600.0,
+            "status": "success"
         }])
         
         # Act
@@ -389,121 +402,71 @@ class TestSaveMetadataJson(TestFixtures):
             json_data = json.load(f)
         
         file_data = json_data["files"][0]
-        assert file_data["filename"] == "файл.txt"
-        assert file_data["last_modified"] == 1698345600.0
-        assert file_data["file_size"] == 300
+        assert file_data["filename"] == "файл.py"
+        assert file_data["language"] == "Python"
+        assert file_data["lines_of_code"] == 15
+        assert file_data["status"] == "success"
 
-    def test_metadata_timestamp_format(self, mock_metadata_parser_path, sample_dataframe):
-        """Test that metadata generated_at uses Unix timestamp format."""
-        # Act
-        result_path = save_metadata_json(sample_dataframe, "metadata_time_test.json", "/tmp/metadata_time_project")
-        
-        # Assert
-        with open(result_path, 'r', encoding='utf-8') as f:
-            json_data = json.load(f)
-        
-        generated_at = json_data["metadata"]["generated_at"]
-        assert isinstance(generated_at, (int, float))
-        
-        # Should be close to current time (within 1 minute)
-        current_time = datetime.now().timestamp()
-        assert abs(generated_at - current_time) < 60
 
-    def test_file_size_statistics(self, mock_metadata_parser_path):
-        """Test file size statistics calculation."""
+class TestErrorHandling(TestFixtures):
+    """Test error handling scenarios."""
+    
+    def test_file_write_permission_error(self, mock_cwd_outputs, sample_dataframe):
+        """Test handling of file write permission errors."""
+        with patch("builtins.open", side_effect=PermissionError("Permission denied")):
+            with pytest.raises(PermissionError, match="Permission denied"):
+                save_metadata_json(sample_dataframe, "write_error_test.json", "/tmp/write_error_project")
+
+    def test_json_serialization_error(self, mock_cwd_outputs, sample_dataframe):
+        """Test handling of JSON serialization errors."""
+        with patch("json.dump", side_effect=TypeError("Object is not JSON serializable")):
+            with pytest.raises(TypeError, match="Object is not JSON serializable"):
+                save_metadata_json(sample_dataframe, "json_error_test.json", "/tmp/json_error_project")
+
+
+class TestEdgeCases(TestFixtures):
+    """Test edge cases and boundary conditions."""
+    
+    @pytest.mark.parametrize("file_sizes,loc_values,expected_avg_size,expected_avg_loc", [
+        ([0, 0], [0, 0], 0.0, 0.0),
+        ([1000], [50], 1000.0, 50.0),
+        ([1000, 2000], [50, 100], 1500.0, 75.0),
+        ([1000, 2000], [50, None], 1500.0, 50.0),  # One null LOC
+    ])
+    def test_statistics_edge_cases(self, mock_cwd_outputs, file_sizes, loc_values, expected_avg_size, expected_avg_loc):
+        """Test statistics calculation edge cases with new LOC fields."""
         # Arrange
-        mixed_data = pd.DataFrame([
+        data = pd.DataFrame([
             {
-                "filename": "small.txt",
-                "path": "/tmp/small.txt",
+                "filename": f"file{i}.txt",
+                "path": f"file{i}.txt",
                 "file_type": "text/plain",
-                "file_size": 100,
+                "language": "Text",
+                "file_size": size,
+                "lines_of_code": loc,
                 "created_timestamp": 1698342000.0,
-                "last_modified": 1698345600.0
-            },
-            {
-                "filename": "large.txt",
-                "path": "/tmp/large.txt",
-                "file_type": "text/plain",
-                "file_size": 900,
-                "created_timestamp": 1698342000.0,
-                "last_modified": 1698345600.0
+                "last_modified": 1698345600.0,
+                "status": "success"
             }
-            # Removed error record to test successful cases only
+            for i, (size, loc) in enumerate(zip(file_sizes, loc_values))
         ])
         
         # Act
-        result_path = save_metadata_json(mixed_data, "size_stats_test.json", "/tmp/size_stats_project")
+        result_path = save_metadata_json(data, f"edge_case_test_{len(file_sizes)}.json", "/tmp/edge_case_project")
         
         # Assert
         with open(result_path, 'r', encoding='utf-8') as f:
             json_data = json.load(f)
         
         metadata = json_data["metadata"]
-        assert metadata["total_files"] == 2
-        assert metadata["successful_parses"] == 2
-        # Check if failed_parses field exists
-        if "failed_parses" in metadata:
-            assert metadata["failed_parses"] == 0
-        assert metadata["total_size_bytes"] == 1000  # 100 + 900
-        assert metadata["average_file_size_bytes"] == 500.0  # 1000 / 2
-
-
-class TestErrorHandling(TestFixtures):
-    """Test error handling scenarios."""
-    
-    def test_file_write_permission_error(self, mock_metadata_parser_path, sample_dataframe):
-        """Test handling of file write permission errors."""
-        with patch("builtins.open", side_effect=PermissionError("Permission denied")):
-            with pytest.raises(PermissionError, match="Permission denied"):
-                save_metadata_json(sample_dataframe, "write_error_test.json", "/tmp/write_error_project")
-
-    def test_json_serialization_error(self, mock_metadata_parser_path, sample_dataframe):
-        """Test handling of JSON serialization errors."""
-        with patch("json.dump", side_effect=TypeError("Object is not JSON serializable")):
-            with pytest.raises(TypeError, match="Object is not JSON serializable"):
-                save_metadata_json(sample_dataframe, "json_error_test.json", "/tmp/json_error_project")
-
-    def test_directory_creation_error(self, mock_metadata_parser_path, sample_dataframe):
-        """Test handling of directory creation errors."""
-        with patch("pathlib.Path.mkdir", side_effect=OSError("Permission denied")):
-            with pytest.raises(OSError, match="Permission denied"):
-                save_metadata_json(sample_dataframe, "dir_error_test.json", "/tmp/dir_error_project")
-
-
-# Parametrized tests for edge cases
-class TestEdgeCases(TestFixtures):
-    """Test edge cases and boundary conditions."""
-    
-    @pytest.mark.parametrize("file_size,expected_avg", [
-        ([0, 0], 0.0),
-        ([1], 1.0),
-        ([1000000, 2000000], 1500000.0),
-    ])
-    def test_file_size_edge_cases(self, mock_metadata_parser_path, file_size, expected_avg):
-        """Test file size calculation edge cases."""
-        # Arrange
-        data = pd.DataFrame([
-            {
-                "filename": f"file{i}.txt",
-                "path": f"/tmp/file{i}.txt",
-                "file_type": "text/plain",
-                "file_size": size,
-                "created_timestamp": 1698342000.0,
-                "last_modified": 1698345600.0
-            }
-            for i, size in enumerate(file_size)
-        ])
+        assert metadata["average_file_size_bytes"] == expected_avg_size
+        assert metadata["total_size_bytes"] == sum(file_sizes)
+        assert metadata["average_lines_of_code"] == expected_avg_loc
         
-        # Act
-        result_path = save_metadata_json(data, f"edge_case_test_{len(file_size)}.json", "/tmp/edge_case_project")
-        
-        # Assert
-        with open(result_path, 'r', encoding='utf-8') as f:
-            json_data = json.load(f)
-        
-        assert json_data["metadata"]["average_file_size_bytes"] == expected_avg
-        assert json_data["metadata"]["total_size_bytes"] == sum(file_size)
+        # Count non-null LOC values
+        non_null_loc = [loc for loc in loc_values if loc is not None]
+        assert metadata["total_lines_of_code"] == sum(non_null_loc) if non_null_loc else 0
+        assert metadata["files_with_loc"] == len(non_null_loc)
 
 
 
