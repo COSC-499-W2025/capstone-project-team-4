@@ -100,6 +100,11 @@ def external_permission(service: str = "API"):
 @app.command("analyze-project")
 def analyze_project_cli(
     path: Path = typer.Argument(..., help="Path to a project directory or ZIP file."),
+    include_files: bool = typer.Option(
+        False,
+        "--include-files/--no-include-files",
+        help="Include full file list from metadata in final report",
+    ),
     out: Optional[Path] = typer.Option(
         None, "--out", "-o", help="Output directory (default: ./outputs)"
     ),
@@ -124,6 +129,9 @@ def analyze_project_cli(
     if not path.exists():
         typer.secho(f"❌ Path not found: {path}", fg=typer.colors.RED)
         raise typer.Exit(code=2)
+
+    # Project Name (gets the final... name from a path? Like the last thing at the end of chicken/main.txt for example)
+    project_name = path.stem
 
     # 1️. If ZIP -> extract into temp folder
 
@@ -176,6 +184,7 @@ def analyze_project_cli(
     project_stats = calculate_project_stats(project_root, file_list)
 
     final_report = {
+        "project_name": project_name,
         "project_root": project_root,
         "metadata": project_stats,
         "code_complexity": complexity,
@@ -185,6 +194,11 @@ def analyze_project_cli(
     # I thought Python could do something like `&&` for conditional rendering. I'm cooked
     if len(contributors) > 0:
         final_report["contributors"] = contributors
+
+    # If the user wants to list all the files analyzed, then add it to the final report,
+    # By default, nah it'll bloat the JSON file
+    if include_files:
+        final_report["analyzed_files"] = file_list
 
     output_file = out_dir / "final_report.json"
     output_file.write_text(json.dumps(final_report, indent=2))
