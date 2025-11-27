@@ -81,7 +81,9 @@ def run_skill_extraction(metadata_path, output_path):
         "files_skipped": 0,
         "languages_encountered": set(),
         "unsupported_languages": {},
-        "global_skill_counts": defaultdict(int)
+
+        "global_skill_counts": defaultdict(int),
+        "skills_by_language": defaultdict(lambda: defaultdict(int))
     }
 
     reports = []
@@ -101,21 +103,34 @@ def run_skill_extraction(metadata_path, output_path):
         summary["languages_encountered"].add(lang)
 
         result = analyze_code_file(absolute_path, lang, loc)
+
         if "error" in result:
             summary["files_skipped"] += 1
             continue
 
-        # aggregate global skills
         for skill, info in result["skill_scores"].items():
-            summary["global_skill_counts"][skill] += info["raw_count"]
+            count = info["raw_count"]
+
+            summary["global_skill_counts"][skill] += count # Global aggregation
+            summary["skills_by_language"][lang][skill] += count  # Per-language aggregation
 
         reports.append(result)
         summary["files_analyzed"] += 1
 
     summary["languages_encountered"] = list(summary["languages_encountered"])
+
+    # Sort global skills
     summary["global_skill_counts"] = dict(
         sorted(summary["global_skill_counts"].items(), key=lambda x: x[1], reverse=True)
     )
+
+    # Sort each language bucket
+    sorted_lang_skills = {}
+    for lang, skill_dict in summary["skills_by_language"].items():
+        sorted_lang_skills[lang] = dict(
+            sorted(skill_dict.items(), key=lambda x: x[1], reverse=True)
+        )
+    summary["skills_by_language"] = sorted_lang_skills
 
     final = {
         "summary": summary,
