@@ -2,7 +2,10 @@ import sys
 import os
 from pathlib import Path
 from typing import Optional
-import json 
+from datetime import datetime
+import shutil
+
+import json
 
 import typer
 import zipfile
@@ -11,17 +14,24 @@ from tempfile import TemporaryDirectory
 from src.core import config_manager
 from src.core.database import init_db
 from src.core.config_manager import save_config, load_config
+
 # from src.core.file_validator import validate_zip
 from src.core.run import validate_and_parse
 from src.core.metadata_parser import parse_metadata, save_metadata_json
 from src.core.language_analyzer import ProjectAnalyzer, StatsFormatter
-from src.core.project_analyzer import analyze_project, project_analysis_to_dict
+from src.core.project_analyzer import (
+    analyze_contributors,
+    analyze_project,
+    calculate_project_stats,
+    project_analysis_to_dict,
+)
 
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI - Extract metadata and professional skills from code repositories")
 
 # This is for testing if your local environment is running the "virtual environment"
 # It should say True
+
 
 # If you want it to run put in the command: python -m src.main {command name}
 def check_virtual_env():
@@ -30,12 +40,14 @@ def check_virtual_env():
 
 @app.command()
 def consent(
-    grant: bool = typer.Option(False, "--grant", help="Grant consent to process files."),
+    grant: bool = typer.Option(
+        False, "--grant", help="Grant consent to process files."
+    ),
     revoke: bool = typer.Option(False, "--revoke", help="Revoke consent."),
-     external: Optional[bool] = typer.Option(
-    None,
-    "--external/--no-external",
-    help="Allow (or disallow) use of external APIs/services.",
+    external: Optional[bool] = typer.Option(
+        None,
+        "--external/--no-external",
+        help="Allow (or disallow) use of external APIs/services.",
     ),
 ) -> None:
     """Manage user consent and external processing permission."""
@@ -52,7 +64,6 @@ def consent(
         config_manager.set_consent(False)
         print("Consent revoked.")
 
-    
     if external is not None:
         config_manager.set_external_allowed(external)
         print(f"External services allowed = {external}")
@@ -66,6 +77,7 @@ def consent(
 def status() -> None:
     """Print current consent and external-usage settings."""
     print(config_manager.read_cfg())
+
 
 @app.command()
 def info() -> None:
@@ -81,299 +93,140 @@ def info() -> None:
     typer.echo("  • info              - Show this information")
     typer.echo("\nUse --help with any command for detailed options.")
 
+
 @app.command()
 def external_permission(service: str = "API"):
     """Ask for and log permission to use an external service."""
     config_manager.request_external_service_permission(service)
 
-@app.command("extract-metadata")
-def extract_metadata(
-    path: Path = typer.Argument(..., help="Path to a ZIP file, a directory, or a single file."),
-    out_dir: Optional[Path] = typer.Option(
-        None, "--out", "-o", help="Directory to write outputs (default: ./outputs)"
+
+@app.command("analyze-project")
+def analyze_project_cli(
+    path: Path = typer.Argument(..., help="Path to a project directory or ZIP file."),
+    include_files: bool = typer.Option(
+        False,
+        "--include-files/--no-include-files",
+        help="Include full file list from metadata in final report",
     ),
-    external: Optional[bool] = typer.Option(
-        None, "--external/--no-external", help="Allow (or disallow) external APIs/services for this run."
+    out: Optional[Path] = typer.Option(
+        None, "--out", "-o", help="Output directory (default: ./outputs)"
     ),
-    extract_skills: bool = typer.Option(False, "--skills", help="Also extract professional skills from the project")
-) -> None:
-    
+):
     """
-    Process a path that can be:
-      - a .zip (validate -> extract to temp -> parse)
-      - a directory (parse all files recursively)
-      - a single file (parse just that file)
-    Saves metadata.json in the output directory.
+    Full project pipeline:
+      1. Extract metadata
+      2. Analyze Git contributors
+      3. Run code complexity (Tree-sitter)
+      4. Generate a unified final JSON report
+
+    Produces ONE unified report file inside outputs/.
     """
-    from src.core.run import validate_and_parse
-    from src.core.metadata_parser import parse_metadata, save_metadata_json
-    import pandas as po
 
     config_manager.require_consent()
 
-    if external is not None:
-        config_manager.set_external_allowed(external)
-        typer.echo(f"External services allowed = {external}")
-
     # Normalize output directory
-    out_dir = (out_dir or Path.cwd() / "outputs").resolve()
+    out_dir = (out or Path.cwd() / "outputs").resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     path = path.resolve()
     if not path.exists():
-        typer.secho(f"Path not found: {path}", fg=typer.colors.RED)
+        typer.secho(f"❌ Path not found: {path}", fg=typer.colors.RED)
         raise typer.Exit(code=2)
 
-    # CASE 1: .zip file -> use existing framework.
+    # Project Name (gets the final... name from a path? Like the last thing at the end of chicken/main.txt for example)
+    project_name = path.stem
+
+    # 1️. If ZIP -> extract into temp folder
+
     if path.is_file() and path.suffix.lower() == ".zip":
-        res = validate_and_parse(path)
-        if not res["is_valid"]:
-            typer.secho(f"Invalid ZIP: {path.name}", fg=typer.colors.RED)
-            for err in res["validation_errors"]:
-                typer.echo(f"  - {err}")
-            raise typer.Exit(code=2)
-        df = res["metadata"]
-        json_path = save_metadata_json(df, output_filename=f"{path.stem}_metadata.json")
-        typer.secho(f"Metadata saved: {json_path}", fg=typer.colors.GREEN)
-        
-        # Extract skills if requested
-        if extract_skills:
-            try:
-                from src.core.resume_skill_extractor import analyze_project_skills
-                import json
-                from tempfile import TemporaryDirectory
-                import zipfile
-                
-                typer.secho("🧠 Extracting skills from project...", fg=typer.colors.BLUE)
-                
-                with TemporaryDirectory() as temp_dir:
-                    with zipfile.ZipFile(path, 'r') as zip_ref:
-                        zip_ref.extractall(temp_dir)
-                    
-                    skills_analysis = analyze_project_skills(temp_dir)
-                    skills_analysis['source'] = str(path)
-                    skills_analysis['source_type'] = 'zip_file'
-                    
-                    # Save skills analysis
-                    skills_path = out_dir / f"{path.stem}_skills.json"
-                    with open(skills_path, 'w', encoding='utf-8') as f:
-                        json.dump(skills_analysis, f, indent=2, ensure_ascii=False)
-                    
-                    typer.secho(f"🎯 Skills analysis saved: {skills_path}", fg=typer.colors.CYAN)
-                    typer.echo(f"   Skills found: {skills_analysis['total_skills']}")
-                    
-            except Exception as e:
-                typer.secho(f"⚠️  Skill extraction failed: {e}", fg=typer.colors.YELLOW)
-        
-        return
+        typer.echo("📦 Extracting ZIP file...")
 
-    # CASE 2: directory -> parse recursively and returns each file inside of a folder 
-    if path.is_dir():
+        with TemporaryDirectory() as temp_dir:
+            with zipfile.ZipFile(path, "r") as zip_ref:
+                zip_ref.extractall(temp_dir)
+
+            extracted_root = Path(temp_dir)
+            df, project_root = parse_metadata(str(extracted_root))
+
+            # Save metadata
+            metadata_path = save_metadata_json(
+                df, f"{path.stem}_metadata.json", project_root
+            )
+            typer.echo(f"📁 Metadata saved: {metadata_path}")
+
+            file_list = json.loads(Path(metadata_path).read_text())["files"]
+
+            # Continue processing using the extracted folder
+            working_dir = extracted_root
+
+    # 2️. If directory → parse metadata directly
+
+    elif path.is_dir():
         df, project_root = parse_metadata(str(path))
-        json_path = save_metadata_json(df, f"{path.name}_metadata.json", project_root)
-        typer.secho(f"Directory metadata saved: {json_path}", fg=typer.colors.GREEN)
-        
-        # Extract skills if requested
-        if extract_skills:
-            try:
-                from src.core.resume_skill_extractor import analyze_project_skills
-                import json
-                
-                typer.secho("🧠 Extracting skills from project...", fg=typer.colors.BLUE)
-                
-                skills_analysis = analyze_project_skills(path)
-                skills_analysis['source'] = str(path)
-                skills_analysis['source_type'] = 'directory'
-                
-                # Save skills analysis
-                skills_path = out_dir / f"{path.name}_skills.json"
-                with open(skills_path, 'w', encoding='utf-8') as f:
-                    json.dump(skills_analysis, f, indent=2, ensure_ascii=False)
-                
-                typer.secho(f"🎯 Skills analysis saved: {skills_path}", fg=typer.colors.CYAN)
-                typer.echo(f"   Skills found: {skills_analysis['total_skills']}")
-                
-            except Exception as e:
-                typer.secho(f"⚠️  Skill extraction failed: {e}", fg=typer.colors.YELLOW)
-        
-        return
 
-    # CASE 3: single non-zip file -> build a one-row DataFrame
-    if path.is_file():
-        try:
-            import magic
-            st = path.stat()
-            try:
-                mime = magic.from_file(str(path), mime=True)
-            except Exception:
-                mime = "unknown/unknown"
+        metadata_path = save_metadata_json(
+            df, f"{path.name}_metadata.json", project_root
+        )
+        typer.echo(f"📁 Metadata saved: {metadata_path}")
 
-            df = po.DataFrame([{
-                "filename": path.name,
-                "path": str(path),
-                "file_type": mime,
-                "file_size": st.st_size,
-                "created_timestamp": os.path.getctime(path),
-                "last_modified": os.path.getmtime(path),
-            }])
-            json_path = save_metadata_json(df, output_filename=f"{path.stem}_metadata.json")
-            typer.secho(f"File metadata saved: {json_path}", fg=typer.colors.GREEN)
-            return
-        except Exception as e:
-            typer.secho(f"Failed to parse file: {e}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+        file_list = json.loads(Path(metadata_path).read_text())["files"]
 
-    typer.secho("Unsupported path type.", fg=typer.colors.RED)
-    raise typer.Exit(code=2)
+        working_dir = Path(path)
 
-@app.command()
-def extract_skills(
-    path: Path = typer.Argument(..., help="Path to directory or ZIP file to analyze for skills"),
-    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output filename (default: <project>_skills.json)")
-) -> None:
-    """Extract professional skills from a project directory or ZIP file."""
-    
-    path = path.resolve()
-    if not path.exists():
-        typer.secho(f"Path not found: {path}", fg=typer.colors.RED)
-        raise typer.Exit(code=2)
-    
+    # Unsupported path
+    else:
+        typer.secho("❌ Must provide a directory or ZIP file.", fg=typer.colors.RED)
+        raise typer.Exit()
+
+    # 3️. Contributors (Git)
+    contributors = analyze_contributors(project_root)
+    # 4. Code complexity (Tree-sitter)
+    complexity = project_analysis_to_dict(analyze_project(working_dir))
+
+    # 5️. Combine into final report
+    project_stats = calculate_project_stats(project_root, file_list)
+
+    final_report = {
+        "project_name": project_name,
+        "project_root": project_root,
+        "metadata": project_stats,
+        "code_complexity": complexity,
+    }
+
+    # Add contributors field if there are actually any contributors, damn my React brain is taking over
+    # I thought Python could do something like `&&` for conditional rendering. I'm cooked
+    if len(contributors) > 0:
+        final_report["contributors"] = contributors
+
+    # If the user wants to list all the files analyzed, then add it to the final report,
+    # By default, nah it'll bloat the JSON file
+    if include_files:
+        final_report["analyzed_files"] = file_list
+
+    # Creating directory stuff, this will make it more clean in the future
+    # outputs/{project_name}/{timestamp}
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    project_dir = out_dir / project_name
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create subfolder for each timestamp
+    run_dir = project_dir / timestamp
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    # Also I guess we can save the metadata stuff into this folder too? TBH everything in final_report.json already includes
+    # metadata stuff but still
     try:
-        from src.core.resume_skill_extractor import analyze_project_skills
-        import json
-        from pathlib import Path as PathlibPath
-        
-        # Handle ZIP file by extracting to temporary directory
-        if path.is_file() and path.suffix.lower() == ".zip":
-            typer.secho(f"📦 Extracting ZIP file: {path.name}", fg=typer.colors.BLUE)
-            
-            from tempfile import TemporaryDirectory
-            import zipfile
-            
-            with TemporaryDirectory() as temp_dir:
-                try:
-                    with zipfile.ZipFile(path, 'r') as zip_ref:
-                        zip_ref.extractall(temp_dir)
-                    
-                    # Analyze the extracted content
-                    analysis = analyze_project_skills(temp_dir)
-                    analysis['source'] = str(path)
-                    analysis['source_type'] = 'zip_file'
-                    
-                except zipfile.BadZipFile:
-                    typer.secho(f"❌ Invalid ZIP file: {path}", fg=typer.colors.RED)
-                    raise typer.Exit(code=2)
-                    
-        elif path.is_dir():
-            # Handle directory 
-            analysis = analyze_project_skills(path)
-            analysis['source'] = str(path)
-            analysis['source_type'] = 'directory'
-        else:
-            typer.secho("Skill extraction requires a directory or ZIP file.", fg=typer.colors.RED)
-            raise typer.Exit(code=2)
-        
-        # Generate output filename
-        if output is None:
-            output = f"{path.stem}_skills.json"
-        
-        # Create outputs directory if it doesn't exist
-        outputs_dir = PathlibPath.cwd() / "outputs"
-        outputs_dir.mkdir(parents=True, exist_ok=True)
-        output_path = outputs_dir / output
-        
-        # Save results
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(analysis, f, indent=2, ensure_ascii=False)
-        
-        # Display summary
-        typer.secho(f"✅ Skills Analysis Complete!", fg=typer.colors.GREEN)
-        typer.echo(f"Languages detected: {len(analysis['languages'])}")
-        typer.echo(f"Frameworks detected: {len(analysis['frameworks'])}")
-        typer.echo(f"Skills extracted: {analysis['total_skills']}")
-        typer.echo(f"Skill categories: {len(analysis['skill_categories'])}")
-        
-        # Show top skills
-        if analysis['skills']:
-            typer.echo(f"\nTop skills: {', '.join(analysis['skills'][:8])}")
-        
-        typer.secho(f"📄 Full analysis saved to: {output_path}", fg=typer.colors.CYAN)
-        
+        shutil.copy(metadata_path, run_dir / "metadata.json")
     except Exception as e:
-        typer.secho(f"Skills analysis failed: {e}", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+        typer.secho(
+            f"⚠️ Warning: Could not copy metadata file: {e} \nbut honestly, eh metadata stuff is already on there",
+            fg=typer.colors.YELLOW,
+        )
 
-@app.command()
-def analyze_language(
-    path: Path = typer.Argument(..., help="Path to directory or ZIP file to analyze (required)"),
-    unknown_only: bool = typer.Option(False, "--unknown", help="Show only unknown file types")
-) -> None:
-    """Analyze programming languages and lines of code in a project directory or ZIP file."""
-    
-    path = path.resolve()
-    if not path.exists():
-        typer.secho(f"Path not found: {path}", fg=typer.colors.RED)
-        raise typer.Exit(code=2)
-    
-    try:
-        # Create analyzer and formatter
-        analyzer = ProjectAnalyzer()
-        formatter = StatsFormatter()
-        
-        # Handle ZIP file by extracting to temporary directory
-        if path.is_file() and path.suffix.lower() == ".zip":
-            typer.secho(f"Extracting ZIP file: {path.name}", fg=typer.colors.BLUE)
-            
-            with TemporaryDirectory() as temp_dir:
-                try:
-                    with zipfile.ZipFile(path, 'r') as zip_ref:
-                        zip_ref.extractall(temp_dir)
-                    
-                    # Analyze the extracted content
-                    if unknown_only:
-                        formatter.show_unknown_files(analyzer, temp_dir)
-                    else:
-                        formatter.print_detailed_language_stats(analyzer, temp_dir, show_filtered=False)
-                        # Use original ZIP filename for output
-                        output_filename = f"{path.stem}_language_analysis.json"
-                        json_file_path = formatter.save_analysis_to_json(analyzer, temp_dir, output_file=output_filename, include_filtered=False)
-                        typer.secho(f"Analysis saved to: {json_file_path}", fg=typer.colors.GREEN)
-                        
-                except zipfile.BadZipFile:
-                    typer.secho(f"Invalid ZIP file: {path}", fg=typer.colors.RED)
-                    raise typer.Exit(code=2)
-                    
-        elif path.is_dir():
-            # Handle directory as before
-            if unknown_only:
-                formatter.show_unknown_files(analyzer, str(path))
-            else:
-                formatter.print_detailed_language_stats(analyzer, str(path), show_filtered=False)
-                json_file_path = formatter.save_analysis_to_json(analyzer, str(path), include_filtered=False)
-                typer.secho(f"Analysis saved to: {json_file_path}", fg=typer.colors.GREEN)
-        else:
-            typer.secho("Language analysis requires a directory or ZIP file.", fg=typer.colors.RED)
-            raise typer.Exit(code=2)
-    
-    except Exception as e:
-        typer.secho(f"Analysis failed: {e}", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+    output_file = run_dir / "final_report.json"
+    output_file.write_text(json.dumps(final_report, indent=2))
 
-@app.command("analyze-code")
-def analyze_code(path: str, out: Optional[Path] = typer.Option(None, "--out", "-o")):
-    """Analyze code complexity and generate metrics for Python files."""
-    root = Path(path)
-    result = analyze_project(root)
-    data = project_analysis_to_dict(result)
-
-    if out is None:
-        out_dir = Path.cwd() / "outputs"
-        out_dir.mkdir(exist_ok=True)
-        out = out_dir / "code_complexity.json"
-
-    out.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    typer.echo(f"Saved JSON -> {out}")
-
+    typer.secho(f"🎉 Final report saved in {run_dir}", fg=typer.colors.GREEN)
 
 
 if __name__ == "__main__":
@@ -393,8 +246,3 @@ if __name__ == "__main__":
         print(f"Config save/load skipped or failed: {e}")
 
     app()
-
-
-
-
-
