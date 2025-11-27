@@ -6,9 +6,11 @@ from git import Repo, InvalidGitRepositoryError
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, List
-from src.core.code_complexity import analyze_python_file, FunctionMetrics
-
-
+from src.core.code_complexity import (
+    FunctionMetrics,
+    analyze_file,
+    EXT_TO_LANG,
+)
 # Git/Collaboration Analysis Functions
 def analyze_contributors(project_path=".", use_all_branches=False):
     """
@@ -176,7 +178,9 @@ def calculate_project_stats(project_path, file_list):
         "total_size_bytes": total_size,
         "average_file_size_bytes": avg_size,
         "duration_days": duration_days,
+        "activity_types": "TODO idk someone can do that lol",
         "collaborative": is_collaborative,
+        "contributors": contributors,
     }
 
     return metrics
@@ -236,39 +240,111 @@ class ProjectAnalysisResult:
 
 
 def _is_ignored(path: Path) -> bool:
-    """Skip venvs, caches, git, etc."""
+    
     ignored = {".venv", "venv", "__pycache__", ".git", ".pytest_cache"}
     return any(part in ignored for part in path.parts)
 
 
+def _should_analyze(path: Path) -> bool:
+
+    if not path.is_file():
+        return False
+    if _is_ignored(path):
+        return False
+    if path.suffix.lower() not in EXT_TO_LANG:
+        return False
+    return True
+
+
 def analyze_project(root: Path) -> ProjectAnalysisResult:
-    """
-    Walk a project folder OR analyze a single file;
-    run Tree-sitter analysis on Python files and collect function-level metrics.
-    """
+ 
     root = root.resolve()
     functions: List[FunctionMetrics] = []
 
     if root.is_file():
-        # Single-file analysis
-        if root.suffix == ".py" and not _is_ignored(root):
-            functions.extend(analyze_python_file(root))
+        if _should_analyze(root):
+            functions.extend(analyze_file(root))
     else:
-        # Directory: recurse through .py files
-        for path in root.rglob("*.py"):
-            if _is_ignored(path):
-                continue
-            functions.extend(analyze_python_file(path))
+        for path in root.rglob("*"):
+            if _should_analyze(path):
+                functions.extend(analyze_file(path))
 
     return ProjectAnalysisResult(
         project_root=str(root),
         functions=functions,
     )
+    
 
 
-def project_analysis_to_dict(result: ProjectAnalysisResult) -> Dict:
-    """Convert the dataclass result into something JSON-friendly."""
+def project_analysis_to_dict(result: ProjectAnalysisResult) -> dict:
+ 
+    funcs = result.functions
+
+    total_functions = len(funcs)
+    total_complexity = sum(f.cyclomatic_complexity for f in funcs)
+    total_lines = sum(f.length_lines for f in funcs)
+
+    avg_complexity = total_complexity / total_functions if total_functions else 0.0
+    avg_lines = total_lines / total_functions if total_functions else 0.0
+    avg_complexity_per_10 = (
+        sum(f.complexity_per_10_lines for f in funcs) / total_functions
+        if total_functions
+        else 0.0
+    )
+    max_complexity = max((f.cyclomatic_complexity for f in funcs), default=0)
+    max_loop_depth = max((f.max_loop_depth for f in funcs), default=0)
+
+    buckets = {
+        "1-5": 0,
+        "6-10": 0,
+        "11-20": 0,
+        "21+": 0,
+    }
+    for f in funcs:
+        c = f.cyclomatic_complexity
+        if c <= 5:
+            buckets["1-5"] += 1
+        elif c <= 10:
+            buckets["6-10"] += 1
+        elif c <= 20:
+            buckets["11-20"] += 1
+        else:
+            buckets["21+"] += 1
+
+    per_file: Dict[str, dict] = {}
+    for f in funcs:
+        pf = per_file.setdefault(
+            f.file_path,
+            {
+                "function_count": 0,
+                "total_complexity": 0,
+                "max_complexity": 0,
+                "total_lines": 0,
+            },
+        )
+        pf["function_count"] += 1
+        pf["total_complexity"] += f.cyclomatic_complexity
+        pf["total_lines"] += f.length_lines
+        pf["max_complexity"] = max(pf["max_complexity"], f.cyclomatic_complexity)
+
+    for path, stats in per_file.items():
+        n = stats["function_count"]
+        stats["avg_complexity"] = round(stats["total_complexity"] / n, 2)
+        stats["avg_lines"] = round(stats["total_lines"] / n, 2)
+
     return {
         "project_root": result.project_root,
-        "functions": [asdict(f) for f in result.functions],
+        "summary": {
+            "total_functions": total_functions,
+            "total_lines": total_lines,
+            "avg_cyclomatic_complexity": round(avg_complexity, 2),
+            "avg_lines_per_function": round(avg_lines, 2),
+            "avg_complexity_per_10_lines": round(avg_complexity_per_10, 2),
+            "max_complexity": max_complexity,
+            "complexity_buckets": buckets,
+            "max_loop_depth": max_loop_depth,
+        },
+        "per_file": per_file,
+        "functions": [asdict(f) for f in funcs],
     }
+
