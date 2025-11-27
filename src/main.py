@@ -228,6 +228,8 @@ def analyze_project_cli(
 
     typer.secho(f"🎉 Final report saved in {run_dir}", fg=typer.colors.GREEN)
 
+    typer.secho(f"Skills extracted successfully!", fg="green")
+    typer.secho(f"Output saved to: {output_path}", fg="cyan")
 
 if __name__ == "__main__":
     print("Running in virtual env:", check_virtual_env())

@@ -1,0 +1,197 @@
+[
+    {
+        "skill": "Core Shell Scripting",
+        "identifiers": [
+            "#!/bin/bash",
+            "#!/usr/bin/env bash",
+            "\\bfunction\\b",
+            "\\bdeclare\\b",
+            "\\bexport\\b",
+            "\\blet\\b",
+            "\\breadonly\\b",
+            "\\bset -e\\b",
+            "\\bset -x\\b",
+            "\\bset -u\\b"
+        ]
+    },
+    {
+        "skill": "Variables, Arrays, & Parameters",
+        "identifiers": [
+            "\\$[A-Za-z_][A-Za-z0-9_]*",
+            "\\bdeclare -a\\b",
+            "\\bdeclare -A\\b",
+            "\\bshift\\b",
+            "\\bIFS\\b",
+            "\\bargs\\b"
+        ]
+    },
+    {
+        "skill": "Control Flow (if, loops, case)",
+        "identifiers": [
+            "\\bif\\b",
+            "\\bthen\\b",
+            "\\belse\\b",
+            "\\bfi\\b",
+            "\\bfor\\b",
+            "\\bwhile\\b",
+            "\\buntil\\b",
+            "\\bcase\\b",
+            "\\besac\\b"
+        ]
+    },
+    {
+        "skill": "Pipes & Redirection",
+        "identifiers": [
+            "\\|",
+            ">",
+            ">>",
+            "<",
+            "2>",
+            "2>&1"
+        ]
+    },
+    {
+        "skill": "POSIX Tools",
+        "identifiers": [
+            "\\bgrep\\b",
+            "\\begrep\\b",
+            "\\bfgrep\\b",
+            "\\bawk\\b",
+            "\\bsed\\b",
+            "\\bcut\\b",
+            "\\bsort\\b",
+            "\\buniq\\b",
+            "\\bxargs\\b",
+            "\\btr\\b"
+        ]
+    },
+    {
+        "skill": "File Operations",
+        "identifiers": [
+            "\\bcp\\b",
+            "\\bmv\\b",
+            "\\brm\\b",
+            "\\bmkdir\\b",
+            "\\brmdir\\b",
+            "\\bcat\\b",
+            "\\btouch\\b",
+            "\\bfind\\b",
+            "\\btar\\b",
+            "\\bzip\\b",
+            "\\bunzip\\b"
+        ]
+    },
+    {
+        "skill": "Networking & CLI HTTP",
+        "identifiers": [
+            "\\bcurl\\b",
+            "\\bwget\\b",
+            "\\bping\\b",
+            "\\bnetstat\\b",
+            "\\bss\\b",
+            "\\bnmap\\b"
+        ]
+    },
+    {
+        "skill": "SSH & Remote Ops",
+        "identifiers": [
+            "\\bssh\\b",
+            "\\bscp\\b",
+            "\\brsync\\b",
+            "\\bssh-keygen\\b",
+            "\\bssh-agent\\b"
+        ]
+    },
+    {
+        "skill": "Package Management",
+        "identifiers": [
+            "\\bapt-get\\b",
+            "\\bapt\\b",
+            "\\byum\\b",
+            "\\bdnf\\b",
+            "\\bpacman\\b",
+            "\\bbrew\\b",
+            "\\bsnap\\b"
+        ]
+    },
+    {
+        "skill": "Process & System Management",
+        "identifiers": [
+            "\\bps\\b",
+            "\\btop\\b",
+            "\\bhtop\\b",
+            "\\bkill\\b",
+            "\\bpkill\\b",
+            "\\bkillall\\b",
+            "\\bsystemctl\\b",
+            "\\bservice\\b"
+        ]
+    },
+    {
+        "skill": "Cron & Background Jobs",
+        "identifiers": [
+            "\\bcrontab\\b",
+            "\\bcron\\b",
+            "\\bnohup\\b",
+            "&!"
+        ]
+    },
+    {
+        "skill": "Error Handling & Exit Codes",
+        "identifiers": [
+            "\\bexit\\b",
+            "\\btrap\\b",
+            "\\bERR\\b",
+            "\\$\\?",
+            "\\breturn\\b"
+        ]
+    },
+    {
+        "skill": "JSON, YAML, & Parsing Tools",
+        "identifiers": [
+            "\\bjq\\b",
+            "\\byq\\b",
+            "\\bjson_pp\\b"
+        ]
+    },
+    {
+        "skill": "Docker & Kubernetes",
+        "identifiers": [
+            "\\bdocker\\b",
+            "\\bdocker-compose\\b",
+            "Dockerfile",
+            "\\bkubectl\\b",
+            "\\bhelm\\b"
+        ]
+    },
+    {
+        "skill": "Security & Encryption",
+        "identifiers": [
+            "\\bopenssl\\b",
+            "\\bgpg\\b",
+            "\\bsha256sum\\b",
+            "\\bmd5sum\\b",
+            "\\bchmod\\b",
+            "\\bchown\\b"
+        ]
+    },
+    {
+        "skill": "Build Tools",
+        "identifiers": [
+            "Makefile",
+            "\\bmake\\b",
+            "\\bninja\\b",
+            "\\bcmake\\b"
+        ]
+    },
+    {
+        "skill": "Logging & Monitoring",
+        "identifiers": [
+            "\\blog\\b",
+            "\\bjournalctl\\b",
+            "\\bdmesg\\b",
+            "\\btail\\b",
+            "\\bhead\\b"
+        ]
+    }
+]

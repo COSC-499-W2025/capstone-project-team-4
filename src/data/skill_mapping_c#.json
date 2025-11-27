@@ -1,0 +1,229 @@
+[
+    {
+        "skill": "Object-Oriented Programming (OOP)",
+        "identifiers": [
+            "\\bclass\\b",
+            "\\binterface\\b",
+            "\\benum\\b",
+            "\\bstruct\\b",
+            "\\bnamespace\\b",
+            "\\bthis\\b",
+            "\\bbase\\b",
+            "\\bpublic\\b",
+            "\\bprivate\\b",
+            "\\bprotected\\b",
+            "\\binternal\\b",
+            "\\bsealed\\b",
+            "\\babstract\\b",
+            "\\bvirtual\\b",
+            "\\boverride\\b",
+            "\\breadonly\\b",
+            "\\bstatic\\b",
+            "\\bnew\\b"
+        ]
+    },
+    {
+        "skill": "Generics & Type System",
+        "identifiers": [
+            "<T>",
+            "<K,\\s*V>",
+            "\\bIEnumerable<",
+            "\\bList<",
+            "\\bDictionary<",
+            "\\bFunc<",
+            "\\bAction<"
+        ]
+    },
+    {
+        "skill": "Asynchronous Programming",
+        "identifiers": [
+            "\\basync\\b",
+            "\\bawait\\b",
+            "\\bTask\\b",
+            "\\bValueTask\\b",
+            "\\bCancellationToken\\b"
+        ]
+    },
+    {
+        "skill": "LINQ & Functional Programming",
+        "identifiers": [
+            "\\bLINQ\\b",
+            "\\bIQueryable\\b",
+            "\\bSelect\\b",
+            "\\bWhere\\b",
+            "\\bOrderBy\\b",
+            "\\bThenBy\\b",
+            "\\bGroupBy\\b",
+            "\\bAggregate\\b",
+            "\\bDistinct\\b",
+            "import\\s+System\\.Linq"
+        ]
+    },
+    {
+        "skill": "ASP.NET / Web API",
+        "identifiers": [
+            "using\\s+Microsoft\\.AspNetCore",
+            "\\bControllerBase\\b",
+            "\\bController\\b",
+            "\\bApiController\\b",
+            "@HttpGet",
+            "@HttpPost",
+            "@HttpPut",
+            "@HttpDelete",
+            "\\bIFormFile\\b",
+            "\\bFromBody\\b",
+            "\\bFromQuery\\b",
+            "\\bFromRoute\\b"
+        ]
+    },
+    {
+        "skill": "Entity Framework / ORM",
+        "identifiers": [
+            "using\\s+Microsoft\\.EntityFrameworkCore",
+            "\\bDbContext\\b",
+            "\\bDbSet<",
+            "\\bMigration\\b",
+            "\\bKeyAttribute\\b",
+            "\\bForeignKey\\b",
+            "\\bRequired\\b",
+            "\\bMaxLength\\b"
+        ]
+    },
+    {
+        "skill": "Dependency Injection",
+        "identifiers": [
+            "using\\s+Microsoft\\.Extensions\\.DependencyInjection",
+            "\\bIServiceCollection\\b",
+            "\\bAddScoped\\b",
+            "\\bAddTransient\\b",
+            "\\bAddSingleton\\b",
+            "\\bConfigureServices\\b"
+        ]
+    },
+    {
+        "skill": "JSON & Serialization",
+        "identifiers": [
+            "using\\s+System\\.Text\\.Json",
+            "using\\s+Newtonsoft\\.Json",
+            "\\bJsonSerializer\\b",
+            "\\bJsonProperty\\b",
+            "\\bJsonIgnore\\b"
+        ]
+    },
+    {
+        "skill": "File I/O",
+        "identifiers": [
+            "using\\s+System\\.IO",
+            "\\bFile\\b",
+            "\\bStreamReader\\b",
+            "\\bStreamWriter\\b",
+            "\\bMemoryStream\\b",
+            "\\bDirectory\\b"
+        ]
+    },
+    {
+        "skill": "Networking & HTTP",
+        "identifiers": [
+            "using\\s+System\\.Net",
+            "using\\s+System\\.Net\\.Http",
+            "\\bHttpClient\\b",
+            "\\bHttpRequestMessage\\b",
+            "\\bHttpResponseMessage\\b"
+        ]
+    },
+    {
+        "skill": "WPF / XAML",
+        "identifiers": [
+            "\\bXAML\\b",
+            "\\bInitializeComponent\\b",
+            "<Window",
+            "<Grid",
+            "<Button",
+            "using\\s+System\\.Windows"
+        ]
+    },
+    {
+        "skill": "Blazor",
+        "identifiers": [
+            "@page",
+            "@inject",
+            "using\\s+Microsoft\\.AspNetCore\\.Components",
+            "<EditForm",
+            "<InputText"
+        ]
+    },
+    {
+        "skill": "Unity",
+        "identifiers": [
+            "using\\s+UnityEngine",
+            "\\bMonoBehaviour\\b",
+            "\\bGameObject\\b",
+            "\\bSerializeField\\b",
+            "\\bTransform\\b"
+        ]
+    },
+    {
+        "skill": "Testing (NUnit / xUnit / MSTest)",
+        "identifiers": [
+            "using\\s+NUnit",
+            "using\\s+Xunit",
+            "using\\s+Microsoft\\.VisualStudio\\.TestTools",
+            "\\b[TestMethod]\\b",
+            "\\bFact\\b",
+            "\\bTestFixture\\b",
+            "\\bAssert\\b"
+        ]
+    },
+    {
+        "skill": "Security & Cryptography",
+        "identifiers": [
+            "using\\s+System\\.Security",
+            "using\\s+System\\.Security\\.Cryptography",
+            "\\bAes\\b",
+            "\\bRSA\\b",
+            "\\bHashAlgorithm\\b",
+            "\\bHMAC\\b",
+            "\\bSHA256\\b"
+        ]
+    },
+    {
+        "skill": "Build Tools",
+        "identifiers": [
+            "\\.csproj",
+            "\\.sln",
+            "\\bdotnet\\s+build\\b",
+            "\\bdotnet\\s+run\\b",
+            "\\bdotnet\\s+test\\b"
+        ]
+    },
+    {
+        "skill": "CI/CD & Deployment",
+        "identifiers": [
+            "\\.github/workflows",
+            "Dockerfile",
+            "docker-compose\\.yml",
+            "\\bAzure\\b",
+            "\\bAWS\\b",
+            "\\bGCP\\b"
+        ]
+    },
+    {
+        "skill": "CLI Tools & System Utilities",
+        "identifiers": [
+            "\\bConsole\\.WriteLine\\b",
+            "\\bConsole\\.ReadLine\\b",
+            "\\bEnvironment\\.GetEnvironmentVariable\\b",
+            "\\bargs\\b"
+        ]
+    },
+    {
+        "skill": "Performance & Optimization",
+        "identifiers": [
+            "using\\s+System\\.Diagnostics",
+            "\\bStopwatch\\b",
+            "\\bGC\\.Collect\\b",
+            "\\bSpan<",
+            "\\bMemory<"
+        ]
+    }
+]
