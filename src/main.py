@@ -27,7 +27,7 @@ from src.core.project_analyzer import (
 )
 
 
-app = typer.Typer(help="Mining Digital Work Artifacts CLI")
+app = typer.Typer(help="Mining Digital Work Artifacts CLI - Extract metadata and professional skills from code repositories")
 
 # This is for testing if your local environment is running the "virtual environment"
 # It should say True
