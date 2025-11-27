@@ -2,6 +2,9 @@ import sys
 import os
 from pathlib import Path
 from typing import Optional
+from datetime import datetime
+import shutil
+
 import json
 
 import typer
@@ -200,10 +203,30 @@ def analyze_project_cli(
     if include_files:
         final_report["analyzed_files"] = file_list
 
-    output_file = out_dir / "final_report.json"
+    # Creating directory stuff, this will make it more clean in the future
+    # outputs/{project_name}/{timestamp}
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    project_dir = out_dir / project_name
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create subfolder for each timestamp
+    run_dir = project_dir / timestamp
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    # Also I guess we can save the metadata stuff into this folder too? TBH everything in final_report.json already includes
+    # metadata stuff but still
+    try:
+        shutil.copy(metadata_path, run_dir / "metadata.json")
+    except Exception as e:
+        typer.secho(
+            f"⚠️ Warning: Could not copy metadata file: {e} \nbut honestly, eh metadata stuff is already on there",
+            fg=typer.colors.YELLOW,
+        )
+
+    output_file = run_dir / "final_report.json"
     output_file.write_text(json.dumps(final_report, indent=2))
 
-    typer.secho(f"🎉 Final report saved → {output_file}", fg=typer.colors.GREEN)
+    typer.secho(f"🎉 Final report saved in {run_dir}", fg=typer.colors.GREEN)
 
 
 if __name__ == "__main__":
