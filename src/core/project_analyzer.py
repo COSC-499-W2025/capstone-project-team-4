@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, List
 from src.core.code_complexity import analyze_python_file, FunctionMetrics
+from src.core.resume_skill_extractor import analyze_project_skills
+
 
 
 # Git/Collaboration Analysis Functions
@@ -233,6 +235,8 @@ if __name__ == "__main__":
 class ProjectAnalysisResult:
     project_root: str
     functions: List[FunctionMetrics]
+    skills: dict
+
 
 
 def _is_ignored(path: Path) -> bool:
@@ -245,30 +249,40 @@ def analyze_project(root: Path) -> ProjectAnalysisResult:
     """
     Walk a project folder OR analyze a single file;
     run Tree-sitter analysis on Python files and collect function-level metrics.
+    Also extracts resume-ready skills.
     """
     root = root.resolve()
     functions: List[FunctionMetrics] = []
 
     if root.is_file():
-        # Single-file analysis
+        # Single Python file
         if root.suffix == ".py" and not _is_ignored(root):
             functions.extend(analyze_python_file(root))
     else:
-        # Directory: recurse through .py files
+        # Whole project
         for path in root.rglob("*.py"):
             if _is_ignored(path):
                 continue
             functions.extend(analyze_python_file(path))
 
+    # NEW — Resume skill extraction
+    skills = analyze_project_skills(root)
+
     return ProjectAnalysisResult(
         project_root=str(root),
         functions=functions,
+        skills=skills["skill_categories"],   # store skills grouped by category
     )
 
 
+
 def project_analysis_to_dict(result: ProjectAnalysisResult) -> Dict:
-    """Convert the dataclass result into something JSON-friendly."""
     return {
         "project_root": result.project_root,
         "functions": [asdict(f) for f in result.functions],
+        "resume_skills": result.skills,
     }
+
+
+
+

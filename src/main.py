@@ -3,128 +3,57 @@ import os
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
-import shutil
-
 import json
-
 import typer
 import zipfile
 from tempfile import TemporaryDirectory
 
 from src.core import config_manager
-from src.core.database import init_db
-from src.core.config_manager import save_config, load_config
 
-# from src.core.file_validator import validate_zip
-from src.core.run import validate_and_parse
-from src.core.metadata_parser import parse_metadata, save_metadata_json
-from src.core.language_analyzer import ProjectAnalyzer, StatsFormatter
+# Database functions
+from src.core.database import (
+    init_db,
+    save_project,
+    save_files,
+    save_complexity,
+    save_contributors,
+    save_resume_skills,
+    assemble_report_from_db
+)
+
+# Metadata / analysis imports
+from src.core.metadata_parser import parse_metadata
 from src.core.project_analyzer import (
     analyze_contributors,
     analyze_project,
-    calculate_project_stats,
     project_analysis_to_dict,
+    calculate_project_stats,
 )
+from src.core.resume_skill_extractor import analyze_project_skills
 
 
-app = typer.Typer(help="Mining Digital Work Artifacts CLI - Extract metadata and professional skills from code repositories")
+app = typer.Typer(help="Mining Digital Work Artifacts CLI")
 
-# This is for testing if your local environment is running the "virtual environment"
-# It should say True
+# Make sure DB exists for every run
+init_db()
 
 
-# If you want it to run put in the command: python -m src.main {command name}
 def check_virtual_env():
     return sys.prefix != sys.base_prefix
 
 
-@app.command()
-def consent(
-    grant: bool = typer.Option(
-        False, "--grant", help="Grant consent to process files."
-    ),
-    revoke: bool = typer.Option(False, "--revoke", help="Revoke consent."),
-    external: Optional[bool] = typer.Option(
-        None,
-        "--external/--no-external",
-        help="Allow (or disallow) use of external APIs/services.",
-    ),
-) -> None:
-    """Manage user consent and external processing permission."""
-    # Conflicting flags
-    if grant and revoke:
-        print("Error: choose either --grant OR --revoke.")
-        raise typer.Exit(code=2)
-
-    # Update consent
-    if grant:
-        config_manager.set_consent(True)
-        print("Consent granted.")
-    if revoke:
-        config_manager.set_consent(False)
-        print("Consent revoked.")
-
-    if external is not None:
-        config_manager.set_external_allowed(external)
-        print(f"External services allowed = {external}")
-
-    # Show current configuration
-    print("\nCurrent configuration:")
-    print(config_manager.read_cfg())
-
-
-@app.command()
-def status() -> None:
-    """Print current consent and external-usage settings."""
-    print(config_manager.read_cfg())
-
-
-@app.command()
-def info() -> None:
-    """Show information about the application and available commands."""
-    typer.echo("📊 Mining Digital Work Artifacts CLI")
-    typer.echo("=" * 40)
-    typer.echo("Available commands:")
-    typer.echo("  • consent           - Manage user consent")
-    typer.echo("  • status            - Show current settings")
-    typer.echo("  • extract-metadata  - Extract and analyze file metadata")
-    typer.echo("  • analyze-language  - Language analysis and line counting")
-    typer.echo("  • analyze-code      - Code complexity analysis")
-    typer.echo("  • info              - Show this information")
-    typer.echo("\nUse --help with any command for detailed options.")
-
-
-@app.command()
-def external_permission(service: str = "API"):
-    """Ask for and log permission to use an external service."""
-    config_manager.request_external_service_permission(service)
-
-
 @app.command("analyze-project")
 def analyze_project_cli(
-    path: Path = typer.Argument(..., help="Path to a project directory or ZIP file."),
+    path: Path = typer.Argument(..., help="Path to project directory or ZIP file."),
     include_files: bool = typer.Option(
-        False,
-        "--include-files/--no-include-files",
-        help="Include full file list from metadata in final report",
+        True, "--include-files/--no-include-files", help="Include full file list (metadata)"
     ),
     out: Optional[Path] = typer.Option(
         None, "--out", "-o", help="Output directory (default: ./outputs)"
     ),
 ):
-    """
-    Full project pipeline:
-      1. Extract metadata
-      2. Analyze Git contributors
-      3. Run code complexity (Tree-sitter)
-      4. Generate a unified final JSON report
-
-    Produces ONE unified report file inside outputs/.
-    """
-
     config_manager.require_consent()
 
-    # Normalize output directory
     out_dir = (out or Path.cwd() / "outputs").resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -133,118 +62,160 @@ def analyze_project_cli(
         typer.secho(f"❌ Path not found: {path}", fg=typer.colors.RED)
         raise typer.Exit(code=2)
 
-    # Project Name (gets the final... name from a path? Like the last thing at the end of chicken/main.txt for example)
     project_name = path.stem
 
-    # 1️. If ZIP -> extract into temp folder
-
+    # ------------------------- 1️⃣ Parse metadata -------------------------
     if path.is_file() and path.suffix.lower() == ".zip":
-        typer.echo("📦 Extracting ZIP file...")
-
+        typer.echo("📦 Extracting ZIP...")
         with TemporaryDirectory() as temp_dir:
             with zipfile.ZipFile(path, "r") as zip_ref:
                 zip_ref.extractall(temp_dir)
-
-            extracted_root = Path(temp_dir)
-            df, project_root = parse_metadata(str(extracted_root))
-
-            # Save metadata
-            metadata_path = save_metadata_json(
-                df, f"{path.stem}_metadata.json", project_root
-            )
-            typer.echo(f"📁 Metadata saved: {metadata_path}")
-
-            file_list = json.loads(Path(metadata_path).read_text())["files"]
-
-            # Continue processing using the extracted folder
-            working_dir = extracted_root
-
-    # 2️. If directory → parse metadata directly
-
+            df, project_root = parse_metadata(temp_dir)
+            file_list = df.to_dict(orient="records")
+            working_dir = Path(temp_dir)
     elif path.is_dir():
         df, project_root = parse_metadata(str(path))
-
-        metadata_path = save_metadata_json(
-            df, f"{path.name}_metadata.json", project_root
-        )
-        typer.echo(f"📁 Metadata saved: {metadata_path}")
-
-        file_list = json.loads(Path(metadata_path).read_text())["files"]
-
+        file_list = df.to_dict(orient="records")
         working_dir = Path(path)
-
-    # Unsupported path
     else:
         typer.secho("❌ Must provide a directory or ZIP file.", fg=typer.colors.RED)
-        raise typer.Exit()
+        raise typer.Exit(code=2)
 
-    # 3️. Contributors (Git)
-    contributors = analyze_contributors(project_root)
-    # 4. Code complexity (Tree-sitter)
-    complexity = project_analysis_to_dict(analyze_project(working_dir))
-
-    # 5️. Combine into final report
-    project_stats = calculate_project_stats(project_root, file_list)
-
-    final_report = {
-        "project_name": project_name,
-        "project_root": project_root,
-        "metadata": project_stats,
-        "code_complexity": complexity,
+    # ❌ No temp_metadata.json — build metadata in memory
+    metadata_block = {
+        "metadata": df.to_dict(orient="records"),
+        "project_root": str(project_root),
+        "files": file_list,
     }
 
-    # Add contributors field if there are actually any contributors, damn my React brain is taking over
-    # I thought Python could do something like `&&` for conditional rendering. I'm cooked
-    if len(contributors) > 0:
-        final_report["contributors"] = contributors
-
-    # If the user wants to list all the files analyzed, then add it to the final report,
-    # By default, nah it'll bloat the JSON file
-    if include_files:
-        final_report["analyzed_files"] = file_list
-
-    # Creating directory stuff, this will make it more clean in the future
-    # outputs/{project_name}/{timestamp}
+    # ------------------------- 2️⃣ Create project entry -------------------------
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    project_dir = out_dir / project_name
+    project_id = save_project(project_name, str(project_root), timestamp)
+
+    # ------------------------- 3️⃣ Contributors -------------------------
+    contributors = analyze_contributors(project_root)
+
+    # ------------------------- 4️⃣ Code complexity -------------------------
+    complexity_dict = project_analysis_to_dict(analyze_project(working_dir))
+
+    # ------------------------- 5️⃣ Project stats -------------------------
+    project_stats = calculate_project_stats(project_root, file_list)
+
+    # ------------------------- 6️⃣ Resume-ready skills -------------------------
+    skill_report = analyze_project_skills(project_root)
+    save_resume_skills(project_id, skill_report["skill_categories"])
+
+    # ------------------------- 7️⃣ Save raw analysis to DB -------------------------
+    save_files(project_id, file_list)
+    save_complexity(project_id, complexity_dict["functions"])
+    if len(contributors) > 0:
+        save_contributors(project_id, contributors)
+
+    # ------------------------- 8️⃣ Reassemble from DB -------------------------
+    report = assemble_report_from_db(project_id)
+
+    # attach metadata + stats for JSON output
+    report["metadata"] = metadata_block["metadata"]
+    report["project_root"] = metadata_block["project_root"]
+    report["files"] = metadata_block["files"]
+    report["stats_summary"] = project_stats
+
+    # ------------------------- 9️⃣ Output folder + JSON files -------------------------
+    project_dir = out_dir / project_name / timestamp
     project_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create subfolder for each timestamp
-    run_dir = project_dir / timestamp
-    run_dir.mkdir(parents=True, exist_ok=True)
+    # metadata.json
+    (project_dir / "metadata.json").write_text(
+        json.dumps({
+            "metadata": report["metadata"],
+            "project_root": report["project_root"],
+            "files": report["files"] if include_files else []
+        }, indent=2)
+    )
 
-    # Also I guess we can save the metadata stuff into this folder too? TBH everything in final_report.json already includes
-    # metadata stuff but still
-    try:
-        shutil.copy(metadata_path, run_dir / "metadata.json")
-    except Exception as e:
-        typer.secho(
-            f"⚠️ Warning: Could not copy metadata file: {e} \nbut honestly, eh metadata stuff is already on there",
-            fg=typer.colors.YELLOW,
-        )
+    # complexity
+    (project_dir / "complexity.json").write_text(
+        json.dumps(report["code_complexity"], indent=2)
+    )
 
-    output_file = run_dir / "final_report.json"
-    output_file.write_text(json.dumps(final_report, indent=2))
+    # contributors
+    (project_dir / "contributors.json").write_text(
+        json.dumps(report["contributors"], indent=2)
+    )
 
-    typer.secho(f"🎉 Final report saved in {run_dir}", fg=typer.colors.GREEN)
+    # 🆕 renamed from resume_skills.json → skill_extract.json
+    (project_dir / "skill_extract.json").write_text(
+        json.dumps(report["resume_skills"], indent=2)
+    )
 
-    typer.secho(f"Skills extracted successfully!", fg="green")
-    typer.secho(f"Output saved to: {output_path}", fg="cyan")
+    # ------------------- 🔥 OVERVIEW -------------------
+    dominant_language = "Unknown"
+    if report.get("resume_skills") and "Programming Languages" in report["resume_skills"]:
+        langs = report["resume_skills"]["Programming Languages"]
+        if len(langs) > 0:
+            dominant_language = langs[0]
+
+    overview = {
+        "project_name": report["project_name"],
+        "timestamp": report["timestamp"],
+        "project_root": report["project_root"],
+        "total_files": len(report.get("files", [])),
+        "dominant_language": dominant_language,
+        "contributors": len(report.get("contributors", [])),
+        "total_skills_detected": sum(len(v) for v in report.get("resume_skills", {}).values()),
+        "project_stats": report["stats_summary"],
+        "summary": (
+            f"{report.get('project_name')} — "
+            f"{len(report.get('files', []))} files, "
+            f"{len(report.get('contributors', []))} contributors, "
+            f"{sum(len(v) for v in report.get('resume_skills', {}).values())} skills detected."
+        ),
+    }
+
+    (project_dir / "overview.json").write_text(json.dumps(overview, indent=2))
+
+    typer.secho(f"🎉 Reports generated → {project_dir}", fg=typer.colors.GREEN)
+
+
+@app.command("status")
+def status() -> None:
+    print(config_manager.read_cfg())
+
+
+@app.command("consent")
+def consent(
+    grant: bool = typer.Option(False, "--grant"),
+    revoke: bool = typer.Option(False, "--revoke"),
+    external: Optional[bool] = typer.Option(None, "--external/--no-external"),
+) -> None:
+    if grant and revoke:
+        print("Error: choose either --grant OR --revoke.")
+        raise typer.Exit(code=2)
+
+    if grant:
+        config_manager.set_consent(True)
+        print("Consent granted.")
+    if revoke:
+        config_manager.set_consent(False)
+        print("Consent revoked.")
+    if external is not None:
+        config_manager.set_external_allowed(external)
+        print(f"External allowed = {external}")
+    print("\nCurrent configuration:")
+    print(config_manager.read_cfg())
+
+
+@app.command("info")
+def info() -> None:
+    typer.echo("📊 Mining Digital Work Artifacts CLI")
+    typer.echo("=" * 40)
+    typer.echo("Commands available:")
+    typer.echo("  analyze-project   — Full analysis & separated JSON files")
+    typer.echo("  consent           — Manage user consent")
+    typer.echo("  status            — Show current settings")
+    typer.echo("  info              — Show this screen\n")
+
 
 if __name__ == "__main__":
     print("Running in virtual env:", check_virtual_env())
-
-    try:
-        init_db()
-        print("Database initialized successfully.")
-    except Exception as e:
-        print(f"Database initialization skipped or failed: {e}")
-
-    try:
-        config_data = {"theme": "dark", "notifications": True}
-        save_config(config_data)
-        print("Loaded:", load_config())
-    except Exception as e:
-        print(f"Config save/load skipped or failed: {e}")
-
     app()
