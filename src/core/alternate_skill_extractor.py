@@ -137,8 +137,4 @@ def run_skill_extraction(metadata_path, output_path):
         "file_reports": reports
     }
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(final, f, indent=4)
-
-    return {"success": True, "output": output_path}
+    return final

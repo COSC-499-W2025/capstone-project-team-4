@@ -25,6 +25,7 @@ from src.core.project_analyzer import (
     calculate_project_stats,
     project_analysis_to_dict,
 )
+from src.core.alternate_skill_extractor import run_skill_extraction
 
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI - Extract metadata and professional skills from code repositories")
@@ -223,6 +224,16 @@ def analyze_project_cli(
             f"⚠️ Warning: Could not copy metadata file: {e} \nbut honestly, eh metadata stuff is already on there",
             fg=typer.colors.YELLOW,
         )
+    
+    # Add deep skill extraction to final_report.json
+    
+    skill_results = run_skill_extraction(
+    metadata_path=str(run_dir / "metadata.json"),
+    output_path=None   # we no longer write here
+    )
+
+    # Attach skill results into final report
+    final_report["skill_extraction"] = skill_results
 
     output_file = run_dir / "final_report.json"
     output_file.write_text(json.dumps(final_report, indent=2))
