@@ -13,16 +13,22 @@ DB_PATH = (
 # Connection helper (used by config_manager, etc.)
 # -------------------------------------------------
 def get_connection():
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    return sqlite3.connect(DB_PATH)
+    db_path = Path(DB_PATH)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    return sqlite3.connect(str(db_path))
 
 
 # -------------------------------------------------
 # Initialize DB + ALL tables
 # -------------------------------------------------
 def init_db():
-    conn = get_connection()
+    # Always normalize DB_PATH to Path for safety
+    db_path = Path(DB_PATH)
+
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_path))
     cur = conn.cursor()
+
 
     # Skills (legacy — still kept)
     cur.execute("""
@@ -32,6 +38,15 @@ def init_db():
             skill TEXT NOT NULL
         )
     """)
+
+    # Config (used by config_manager)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS config (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    """)
+
 
     # Projects
     cur.execute("""
