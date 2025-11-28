@@ -181,7 +181,8 @@ def analyze_project_cli(
     # 3️. Contributors (Git)
     contributors = analyze_contributors(project_root)
     # 4. Code complexity (Tree-sitter)
-    complexity = project_analysis_to_dict(analyze_project(working_dir))
+    complexity_full = project_analysis_to_dict(analyze_project(working_dir))
+    complexity_summary = complexity_full["summary"]
 
     # 5️. Combine into final report
     project_stats = calculate_project_stats(project_root, file_list)
@@ -190,7 +191,7 @@ def analyze_project_cli(
         "project_name": project_name,
         "project_root": project_root,
         "metadata": project_stats,
-        "code_complexity": complexity,
+        "code_complexity": complexity_summary
     }
 
     # Add contributors field if there are actually any contributors, damn my React brain is taking over
@@ -228,8 +229,8 @@ def analyze_project_cli(
 
     typer.secho(f"🎉 Final report saved in {run_dir}", fg=typer.colors.GREEN)
 
-    typer.secho(f"Skills extracted successfully!", fg="green")
-    typer.secho(f"Output saved to: {output_path}", fg="cyan")
+    typer.secho("Skills extracted successfully!", fg="green")
+    typer.secho(f"Output saved to: {output_file}", fg="cyan")
 
 if __name__ == "__main__":
     print("Running in virtual env:", check_virtual_env())
@@ -248,3 +249,4 @@ if __name__ == "__main__":
         print(f"Config save/load skipped or failed: {e}")
 
     app()
+
