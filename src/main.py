@@ -26,6 +26,11 @@ from src.core.project_analyzer import (
     project_analysis_to_dict,
 )
 
+from src.core.contribution_ranking import (
+    rank_projects_for_contributor,
+    summarize_top_projects,
+)
+
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI - Extract metadata and professional skills from code repositories")
 
@@ -231,6 +236,71 @@ def analyze_project_cli(
 
     typer.secho("Skills extracted successfully!", fg="green")
     typer.secho(f"Output saved to: {output_file}", fg="cyan")
+
+
+@app.command("rank-contributions")
+def rank_contributions(
+    project: Path = typer.Argument(
+        ..., help="Path to a project directory containing a .git folder"
+    ),
+    name: Optional[str] = typer.Option(
+        None, "--name", help="Contributor name (case-insensitive)"
+    ),
+    email: Optional[str] = typer.Option(
+        None, "--email", help="Contributor email (case-insensitive)"
+    ),
+):
+  
+    #Rank a contributor's impact within a project based on Git history. Uses analyze_contributors() under the hood.
+    # Consent check (same pattern as analyze-project)
+    config_manager.require_consent()
+
+    if not name and not email:
+        typer.secho("You must specify either --name or --email", fg="red")
+        raise typer.Exit(code=2)
+
+    project = project.resolve()
+
+    if not project.exists():
+        typer.secho(f"Path not found: {project}", fg="red")
+        raise typer.Exit(code=2)
+
+    git_dir = project / ".git"
+    if not git_dir.exists() or not git_dir.is_dir():
+        typer.secho("This folder does not contain a .git directory.", fg="red")
+        raise typer.Exit(code=2)
+
+    # Decide how to match the contributor
+    if email:
+        match_by = "email"
+        identifier = email
+    else:
+        match_by = "name"
+        identifier = name  # type: ignore[assignment]
+
+    typer.echo(f"🔍 Analyzing contributions in: {project}")
+    typer.echo(f"👤 Contributor: {identifier} ({match_by})\n")
+
+    # Use your ranking helper (wraps analyze_contributors internally)
+    ranked = rank_projects_for_contributor(
+        [project],
+        match_by=match_by,   # "name" or "email"
+        identifier=identifier,
+    )
+
+    if not ranked:
+        typer.secho("No contributions found for this contributor.", fg="yellow")
+        raise typer.Exit()
+
+    
+    summary = summarize_top_projects(ranked, top_n=1)[0]
+
+    typer.echo("Contribution Summary")
+    typer.echo("-----------------------")
+    typer.echo(summary)
+    
+
+
 
 if __name__ == "__main__":
     print("Running in virtual env:", check_virtual_env())
