@@ -666,34 +666,69 @@ def extract_languages_from_project(root_dir: Union[str, Path]) -> List[str]:
             if lang != 'Unknown' and count > 0]
 
 
+# def extract_frameworks_from_project(root_dir: Union[str, Path]) -> List[str]:
+#     """
+#     Extract frameworks from a project directory.
+    
+#     Args:
+#         root_dir: Path to the project directory
+        
+#     Returns:
+#         List of detected frameworks
+#     """
+#     from .framework_detector import detect_frameworks_recursive
+    
+#     root_path = Path(root_dir)
+#     rules_path = Path(__file__).parent / "rules" / "frameworks.yml"
+    
+#     if not rules_path.exists():
+#         print(f"Warning: Framework rules file not found at {rules_path}")
+#         return []
+    
+#     fw_results = detect_frameworks_recursive(root_path, str(rules_path))
+#     frameworks = []
+    
+#     # Extract framework names from the nested structure
+#     for folder_frameworks in fw_results.get('frameworks', {}).values():
+#         for fw in folder_frameworks:
+#             frameworks.append(fw.get('name', ''))
+    
+#     return frameworks
+
 def extract_frameworks_from_project(root_dir: Union[str, Path]) -> List[str]:
     """
-    Extract frameworks from a project directory.
-    
-    Args:
-        root_dir: Path to the project directory
-        
-    Returns:
-        List of detected frameworks
+    Extract frameworks from a project directory, returning a deduplicated list.
+    Uses confidence scores from detector when available and picks the highest.
     """
     from .framework_detector import detect_frameworks_recursive
-    
+
     root_path = Path(root_dir)
     rules_path = Path(__file__).parent / "rules" / "frameworks.yml"
-    
+
     if not rules_path.exists():
         print(f"Warning: Framework rules file not found at {rules_path}")
         return []
-    
+
     fw_results = detect_frameworks_recursive(root_path, str(rules_path))
-    frameworks = []
-    
-    # Extract framework names from the nested structure
-    for folder_frameworks in fw_results.get('frameworks', {}).values():
+
+    # collect best confidence per framework name
+    best: dict = {}
+    for folder_frameworks in fw_results.get("frameworks", {}).values():
         for fw in folder_frameworks:
-            frameworks.append(fw.get('name', ''))
-    
-    return frameworks
+            name = (fw.get("name") or "").strip()
+            if not name:
+                continue
+            conf = fw.get("confidence", 1.0)
+            # normalize name (trim + consistent casing)
+            key = name.strip()
+            # keep max confidence
+            prev = best.get(key)
+            if prev is None or conf > prev:
+                best[key] = conf
+
+    # return frameworks sorted by confidence desc, then name
+    sorted_fw = sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))
+    return [name for name, _ in sorted_fw]
 
 
 def analyze_project_skills(root_dir: Union[str, Path]) -> dict:
