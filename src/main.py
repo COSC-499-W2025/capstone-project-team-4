@@ -31,6 +31,17 @@ from src.core.project_analyzer import (
 )
 from src.core.resume_skill_extractor import analyze_project_skills
 
+from src.core.contribution_ranking import (
+    rank_projects_for_contributor,
+    summarize_top_projects,
+)
+from src.core.project_contribution_log import (
+    append_contribution_entry,
+    rank_projects_from_log,
+)
+
+
+
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
 
@@ -189,6 +200,165 @@ def info() -> None:
     typer.echo("  consent           — Manage user consent")
     typer.echo("  status            — Show current settings")
     typer.echo("  info              — Show this screen\n")
+
+
+
+@app.command("rank-contributions", help="Rank a contributor's impact within a Git project based on commits, lines changed, and files touched.")
+def rank_contributions(
+    project: Path = typer.Argument(
+        ..., help="Path to a project directory containing a .git folder"
+    ),
+    name: Optional[str] = typer.Option(
+        None, "--name", help="Contributor name (case-insensitive)"
+    ),
+    email: Optional[str] = typer.Option(
+        None, "--email", help="Contributor email (case-insensitive)"
+    ),
+):
+  
+    #Rank a contributor's impact within a project based on Git history. Uses analyze_contributors() under the hood.
+    # Consent check (same pattern as analyze-project)
+    config_manager.require_consent()
+
+    try:
+        if not name and not email:
+            typer.secho("You must specify either --name or --email", fg="red")
+            raise typer.Exit(code=2)
+
+        project = project.resolve()
+
+        if not project.exists():
+            typer.secho(f"Path not found: {project}", fg="red")
+            raise typer.Exit(code=2)
+
+        git_dir = project / ".git"
+        if not git_dir.exists() or not git_dir.is_dir():
+            typer.secho("This folder does not contain a .git directory.", fg="red")
+            raise typer.Exit(code=2)
+
+        # Decide how to match the contributor
+        if email:
+            match_by = "email"
+            identifier = email
+        else:
+            match_by = "name"
+            identifier = name  # type: ignore[assignment]
+
+        typer.echo(f"Analyzing contributions in: {project}")
+        typer.echo(f"Contributor: {identifier} ({match_by})\n")
+
+        # Use your ranking helper (wraps analyze_contributors internally)
+        ranked = rank_projects_for_contributor(
+            [project],
+            match_by=match_by,   # "name" or "email"
+            identifier=identifier,
+        )
+
+        if not ranked:
+            typer.secho("No contributions found for this contributor.", fg="yellow")
+            raise typer.Exit()
+
+        # Take the top (only) project summary object
+        summary_obj = ranked[0]
+
+        # Log this contribution so we can rank projects across runs later
+        append_contribution_entry(
+            summary_obj,
+            extra={
+                "source_command": "rank-contributions",
+            },
+        )
+        
+        summary = summarize_top_projects(ranked, top_n=1)[0]
+
+        typer.echo("Contribution Summary")
+        typer.echo("-----------------------")
+        typer.echo(summary)
+
+    except Exception as e:
+        typer.secho("\n The command failed due to an unexpected error.", fg="red")
+        typer.secho(f" Details: {str(e)}", fg="yellow")
+        typer.secho(" Tip: Ensure the project path is correct and contains a valid .git directory.", fg="cyan")
+        raise typer.Exit(code=1)
+
+@app.command(
+    "rank-projects",
+    help="Show all analyzed projects for a contributor, ranked by contribution score based on the saved log.",
+)
+def rank_projects_from_log_cli(
+    name: Optional[str] = typer.Option(
+        None, "--name", help="Contributor name (case-insensitive)"
+    ),
+    email: Optional[str] = typer.Option(
+        None, "--email", help="Contributor email (case-insensitive)"
+    ),
+    top_n: Optional[int] = typer.Option(
+        None,
+        "--top-n",
+        help="Limit the number of projects shown. If not provided, show all.",
+    ),
+):
+    
+    if not name and not email: # Rank importance of each project based on a user's contributions, using entries stored in project_contributions_log.json.
+        typer.secho("You must specify either --name or --email", fg="red")
+        raise typer.Exit(code=2)
+
+    if email:
+        match_by = "email"
+        identifier = email
+    else:
+        match_by = "name"
+        identifier = name  # type: ignore[assignment]
+
+    typer.echo(
+        f"Ranking projects for contributor: {identifier} ({match_by}) "
+        "based on logged contribution summaries.\n"
+    )
+
+    try:
+        ranked_entries = rank_projects_from_log(
+            identifier=identifier,
+            match_by=match_by,
+        )
+
+        if not ranked_entries:
+            typer.secho(
+                "No logged contribution entries found for this contributor.",
+                fg="yellow",
+            )
+            raise typer.Exit()
+
+        if top_n is not None and top_n > 0:
+            ranked_entries = ranked_entries[:top_n]
+
+        typer.echo("Projects ranked by contribution score:\n")
+
+        for i, entry in enumerate(ranked_entries, start=1):
+            proj = entry.get("project_root", "<unknown>")
+            score = entry.get("contribution_score", 0.0)
+            commits = entry.get("commits", 0)
+            added = entry.get("total_lines_added", 0)
+            deleted = entry.get("total_lines_deleted", 0)
+            files = entry.get("files_touched", 0)
+
+            total_lines = added + deleted
+
+            typer.echo(f"{i}. {proj}")
+            typer.echo(
+                f"   Score: {score:.2f}  |  Commits: {commits}  |  "
+                f"Lines changed: +{added} / -{deleted} (total {total_lines})  |  "
+                f"Files touched: {files}"
+            )
+            typer.echo("")
+
+    except Exception as e:
+        typer.secho("\n Failed to rank projects from log.", fg="red")
+        typer.secho(f" Details: {str(e)}", fg="yellow")
+        typer.secho(
+            " Tip: Make sure you've run 'rank-contributions' at least once so the log file exists.",
+            fg="cyan",
+        )
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":
