@@ -39,6 +39,7 @@ from src.core.project_contribution_log import (
     append_contribution_entry,
     rank_projects_from_log,
 )
+from src.utils import pretty_print_json
 
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
@@ -170,6 +171,9 @@ def analyze_project_cli(
 @app.command("browse")
 def browse(
     out: Optional[Path] = typer.Option(None, "--out", "-o", help="Outputs directory"),
+    raw: bool = typer.Option(
+        False, "--raw", help="Show raw JSON instead of pretty view"
+    ),
 ):
     """
     Interactive menu to browse previously generated project reports.
@@ -235,7 +239,9 @@ def browse(
 
     try:
         data = json.loads(selected_file.read_text())
-        typer.echo(json.dumps(data, indent=2))
+        # typer.echo(json.dumps(data, indent=2))
+        # Bruh why is Python like this?
+        pretty_print_json.pretty_print_json(selected_file.name, data, raw)
     except Exception as e:
         typer.secho(f"Error reading JSON: {e}", fg=typer.colors.RED)
 
