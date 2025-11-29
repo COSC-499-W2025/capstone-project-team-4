@@ -29,11 +29,19 @@ def pretty_print_json(file_name: str, data: dict, raw: bool = False):
     # NOTE: This is for the generated resume item/summary thing
     # Pretty print: overview.json eh idk I think that should be the resume item?
     # This is just a placeholder for now
-    if file_name == "overview.json":
-        typer.secho("\n📘 Project Overview\n", fg=typer.colors.BLUE, bold=True)
-        for key, value in data.items():
-            typer.secho(f"{key.capitalize()}: ", fg=typer.colors.GREEN, bold=True)
-            typer.echo(f"  {value}\n")
+    if file_name == "resume_item.json":
+        typer.secho("\n📘 Resume Item\n", fg=typer.colors.BLUE, bold=True)
+
+        title = data.get("title", "")
+        highlights = data.get("highlights", [])
+
+        typer.secho("Title:", fg=typer.colors.GREEN, bold=True)
+        typer.echo(f"  {title}\n")
+
+        typer.secho("Highlights:", fg=typer.colors.GREEN, bold=True)
+        for h in highlights:
+            typer.echo(f"  {h}")   # each on new line
+        typer.echo("")  # final line break
         return
 
     # Pretty print: skill_extract.json
