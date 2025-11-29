@@ -145,6 +145,16 @@ def analyze_project_cli(
         }, indent=2)
     )
 
+    # Skills extracted
+    skills_output_file = project_dir / "skills_extracted.json"
+    metadata_json_path = project_dir / "metadata.json"
+
+    skills_result = run_skill_extraction(
+        metadata_path=str(metadata_json_path),
+        output_path=str(skills_output_file)
+    )
+    skills_output_file.write_text(json.dumps(skills_result, indent=2))
+
     # complexity
     (project_dir / "complexity.json").write_text(
         json.dumps(report["code_complexity"], indent=2)
@@ -155,16 +165,6 @@ def analyze_project_cli(
         (project_dir / "contributors.json").write_text(
             json.dumps(report["contributors"], indent=2)
         )
-    
-    # Add deep skill extraction to final_report.json
-    
-    skill_results = run_skill_extraction(
-    metadata_path=str(run_dir / "metadata.json"),
-    output_path=None   # we no longer write here
-    )
-
-    # Attach skill results into final report
-    final_report["skill_extraction"] = skill_results
 
     # 🆕 renamed from resume_skills.json → skill_extract.json
     (project_dir / "skill_extract.json").write_text(
