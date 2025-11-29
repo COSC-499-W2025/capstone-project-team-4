@@ -179,7 +179,7 @@ def browse(
     ),
 ):
     """
-    Interactive menu to browse previously generated project reports.
+    Interactive menu to browse previously generated project reports. Use the --raw option to view the plain JSON files
     """
     out_dir = (out or Path.cwd() / "outputs").resolve()
 
