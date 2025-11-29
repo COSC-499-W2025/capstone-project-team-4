@@ -1,5 +1,6 @@
 import sqlite3
 from pathlib import Path
+import json
 
 # Path to DB = /outputs/workmine.db (shared across whole project)
 DB_PATH = (
@@ -8,9 +9,8 @@ DB_PATH = (
     / "workmine.db"
 )
 
-
 # -------------------------------------------------
-# Connection helper (used by config_manager, etc.)
+# Connection helper
 # -------------------------------------------------
 def get_connection():
     db_path = Path(DB_PATH)
@@ -22,15 +22,12 @@ def get_connection():
 # Initialize DB + ALL tables
 # -------------------------------------------------
 def init_db():
-    # Always normalize DB_PATH to Path for safety
     db_path = Path(DB_PATH)
-
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path))
     cur = conn.cursor()
 
-
-    # Skills (legacy — still kept)
+    # Skills (legacy)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS skills (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,14 +36,13 @@ def init_db():
         )
     """)
 
-    # Config (used by config_manager)
+    # Config
     cur.execute("""
         CREATE TABLE IF NOT EXISTS config (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
         )
     """)
-
 
     # Projects
     cur.execute("""
@@ -111,7 +107,7 @@ def init_db():
         )
     """)
 
-    #  Resume-ready skills by project
+    # Resume-ready skills by project
     cur.execute("""
         CREATE TABLE IF NOT EXISTS project_skills (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -123,25 +119,34 @@ def init_db():
         )
     """)
 
+    # Resume item (title + unlimited bullet points stored as JSON)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS resume_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            highlights TEXT NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+    """)
+
     conn.commit()
     conn.close()
     print("✅ Database initialized.")
 
 
 # -------------------------------------------------
-# Skills (legacy)
+# Save legacy skills
 # -------------------------------------------------
 def save_skills_to_db(project_path: str, skills: list[str]):
     conn = get_connection()
     cur = conn.cursor()
-
     cur.execute("DELETE FROM skills WHERE project_path = ?", (project_path,))
     for skill in skills:
         cur.execute(
             "INSERT INTO skills (project_path, skill) VALUES (?, ?)",
             (project_path, skill),
         )
-
     conn.commit()
     conn.close()
 
@@ -152,13 +157,11 @@ def save_skills_to_db(project_path: str, skills: list[str]):
 def save_project(name: str, root: str, timestamp: str) -> int:
     conn = get_connection()
     cur = conn.cursor()
-
     cur.execute(
         "INSERT INTO projects (name, root, timestamp) VALUES (?, ?, ?)",
         (name, root, timestamp),
     )
     project_id = cur.lastrowid
-
     conn.commit()
     conn.close()
     return project_id
@@ -167,7 +170,6 @@ def save_project(name: str, root: str, timestamp: str) -> int:
 def save_files(project_id, file_list):
     conn = get_connection()
     cur = conn.cursor()
-
     for f in file_list:
         cur.execute("""
             INSERT INTO files (
@@ -181,7 +183,6 @@ def save_files(project_id, file_list):
             f.get("created_timestamp"),
             f.get("last_modified"),
         ))
-
     conn.commit()
     conn.close()
 
@@ -189,7 +190,6 @@ def save_files(project_id, file_list):
 def save_complexity(project_id: int, functions: list[dict]):
     conn = get_connection()
     cur = conn.cursor()
-
     for fn in functions:
         cur.execute("""
             INSERT INTO complexity (
@@ -205,7 +205,6 @@ def save_complexity(project_id: int, functions: list[dict]):
             fn["end_line"],
             fn["cyclomatic_complexity"],
         ))
-
     conn.commit()
     conn.close()
 
@@ -213,7 +212,6 @@ def save_complexity(project_id: int, functions: list[dict]):
 def save_contributors(project_id: int, contributors: list[dict]):
     conn = get_connection()
     cur = conn.cursor()
-
     for c in contributors:
         cur.execute("""
             INSERT INTO contributors (
@@ -246,37 +244,63 @@ def save_contributors(project_id: int, contributors: list[dict]):
 # Save resume-ready skills
 # -------------------------------------------------
 def save_resume_skills(project_id: int, skills_by_category: dict):
-    """
-    skills_by_category must be:
-    {
-        "Web Development": ["RESTful APIs", "Frontend Development"],
-        "Data Science": ["Machine Learning"]
-    }
-    """
     conn = get_connection()
     cur = conn.cursor()
-
     cur.execute("DELETE FROM project_skills WHERE project_id = ?", (project_id,))
-
     for category, skill_list in skills_by_category.items():
         for skill in skill_list:
             cur.execute("""
                 INSERT INTO project_skills (project_id, skill, category)
                 VALUES (?, ?, ?)
             """, (project_id, skill, category))
-
     conn.commit()
     conn.close()
 
 
 # -------------------------------------------------
-# Build final JSON report from DB
+# Save resume item (title + list of bullet highlights)
+# -------------------------------------------------
+def save_resume_item(project_id: int, resume_item: dict):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM resume_items WHERE project_id = ?", (project_id,))
+    cur.execute("""
+        INSERT INTO resume_items (project_id, title, highlights)
+        VALUES (?, ?, ?)
+    """, (project_id, resume_item["title"], json.dumps(resume_item["highlights"])))
+    conn.commit()
+    conn.close()
+
+
+# -------------------------------------------------
+# Load résumé item from DB
+# -------------------------------------------------
+def get_resume_item_from_db(project_id: int) -> dict | None:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT title, highlights
+        FROM resume_items
+        WHERE project_id = ?
+    """, (project_id,))
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        return None
+
+    title, highlights_json = row
+    return {"title": title, "highlights": json.loads(highlights_json)}
+
+
+# -------------------------------------------------
+# Final JSON assembly from DB
 # -------------------------------------------------
 def assemble_report_from_db(project_id: int) -> dict:
     conn = get_connection()
     cur = conn.cursor()
 
-    # Project row
+    # Project
     cur.execute("SELECT name, root, timestamp FROM projects WHERE id = ?", (project_id,))
     row = cur.fetchone()
     if row is None:
@@ -342,7 +366,7 @@ def assemble_report_from_db(project_id: int) -> dict:
             }
         )
 
-    # NEW — Resume skills restored from DB
+    # Resume skills
     cur.execute(
         "SELECT skill, category FROM project_skills WHERE project_id = ?",
         (project_id,),
@@ -352,8 +376,10 @@ def assemble_report_from_db(project_id: int) -> dict:
     for skill, category in rows:
         resume_skills.setdefault(category, []).append(skill)
 
-    conn.close()
+    # Resume item
+    resume_item = get_resume_item_from_db(project_id)
 
+    conn.close()
     return {
         "project_name": name,
         "project_root": root,
@@ -365,4 +391,5 @@ def assemble_report_from_db(project_id: int) -> dict:
         },
         "contributors": contributors,
         "resume_skills": resume_skills,
+        "resume_item": resume_item,   # ✔ now included
     }
