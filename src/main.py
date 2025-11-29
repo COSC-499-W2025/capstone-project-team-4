@@ -109,9 +109,6 @@ def analyze_project_cli(
     # ------------------------- 4️⃣ Code complexity -------------------------
     complexity_dict = project_analysis_to_dict(analyze_project(working_dir))
 
-    # ------------------------- 4️⃣ frameworks used -------------------------
-
-
     # ------------------------- 5️⃣ Project stats -------------------------
     project_stats = calculate_project_stats(project_root, file_list)
 
