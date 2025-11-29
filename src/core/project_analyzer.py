@@ -11,6 +11,8 @@ from src.core.code_complexity import (
     analyze_file,
     EXT_TO_LANG,
 )
+
+
 # Git/Collaboration Analysis Functions
 def analyze_contributors(project_path=".", use_all_branches=False):
     """
@@ -178,9 +180,7 @@ def calculate_project_stats(project_path, file_list):
         "total_size_bytes": total_size,
         "average_file_size_bytes": avg_size,
         "duration_days": duration_days,
-        "activity_types": "TODO idk someone can do that lol",
         "collaborative": is_collaborative,
-        "contributors": contributors,
     }
 
     return metrics
@@ -240,13 +240,11 @@ class ProjectAnalysisResult:
 
 
 def _is_ignored(path: Path) -> bool:
-    
     ignored = {".venv", "venv", "__pycache__", ".git", ".pytest_cache"}
     return any(part in ignored for part in path.parts)
 
 
 def _should_analyze(path: Path) -> bool:
-
     if not path.is_file():
         return False
     if _is_ignored(path):
@@ -257,7 +255,6 @@ def _should_analyze(path: Path) -> bool:
 
 
 def analyze_project(root: Path) -> ProjectAnalysisResult:
- 
     root = root.resolve()
     functions: List[FunctionMetrics] = []
 
@@ -273,11 +270,9 @@ def analyze_project(root: Path) -> ProjectAnalysisResult:
         project_root=str(root),
         functions=functions,
     )
-    
 
 
 def project_analysis_to_dict(result: ProjectAnalysisResult) -> dict:
- 
     funcs = result.functions
 
     total_functions = len(funcs)
@@ -347,4 +342,3 @@ def project_analysis_to_dict(result: ProjectAnalysisResult) -> dict:
         "per_file": per_file,
         "functions": [asdict(f) for f in funcs],
     }
-
