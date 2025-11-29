@@ -18,7 +18,7 @@ from src.core.database import (
     save_complexity,
     save_contributors,
     save_resume_skills,
-    save_resume_item,        # <-- added
+    save_resume_item,  # <-- added
     assemble_report_from_db,
 )
 
@@ -31,7 +31,7 @@ from src.core.project_analyzer import (
     calculate_project_stats,
 )
 from src.core.resume_skill_extractor import analyze_project_skills
-from src.core.resume_item_generator import generate_resume_item      # <-- added
+from src.core.resume_item_generator import generate_resume_item  # <-- added
 
 from src.core.contribution_ranking import (
     rank_projects_for_contributor,
@@ -136,7 +136,11 @@ def analyze_project_cli(
         except Exception:
             pass
 
-    detected_technologies = {"languages": languages, "frameworks": frameworks, "skills": skills}
+    detected_technologies = {
+        "languages": languages,
+        "frameworks": frameworks,
+        "skills": skills,
+    }
 
     # ------------------------- 6️⃣ Save raw analysis to DB -------------------------
     save_files(project_id, file_list)
@@ -182,8 +186,7 @@ def analyze_project_cli(
     skills_output_file = project_dir / "skills_extracted.json"
     metadata_json_path = project_dir / "metadata.json"
     skills_result = run_skill_extraction(
-        metadata_path=str(metadata_json_path),
-        output_path=str(skills_output_file)
+        metadata_path=str(metadata_json_path), output_path=str(skills_output_file)
     )
     skills_output_file.write_text(json.dumps(skills_result, indent=2))
 
@@ -202,9 +205,15 @@ def analyze_project_cli(
     if "detected_technologies" not in report:
         try:
             report.setdefault("resume_skills", {})
-            report["resume_skills"]["languages"] = detected_technologies.get("languages", [])
-            report["resume_skills"]["frameworks"] = detected_technologies.get("frameworks", [])
-            report["resume_skills"]["skills_flat"] = detected_technologies.get("skills", [])
+            report["resume_skills"]["languages"] = detected_technologies.get(
+                "languages", []
+            )
+            report["resume_skills"]["frameworks"] = detected_technologies.get(
+                "frameworks", []
+            )
+            report["resume_skills"]["skills_flat"] = detected_technologies.get(
+                "skills", []
+            )
         except Exception:
             pass
         (project_dir / "skill_extract.json").write_text(
@@ -212,9 +221,7 @@ def analyze_project_cli(
         )
 
     # ------------------------- resume_item.json export -------------------------
-    (project_dir / "resume_item.json").write_text(
-        json.dumps(resume_item, indent=2)
-    )
+    (project_dir / "resume_item.json").write_text(json.dumps(resume_item, indent=2))
 
     typer.secho(f"🎉 Reports generated → {project_dir}", fg=typer.colors.GREEN)
 
@@ -225,7 +232,9 @@ def analyze_project_cli(
 @app.command("browse")
 def browse(
     out: Optional[Path] = typer.Option(None, "--out", "-o", help="Outputs directory"),
-    raw: bool = typer.Option(False, "--raw", help="Show raw JSON instead of pretty view"),
+    raw: bool = typer.Option(
+        False, "--raw", help="Show raw JSON instead of pretty view"
+    ),
 ):
     out_dir = (out or Path.cwd() / "outputs").resolve()
     if not out_dir.exists():
@@ -243,7 +252,12 @@ def browse(
 
     project = projects[int(typer.prompt("\nEnter number")) - 1]
 
-    timestamps = sorted([d for d in project.iterdir() if d.is_dir()], key=lambda p: p.name)
+    timestamps = sorted(
+        [d for d in project.iterdir() if d.is_dir()], key=lambda p: p.name
+    )
+    if not timestamps:
+        typer.secho("No timestamps found!", fg="yellow")
+        return
 
     typer.secho(f"\n📁 Select a timestamp for {project.name}:\n", fg="green")
     for i, r in enumerate(timestamps, start=1):
@@ -331,13 +345,17 @@ def rank_contributions(
         typer.secho("❌ Invalid project or missing .git", fg="red")
         raise typer.Exit()
 
-    ranked = rank_projects_for_contributor([project], match_by=match_by, identifier=identifier)
+    ranked = rank_projects_for_contributor(
+        [project], match_by=match_by, identifier=identifier
+    )
     if not ranked:
         typer.secho("No contributions found.", fg="yellow")
         raise typer.Exit()
 
     summary_obj = ranked[0]
-    append_contribution_entry(summary_obj, extra={"source_command": "rank-contributions"})
+    append_contribution_entry(
+        summary_obj, extra={"source_command": "rank-contributions"}
+    )
     summary = summarize_top_projects(ranked, top_n=1)[0]
 
     typer.echo("Contribution Summary\n-----------------------")
