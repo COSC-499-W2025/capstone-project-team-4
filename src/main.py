@@ -18,7 +18,7 @@ from src.core.database import (
     save_complexity,
     save_contributors,
     save_resume_skills,
-    assemble_report_from_db
+    assemble_report_from_db,
 )
 
 # Metadata / analysis imports
@@ -42,6 +42,7 @@ from src.core.project_contribution_log import (
 from src.core.alternate_skill_extractor import run_skill_extraction
 
 
+from src.utils import pretty_print_json
 
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
@@ -58,7 +59,9 @@ def check_virtual_env():
 def analyze_project_cli(
     path: Path = typer.Argument(..., help="Path to project directory or ZIP file."),
     include_files: bool = typer.Option(
-        True, "--include-files/--no-include-files", help="Include full file list (metadata)"
+        True,
+        "--include-files/--no-include-files",
+        help="Include full file list (metadata)",
     ),
     out: Optional[Path] = typer.Option(
         None, "--out", "-o", help="Output directory (default: ./outputs)"
@@ -93,9 +96,12 @@ def analyze_project_cli(
         typer.secho("❌ Must provide a directory or ZIP file.", fg=typer.colors.RED)
         raise typer.Exit(code=2)
 
+    # This is just a summary so like... yeah this should finally get actual metadata stuff
+    project_stats = calculate_project_stats(project_root, file_list)
+
     # ❌ No temp_metadata.json — build metadata in memory
     metadata_block = {
-        "metadata": df.to_dict(orient="records"),
+        "metadata": project_stats,
         "project_root": str(project_root),
         "files": file_list,
     }
@@ -114,8 +120,31 @@ def analyze_project_cli(
     project_stats = calculate_project_stats(project_root, file_list)
 
     # ------------------------- 6️⃣ Resume-ready skills -------------------------
+    # skill_report = analyze_project_skills(project_root)
+    # save_resume_skills(project_id, skill_report["skill_categories"])
+    # run skill analyzer and normalize (dedupe + sort)
     skill_report = analyze_project_skills(project_root)
-    save_resume_skills(project_id, skill_report["skill_categories"])
+    languages = sorted(set(skill_report.get("languages", [])))
+    frameworks = sorted(set(skill_report.get("frameworks", [])))
+    skills = sorted(set(skill_report.get("skills", [])))
+
+    # persist skill categories as before
+    save_resume_skills(project_id, skill_report.get("skill_categories", {}))
+
+    # try to persist technologies to DB if helper exists (non-fatal)
+    try:
+        from src.core.database import save_detected_technologies
+    except Exception:
+        save_detected_technologies = None
+    if save_detected_technologies:
+        try:
+            save_detected_technologies(project_id, languages, frameworks)
+        except Exception:
+            # ignore DB write errors to keep flow robust
+            pass
+
+    # stash for later output
+    detected_technologies = {"languages": languages, "frameworks": frameworks, "skills": skills}
 
     # ------------------------- 7️⃣ Save raw analysis to DB -------------------------
     save_files(project_id, file_list)
@@ -138,11 +167,14 @@ def analyze_project_cli(
 
     # metadata.json
     (project_dir / "metadata.json").write_text(
-        json.dumps({
-            "metadata": report["metadata"],
-            "project_root": report["project_root"],
-            "files": report["files"] if include_files else []
-        }, indent=2)
+        json.dumps(
+            {
+                "metadata": report["metadata"],
+                "project_root": report["project_root"],
+                "files": report["files"] if include_files else [],
+            },
+            indent=2,
+        )
     )
 
     # Skills extracted
@@ -170,8 +202,100 @@ def analyze_project_cli(
     (project_dir / "skill_extract.json").write_text(
         json.dumps(report["resume_skills"], indent=2)
     )
+    if "detected_technologies" not in report:
+        try:
+            report.setdefault("resume_skills", {})
+            report["resume_skills"]["languages"] = detected_technologies.get("languages", [])
+            report["resume_skills"]["frameworks"] = detected_technologies.get("frameworks", [])
+            report["resume_skills"]["skills_flat"] = detected_technologies.get("skills", [])
+
+        except Exception:
+            pass
+
+        (project_dir / "skill_extract.json").write_text(
+            json.dumps(report["resume_skills"], indent=2)
+        )
 
     typer.secho(f"🎉 Reports generated → {project_dir}", fg=typer.colors.GREEN)
+
+
+#
+@app.command("browse")
+def browse(
+    out: Optional[Path] = typer.Option(None, "--out", "-o", help="Outputs directory"),
+    raw: bool = typer.Option(
+        False, "--raw", help="Show raw JSON instead of pretty view"
+    ),
+):
+    """
+    Interactive menu to browse previously generated project reports. Use the --raw option to view the plain JSON files
+    """
+    out_dir = (out or Path.cwd() / "outputs").resolve()
+
+    # 0. Verify if outputs folder actually exists
+    if not out_dir.exists():
+        typer.secho("❌ outputs folder not found.", fg=typer.colors.RED)
+        raise typer.Exit()
+
+    # 1. Select project
+
+    projects = [d for d in out_dir.iterdir() if d.is_dir()]
+    if not projects:
+        typer.secho("⚠ No projects found.", fg=typer.colors.YELLOW)
+        return
+
+    typer.secho("\n📁 Select a project:\n", fg=typer.colors.GREEN)
+    for i, p in enumerate(projects, start=1):
+        typer.echo(f"[{i}] {p.name}")
+
+    choice = typer.prompt("\nEnter number")
+    try:
+        project = projects[int(choice) - 1]
+    except:
+        typer.secho("❌ Invalid selection.", fg=typer.colors.RED)
+        raise typer.Exit()
+
+    # 2. Select timestamp
+    timestamp = [d for d in project.iterdir() if d.is_dir()]
+    timestamp.sort(key=lambda p: p.name)
+
+    typer.secho(f"\n📁 Select a timestamp for {project.name}:\n", fg=typer.colors.GREEN)
+    for i, r in enumerate(timestamp, start=1):
+        typer.echo(f"[{i}] {r.name}")
+
+    choice = typer.prompt("\nEnter number")
+    try:
+        run = timestamp[int(choice) - 1]
+    except:
+        typer.secho("❌ Invalid selection.", fg=typer.colors.RED)
+        raise typer.Exit()
+
+    # 3: SELECT WHICH JSON FILE
+
+    json_files = [f for f in run.iterdir() if f.suffix == ".json"]
+
+    typer.secho(f"\n📄 Select a file to view:\n", fg=typer.colors.GREEN)
+    for i, f in enumerate(json_files, start=1):
+        typer.echo(f"[{i}] {f.name}")
+
+    choice = typer.prompt("\nEnter number")
+    try:
+        selected_file = json_files[int(choice) - 1]
+    except:
+        typer.secho("❌ Invalid selection.", fg=typer.colors.RED)
+        raise typer.Exit()
+
+    # 4. Show file contents
+
+    typer.secho(f"\n=== {selected_file.name} ===\n", fg=typer.colors.BLUE, bold=True)
+
+    try:
+        data = json.loads(selected_file.read_text())
+        # typer.echo(json.dumps(data, indent=2))
+        # Bruh why is Python like this?
+        pretty_print_json.pretty_print_json(selected_file.name, data, raw)
+    except Exception as e:
+        typer.secho(f"Error reading JSON: {e}", fg=typer.colors.RED)
 
 
 @app.command("status")
@@ -213,8 +337,10 @@ def info() -> None:
     typer.echo("  info              — Show this screen\n")
 
 
-
-@app.command("rank-contributions", help="Rank a contributor's impact within a Git project based on commits, lines changed, and files touched.")
+@app.command(
+    "rank-contributions",
+    help="Rank a contributor's impact within a Git project based on commits, lines changed, and files touched.",
+)
 def rank_contributions(
     project: Path = typer.Argument(
         ..., help="Path to a project directory containing a .git folder"
@@ -226,8 +352,7 @@ def rank_contributions(
         None, "--email", help="Contributor email (case-insensitive)"
     ),
 ):
-  
-    #Rank a contributor's impact within a project based on Git history. Uses analyze_contributors() under the hood.
+    # Rank a contributor's impact within a project based on Git history. Uses analyze_contributors() under the hood.
     # Consent check (same pattern as analyze-project)
     config_manager.require_consent()
 
@@ -261,7 +386,7 @@ def rank_contributions(
         # Use your ranking helper (wraps analyze_contributors internally)
         ranked = rank_projects_for_contributor(
             [project],
-            match_by=match_by,   # "name" or "email"
+            match_by=match_by,  # "name" or "email"
             identifier=identifier,
         )
 
@@ -279,7 +404,7 @@ def rank_contributions(
                 "source_command": "rank-contributions",
             },
         )
-        
+
         summary = summarize_top_projects(ranked, top_n=1)[0]
 
         typer.echo("Contribution Summary")
@@ -289,8 +414,12 @@ def rank_contributions(
     except Exception as e:
         typer.secho("\n The command failed due to an unexpected error.", fg="red")
         typer.secho(f" Details: {str(e)}", fg="yellow")
-        typer.secho(" Tip: Ensure the project path is correct and contains a valid .git directory.", fg="cyan")
+        typer.secho(
+            " Tip: Ensure the project path is correct and contains a valid .git directory.",
+            fg="cyan",
+        )
         raise typer.Exit(code=1)
+
 
 @app.command(
     "rank-projects",
@@ -309,8 +438,9 @@ def rank_projects_from_log_cli(
         help="Limit the number of projects shown. If not provided, show all.",
     ),
 ):
-    
-    if not name and not email: # Rank importance of each project based on a user's contributions, using entries stored in project_contributions_log.json.
+    if (
+        not name and not email
+    ):  # Rank importance of each project based on a user's contributions, using entries stored in project_contributions_log.json.
         typer.secho("You must specify either --name or --email", fg="red")
         raise typer.Exit(code=2)
 
