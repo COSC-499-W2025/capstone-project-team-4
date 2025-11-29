@@ -2,6 +2,20 @@ import json
 import typer
 
 
+# Convert bytes to MB/GB for readability
+def readable_size(num_bytes):
+    try:
+        if num_bytes >= 1_000_000_000:
+            return f"{num_bytes / 1_000_000_000:.2f} GB"
+        elif num_bytes >= 1_000_000:
+            return f"{num_bytes / 1_000_000:.2f} MB"
+        elif num_bytes >= 1_000:
+            return f"{num_bytes / 1_000:.2f} KB"
+        return f"{num_bytes} bytes"
+    except:
+        return "?"
+
+
 def pretty_print_json(file_name: str, data: dict, raw: bool = False):
     """
     Pretty prints known JSON files in a human-friendly format.
@@ -12,7 +26,9 @@ def pretty_print_json(file_name: str, data: dict, raw: bool = False):
         typer.echo(json.dumps(data, indent=2))
         return
 
-    # Pretty print: overview.json
+    # NOTE: This is for the generated resume item/summary thing
+    # Pretty print: overview.json eh idk I think that should be the resume item?
+    # This is just a placeholder for now
     if file_name == "overview.json":
         typer.secho("\n📘 Project Overview\n", fg=typer.colors.BLUE, bold=True)
         for key, value in data.items():
@@ -60,10 +76,22 @@ def pretty_print_json(file_name: str, data: dict, raw: bool = False):
 
     # Pretty print: metadata.json (summary)
     if file_name == "metadata.json":
+        meta = data.get("metadata", {})
+        root = data.get("project_root", "unknown")
+
+        total_files = meta.get("total_files", "?")
+        total_size = meta.get("total_size_bytes", "?")
+        avg_size = meta.get("average_file_size_bytes", "?")
+        duration = meta.get("duration_days", "?")
+        collaborative = meta.get("collaborative", "?")
+
         typer.secho("\n📁 Metadata Summary\n", fg=typer.colors.BLUE, bold=True)
-        typer.echo(f"Total files: {data.get('total_files', '?')}")
-        typer.echo(f"Total size: {data.get('total_size_human', '?')}")
-        typer.echo(f"Languages detected: {', '.join(data.get('languages', []))}")
+        typer.echo(f"Project root: {root}")
+        typer.echo(f"Total files: {total_files}")
+        typer.echo(f"Total size: {readable_size(total_size)}")
+        typer.echo(f"Average file size: {readable_size(avg_size)}")
+        typer.echo(f"Duration: {duration} days")
+        typer.echo(f"Collaborative project: {'Yes' if collaborative else 'No'}")
         return
 
     # Unknown file then print raw JSON cause idk I don't wanna create a fallback for that haha

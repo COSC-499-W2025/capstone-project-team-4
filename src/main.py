@@ -93,9 +93,12 @@ def analyze_project_cli(
         typer.secho("❌ Must provide a directory or ZIP file.", fg=typer.colors.RED)
         raise typer.Exit(code=2)
 
+    # This is just a summary so like... yeah this should finally get actual metadata stuff
+    project_stats = calculate_project_stats(project_root, file_list)
+
     # ❌ No temp_metadata.json — build metadata in memory
     metadata_block = {
-        "metadata": df.to_dict(orient="records"),
+        "metadata": project_stats,
         "project_root": str(project_root),
         "files": file_list,
     }
