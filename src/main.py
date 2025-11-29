@@ -39,6 +39,9 @@ from src.core.project_contribution_log import (
     append_contribution_entry,
     rank_projects_from_log,
 )
+from src.core.alternate_skill_extractor import run_skill_extraction
+
+
 from src.utils import pretty_print_json
 
 
@@ -173,6 +176,16 @@ def analyze_project_cli(
             indent=2,
         )
     )
+
+    # Skills extracted
+    skills_output_file = project_dir / "skills_extracted.json"
+    metadata_json_path = project_dir / "metadata.json"
+
+    skills_result = run_skill_extraction(
+        metadata_path=str(metadata_json_path),
+        output_path=str(skills_output_file)
+    )
+    skills_output_file.write_text(json.dumps(skills_result, indent=2))
 
     # complexity
     (project_dir / "complexity.json").write_text(
