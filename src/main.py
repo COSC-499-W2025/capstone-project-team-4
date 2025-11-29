@@ -53,11 +53,11 @@ def check_virtual_env():
 
 @app.command("analyze-project")
 def analyze_project_cli(
-    path: Path = typer.Argument(..., help="Path to project directory or ZIP file."),
+    path: Path = typer.Argument(..., help="Path to a project directory or ZIP file."),
     include_files: bool = typer.Option(
-        True,
+        False,
         "--include-files/--no-include-files",
-        help="Include full file list (metadata)",
+        help="Include full file list from metadata in final report",
     ),
     out: Optional[Path] = typer.Option(
         None, "--out", "-o", help="Output directory (default: ./outputs)"
@@ -240,12 +240,12 @@ def browse(
         typer.secho(f"Error reading JSON: {e}", fg=typer.colors.RED)
 
 
-@app.command("status")
+@app.command("status", help="Show current configuration and consent status.")
 def status() -> None:
     print(config_manager.read_cfg())
 
 
-@app.command("consent")
+@app.command("consent", help="Manage user consent for data collection.")
 def consent(
     grant: bool = typer.Option(False, "--grant"),
     revoke: bool = typer.Option(False, "--revoke"),
@@ -268,15 +268,18 @@ def consent(
     print(config_manager.read_cfg())
 
 
-@app.command("info")
+@app.command("info",help="Show information about the CLI.")
 def info() -> None:
     typer.echo("📊 Mining Digital Work Artifacts CLI")
     typer.echo("=" * 40)
-    typer.echo("Commands available:")
+    typer.echo("Commands available:\n")
+    typer.echo(" run command: python -m src.main <command> [options]\n")
     typer.echo("  analyze-project   — Full analysis & separated JSON files")
     typer.echo("  consent           — Manage user consent")
     typer.echo("  status            — Show current settings")
-    typer.echo("  info              — Show this screen\n")
+    typer.echo("  info              — Show this screen")
+    typer.echo("  rank-contributions — Rank a contributor's impact within a Git project. python -m src.main rank-contributions <file_path> --name <contributor_name> OR --email <contributor_email>   The name/email you use must be consistent when calling rnak-projects")
+    typer.echo("  rank-projects      — Show all analyzed projects for a contributor, ranked by contribution score. python -m src.main rank-projects <contributor_name> OR <contributor_email>\n")
 
 
 @app.command(
