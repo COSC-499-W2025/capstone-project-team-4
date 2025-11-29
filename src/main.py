@@ -117,8 +117,31 @@ def analyze_project_cli(
     project_stats = calculate_project_stats(project_root, file_list)
 
     # ------------------------- 6️⃣ Resume-ready skills -------------------------
+    # skill_report = analyze_project_skills(project_root)
+    # save_resume_skills(project_id, skill_report["skill_categories"])
+    # run skill analyzer and normalize (dedupe + sort)
     skill_report = analyze_project_skills(project_root)
-    save_resume_skills(project_id, skill_report["skill_categories"])
+    languages = sorted(set(skill_report.get("languages", [])))
+    frameworks = sorted(set(skill_report.get("frameworks", [])))
+    skills = sorted(set(skill_report.get("skills", [])))
+
+    # persist skill categories as before
+    save_resume_skills(project_id, skill_report.get("skill_categories", {}))
+
+    # try to persist technologies to DB if helper exists (non-fatal)
+    try:
+        from src.core.database import save_detected_technologies
+    except Exception:
+        save_detected_technologies = None
+    if save_detected_technologies:
+        try:
+            save_detected_technologies(project_id, languages, frameworks)
+        except Exception:
+            # ignore DB write errors to keep flow robust
+            pass
+
+    # stash for later output
+    detected_technologies = {"languages": languages, "frameworks": frameworks, "skills": skills}
 
     # ------------------------- 7️⃣ Save raw analysis to DB -------------------------
     save_files(project_id, file_list)
@@ -166,6 +189,19 @@ def analyze_project_cli(
     (project_dir / "skill_extract.json").write_text(
         json.dumps(report["resume_skills"], indent=2)
     )
+    if "detected_technologies" not in report:
+        try:
+            report.setdefault("resume_skills", {})
+            report["resume_skills"]["languages"] = detected_technologies.get("languages", [])
+            report["resume_skills"]["frameworks"] = detected_technologies.get("frameworks", [])
+            report["resume_skills"]["skills_flat"] = detected_technologies.get("skills", [])
+
+        except Exception:
+            pass
+
+        (project_dir / "skill_extract.json").write_text(
+            json.dumps(report["resume_skills"], indent=2)
+        )
 
     typer.secho(f"🎉 Reports generated → {project_dir}", fg=typer.colors.GREEN)
 
