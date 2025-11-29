@@ -10,7 +10,13 @@ SUPPORTED_LANGUAGES = {
 }
 
 def get_skill_mapping_path(language):
-    base_dir = "/Users/kusshsatija/capstone-project-team-4/src/data"
+    base_dir = os.path.join(
+        os.path.dirname(__file__),  # src/core/
+        "..",                       # src/
+        "data"                      # src/data
+    )
+    base_dir = os.path.abspath(base_dir)
+
     lang = language.lower()
     mapping = os.path.join(base_dir, f"skill_mapping_{lang}.json")
     return mapping if os.path.exists(mapping) else None
