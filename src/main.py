@@ -9,6 +9,8 @@ import zipfile
 from tempfile import TemporaryDirectory
 
 from src.core import config_manager
+import shutil
+
 
 # Database functions
 from src.core.database import (
@@ -40,6 +42,7 @@ from src.core.project_contribution_log import (
     rank_projects_from_log,
 )
 from src.utils import pretty_print_json
+
 
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
@@ -248,6 +251,75 @@ def browse(
     except Exception as e:
         typer.secho(f"Error reading JSON: {e}", fg=typer.colors.RED)
 
+@app.command("delete-output") # Similar to browse, opens a directory selector that lets you select project & timestamp to delete 
+def delete_output(
+    out: Optional[Path] = typer.Option(
+        None, "--out", "-o", help="Outputs directory (default: ./outputs)"
+    ),
+):
+    out_dir = (out or Path.cwd() / "outputs").resolve()
+
+    #Verify outputs folder exists
+    if not out_dir.exists():
+        typer.secho("outputs folder not found.")
+        raise typer.Exit()
+
+    #Select the name of your project 
+    projects = [d for d in out_dir.iterdir() if d.is_dir()]
+    if not projects:
+        typer.secho(" No projects found.")
+        return
+
+    typer.secho("\n Select a project to delete an output from:\n")
+    for i, p in enumerate(projects, start=1):
+        typer.echo(f"[{i}] {p.name}")
+
+    choice = typer.prompt("\nEnter number")
+    try:
+        project = projects[int(choice) - 1]
+    except Exception:
+        typer.secho("Invalid selection.")
+        raise typer.Exit()
+
+    # Select timestamp you want 
+    timestamps = [d for d in project.iterdir() if d.is_dir()]
+    if not timestamps:
+        typer.secho("No timestamped runs found for this project.")
+        return
+
+    timestamps.sort(key=lambda p: p.name)
+
+    typer.secho(
+        f"\n Select a timestamp to delete for {project.name}:\n")
+    for i, r in enumerate(timestamps, start=1):
+        typer.echo(f"[{i}] {r.name}")
+
+    choice = typer.prompt("\nEnter number")
+    try:
+        run = timestamps[int(choice) - 1]
+    except Exception:
+        typer.secho("Invalid selection.")
+        raise typer.Exit()
+
+    # Confirm delete
+    typer.secho(
+        f"\n You are about to delete the output folder:\n  {run}\n")
+    confirm = typer.prompt("Type 'yes' to confirm deletion", default="no")
+
+    if confirm.lower() != "yes":
+        typer.secho("Deletion cancelled.")
+        raise typer.Exit()
+
+    # Delete the selected run folder 
+    try:
+        shutil.rmtree(run)
+        typer.secho(f" Deleted portfolio output: {run}")
+    except Exception as e:
+        typer.secho("Failed to delete output folder.")
+        typer.secho(f" Details: {e}")
+        raise typer.Exit(code=1)
+
+
 
 @app.command("status")
 def status() -> None:
@@ -277,15 +349,18 @@ def consent(
     print(config_manager.read_cfg())
 
 
-@app.command("info")
+@app.command("info",help="Show information about the CLI.")
 def info() -> None:
     typer.echo("📊 Mining Digital Work Artifacts CLI")
     typer.echo("=" * 40)
-    typer.echo("Commands available:")
+    typer.echo("Commands available:\n")
+    typer.echo(" run command: python -m src.main <command> [options]\n")
     typer.echo("  analyze-project   — Full analysis & separated JSON files")
     typer.echo("  consent           — Manage user consent")
     typer.echo("  status            — Show current settings")
-    typer.echo("  info              — Show this screen\n")
+    typer.echo("  info              — Show this screen")
+    typer.echo("  rank-contributions — Rank a contributor's impact within a Git project. python -m src.main rank-contributions <file_path> --name <contributor_name> OR --email <contributor_email> \n")
+    typer.echo("  rank-projects      — Show all analyzed projects for a contributor, ranked by contribution score. python -m src.main rank-projects <contributor_name> OR <contributor_email>  The name/email you use must be consistent when calling rank-projects\n")
 
 
 @app.command(
