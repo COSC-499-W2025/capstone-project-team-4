@@ -20,8 +20,10 @@ from src.core.database import (
     save_complexity,
     save_contributors,
     save_resume_skills,
-    save_resume_item,  # <-- added
+    save_resume_item,  
     assemble_report_from_db,
+    get_latest_project_id_for_path,
+    get_skill_timeline_for_project
 )
 
 # Metadata / analysis imports
@@ -33,7 +35,7 @@ from src.core.project_analyzer import (
     calculate_project_stats,
 )
 from src.core.resume_skill_extractor import analyze_project_skills
-from src.core.resume_item_generator import generate_resume_item  # <-- added
+from src.core.resume_item_generator import generate_resume_item  
 
 from src.core.contribution_ranking import (
     rank_projects_for_contributor,
@@ -43,7 +45,6 @@ from src.core.project_contribution_log import (
     append_contribution_entry,
     rank_projects_from_log,
 )
-from src.core.alternate_skill_extractor import run_skill_extraction
 from src.core.project_summarizer import (
     print_project_rankings,
     SortCriteria
@@ -51,6 +52,7 @@ from src.core.project_summarizer import (
 
 from src.core.alternate_skill_extractor import pretty_dump
 from src.utils import pretty_print_json
+from src.core.alternate_skill_extractor import run_skill_extraction
 
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
@@ -188,14 +190,13 @@ def analyze_project_cli(
             indent=2,
         )
     )
+    metadata_json_path = project_dir / "metadata.json"
 
     # Skill extractor secondary output
-    skills_output_file = project_dir / "skills_extracted.json"
-    metadata_json_path = project_dir / "metadata.json"
-    skills_result = run_skill_extraction(
-        metadata_path=str(metadata_json_path), output_path=str(skills_output_file)
-    )
-    pretty_dump(skills_result, skills_output_file)
+    skills_result = run_skill_extraction(metadata_json_path, project_id)
+
+    skill_output_path = project_dir / "skill_insights.json"
+    pretty_dump(skills_result, skill_output_path)
 
     (project_dir / "complexity.json").write_text(
         json.dumps(report["code_complexity"], indent=2)
@@ -499,6 +500,43 @@ def rank_projects_from_log_cli(
             f"   Score: {score:.2f} | Commits: {commits} | "
             f"Lines changed: +{added}/-{deleted} (total {total_lines}) | Files touched: {files}\n"
         )
+@app.command("skill-timeline")
+def skill_timeline(project_path: str):
+    """
+    Print a chronological list of skills exercised for the MOST RECENT analysis run
+    of the given project directory.
+    Usage:
+        python -m src.main skill-timeline <path_to_project>
+        OR
+        python -m src.main skill-timeline <folder_name>
+    """
+    abs_path = os.path.abspath(project_path)
+
+    # If user passed only folder name → resolve inside /outputs/
+    if not os.path.exists(abs_path):
+        outputs_dir = Path.cwd() / "outputs" / project_path
+        if outputs_dir.exists():
+            abs_path = str(outputs_dir)
+        else:
+            typer.echo(f"❌ Could not resolve project: {project_path}")
+            raise typer.Exit()
+
+    project_id = get_latest_project_id_for_path(abs_path)
+    if not project_id:
+        typer.echo(f"❌ No analysis found for project at {abs_path}")
+        raise typer.Exit()
+
+    timeline = get_skill_timeline_for_project(project_id)
+    if not timeline:
+        typer.echo("❌ No skill timeline data found for this project")
+        raise typer.Exit()
+
+    typer.echo("\n📌 Skill Timeline (Chronological)\n")
+    for date in sorted(timeline.keys()):
+        typer.echo(f"📅 {date}")
+        for skill, count in sorted(timeline[date].items(), key=lambda x: x[1], reverse=True):
+            typer.echo(f"   - {skill} ({count})")
+        typer.echo("")  # newline per date
 
 
 if __name__ == "__main__":

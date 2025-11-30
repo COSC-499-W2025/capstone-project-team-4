@@ -130,8 +130,44 @@ def init_db():
         )
     """)
 
+        # Skill extraction — project-level summary
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS project_skill_summary (
+            project_id INTEGER PRIMARY KEY,
+            total_files INTEGER,
+            files_analyzed INTEGER,
+            files_skipped INTEGER,
+            FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+    """)
+
+    # Skill extraction — global aggregated counts
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS project_global_skill_counts (
+            project_id INTEGER NOT NULL,
+            skill TEXT NOT NULL,
+            count INTEGER NOT NULL,
+            PRIMARY KEY (project_id, skill),
+            FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+    """)
+
+    # Skill extraction — heatmap/timeline
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS project_skill_timeline (
+            project_id INTEGER NOT NULL,
+            skill TEXT NOT NULL,
+            date TEXT NOT NULL,
+            count INTEGER NOT NULL,
+            PRIMARY KEY (project_id, skill, date),
+            FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+    """)
+
+
     conn.commit()
     conn.close()
+    
     print("✅ Database initialized.")
 
 
@@ -291,6 +327,88 @@ def get_resume_item_from_db(project_id: int) -> dict | None:
 
     title, highlights_json = row
     return {"title": title, "highlights": json.loads(highlights_json)}
+
+#stores the extracted summary + heatmap data into the DB
+def save_skill_insights(project_id: int, summary: dict, heatmap: dict):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # 1) summary
+    cur.execute("DELETE FROM project_skill_summary WHERE project_id = ?", (project_id,))
+    cur.execute("""
+        INSERT INTO project_skill_summary (
+            project_id, total_files, files_analyzed, files_skipped
+        ) VALUES (?, ?, ?, ?)
+    """, (
+        project_id,
+        summary.get("total_files", 0),
+        summary.get("files_analyzed", 0),
+        summary.get("files_skipped", 0),
+    ))
+
+    # 2) global skill counts
+    cur.execute("DELETE FROM project_global_skill_counts WHERE project_id = ?", (project_id,))
+    for skill, count in summary.get("global_skill_counts", {}).items():
+        cur.execute("""
+            INSERT INTO project_global_skill_counts (project_id, skill, count)
+            VALUES (?, ?, ?)
+        """, (project_id, skill, count))
+
+    # 3) timeline / heatmap
+    cur.execute("DELETE FROM project_skill_timeline WHERE project_id = ?", (project_id,))
+    for skill, date_dict in heatmap.items():
+        for date, count in date_dict.items():
+            cur.execute("""
+                INSERT INTO project_skill_timeline (project_id, skill, date, count)
+                VALUES (?, ?, ?, ?)
+            """, (project_id, skill, date, count))
+
+    conn.commit()
+    conn.close()
+
+def get_skill_timeline_for_project(project_id: int) -> dict:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT skill, date, count
+        FROM project_skill_timeline
+        WHERE project_id = ?
+    """, (project_id,))
+    rows = cur.fetchall()
+    conn.close()
+
+    timeline = {}
+    for skill, date, count in rows:
+        timeline.setdefault(date, {})[skill] = count
+    return timeline
+
+def get_latest_project_id_for_path(project_root: str) -> int | None:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id
+        FROM projects
+        WHERE root = ?
+        ORDER BY timestamp DESC
+        LIMIT 1
+    """, (project_root,))
+    row = cur.fetchone()
+    conn.close()
+    return row[0] if row else None
+
+def save_skill_timeline(project_id: int, timeline: dict):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM project_skill_timeline WHERE project_id = ?", (project_id,))
+    for skill, dates in timeline.items():
+        for date, count in dates.items():
+            cur.execute("""
+                INSERT INTO project_skill_timeline (project_id, skill, date, count)
+                VALUES (?, ?, ?, ?)
+            """, (project_id, skill, date, count))
+    conn.commit()
+    conn.close()
+
 
 
 # -------------------------------------------------

@@ -3,6 +3,7 @@ import os
 import json
 from datetime import datetime
 from collections import defaultdict
+from src.core.database import save_skill_insights
 
 SUPPORTED_LANGUAGES = {
     "javascript", "typescript", "java", "python", "c", "c++", "c#",
@@ -84,7 +85,12 @@ def analyze_code_file(file_path, language, created_ts=None, modified_ts=None):
 #   - When specific skills were active (by day)
 #   - How a developer's skill usage evolved over time
 
-def run_skill_extraction(metadata_path, output_path):
+def run_skill_extraction(metadata_path, project_id=None):
+    """Run skill extraction and return the result in memory. No file writes here."""
+
+    if not os.path.exists(metadata_path):
+        return {"error": f"Metadata not found: {metadata_path}"}
+
     with open(metadata_path, "r", encoding="utf-8") as f:
         meta = json.load(f)
 
@@ -97,11 +103,11 @@ def run_skill_extraction(metadata_path, output_path):
         "files_skipped": 0,
         "languages_encountered": set(),
         "unsupported_languages": {},
-        "global_skill_counts": defaultdict(int)
+        "global_skill_counts": defaultdict(int),
     }
 
-    # per match heatmap
     heatmap = defaultdict(lambda: defaultdict(int))
+    file_reports = []   # <- NEW: full per-file report available if needed
 
     for f in files:
         lang = f.get("language", "").lower()
@@ -115,42 +121,40 @@ def run_skill_extraction(metadata_path, output_path):
             continue
 
         summary["languages_encountered"].add(lang)
-
         absolute_path = os.path.join(project_root, rel)
-        result = analyze_code_file(absolute_path, lang, created_ts, modified_ts)
 
+        result = analyze_code_file(absolute_path, lang, created_ts, modified_ts)
         if result is None:
             summary["files_skipped"] += 1
             continue
 
         skill_counts, ts = result
 
-        for skill, count in skill_counts.items():
-            # Count matches globally
-            summary["global_skill_counts"][skill] += count
+        file_reports.append({
+            "file_path": absolute_path,
+            "language": lang,
+            "skills": skill_counts,
+            "timestamp": ts,
+        })
 
-            # Heatmap increments PER MATCH
+        for skill, count in skill_counts.items():
+            summary["global_skill_counts"][skill] += count
             if ts:
                 date = datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
                 heatmap[skill][date] += count
 
         summary["files_analyzed"] += 1
 
-    summary["languages_encountered"] = list(summary["languages_encountered"])
-
-    summary["global_skill_counts"] = dict(
-        sorted(summary["global_skill_counts"].items(), key=lambda x: x[1], reverse=True)
-    )
-
+    summary["languages_encountered"] = sorted(list(summary["languages_encountered"]))
+    summary["global_skill_counts"] = dict(sorted(summary["global_skill_counts"].items(), key=lambda x: x[1], reverse=True))
     heatmap = {skill: dict(days) for skill, days in heatmap.items()}
 
-    final = {
+    # Save to DB only if the CLI passed project_id to this function
+    if project_id is not None:
+        save_skill_insights(project_id, summary, heatmap)
+
+    return {
         "summary": summary,
-        "skill_activity_heatmap": heatmap
+        "file_reports": file_reports,
     }
 
-    if output_path:
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        pretty_dump(final, output_path)
-
-    return final
