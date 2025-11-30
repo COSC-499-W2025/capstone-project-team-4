@@ -1,12 +1,18 @@
 from __future__ import annotations
 from pathlib import Path
 from fnmatch import fnmatch
+from functools import lru_cache, cached_property
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+import mmap
+import time
+import os
 
 import json
 import re
 
 import yaml
-from typing import Dict, Set, List, Tuple, Optional
+from typing import Dict, Set, List, Tuple, Optional, Iterator
 
 # Tree-sitter integration
 try:
@@ -39,14 +45,35 @@ except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib  # type: ignore
 
 
+# Performance configuration
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit for text scanning
+MAX_WORKERS = min(4, (os.cpu_count() or 1))  # Conservative threading
+CHUNK_SIZE = 8192  # Buffer size for streaming file reads
+CACHE_SIZE = 512  # LRU cache size for file operations
+VERBOSE_LOGGING = False  # Disable verbose logging for performance
+
+
 class TreeSitterFrameworkAnalyzer:
     """Enhanced framework detection using tree-sitter for accurate code analysis."""
+    _instance = None
+    _lock = threading.Lock()
+    
+    def __new__(cls):
+        # Singleton pattern for performance
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
     
     def __init__(self):
+        if hasattr(self, '_initialized'):
+            return
         self.parsers = {}
         self.languages = {}
         self.language_detector = LanguageDetector()
         self._initialize_parsers()
+        self._initialized = True
     
     def _initialize_parsers(self):
         """Initialize tree-sitter parsers for supported languages."""
@@ -213,24 +240,41 @@ TEXT_SCAN_EXTS = {
     ".php", ".rb", ".go", ".rs"
 }
 
+@lru_cache(maxsize=CACHE_SIZE)
 def read_text_safe(path: Path) -> str | None:
-    """Read text file safely using existing FileUtils pattern."""
+    """Read text file safely with caching and size limits."""
     try:
-        return path.read_text(encoding="utf-8", errors="ignore")
-    except Exception:
+        # Check file size first to avoid reading huge files
+        stat = path.stat()
+        if stat.st_size > MAX_FILE_SIZE:
+            return None
+        
+        # Use memory mapping for large files
+        if stat.st_size > CHUNK_SIZE * 4:
+            with open(path, 'rb') as f:
+                with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+                    return mm.read().decode('utf-8', errors='ignore')
+        else:
+            return path.read_text(encoding="utf-8", errors="ignore")
+    except (OSError, PermissionError, UnicodeDecodeError):
         return None
 
+@lru_cache(maxsize=CACHE_SIZE)
 def load_json_safe(path: Path) -> dict | None:
-    """Load JSON file safely."""
+    """Load JSON file safely with caching."""
     try:
         txt = read_text_safe(path)
         return json.loads(txt) if txt else None
     except Exception:
         return None
 
+@lru_cache(maxsize=CACHE_SIZE)
 def load_toml_safe(path: Path) -> dict | None:
-    """Load TOML file safely."""
+    """Load TOML file safely with caching."""
     try:
+        # Check file size first
+        if path.stat().st_size > MAX_FILE_SIZE:
+            return None
         raw = path.read_bytes()
         return tomllib.loads(raw.decode("utf-8", errors="ignore"))
     except Exception:
@@ -247,41 +291,87 @@ def any_glob(folder: Path, patterns: list[str], excludes: set[str]) -> bool:
     return False
 
 def scan_text_any(folder: Path, needles: list[str], excludes: set[str], tree_analyzer: Optional[TreeSitterFrameworkAnalyzer] = None) -> bool:
-    """Scan text files under folder for any of the needles using tree-sitter when possible."""
+    """Optimized scan with early termination, streaming, and parallel processing."""
     if not needles:
         return False
     
     if tree_analyzer is None:
         tree_analyzer = TreeSitterFrameworkAnalyzer()
     
-    for p in folder.rglob("*"):
-        if p.is_file() and p.suffix.lower() in TEXT_SCAN_EXTS and not path_in_excludes(p, excludes):
-            # Use consistent file reading approach
-            lines = FileUtils.read_file_lines(str(p))
-            if not lines:
-                continue
-            txt = ''.join(lines)
-            
-            # Try tree-sitter enhanced analysis for code files
-            language = tree_analyzer.get_language_from_extension(p)
-            if language and TREE_SITTER_AVAILABLE:
-                # Use tree-sitter for import detection if looking for import patterns
-                if any('import' in needle.lower() for needle in needles):
-                    imports = tree_analyzer.detect_imports(txt, language)
-                    for needle in needles:
-                        if any(needle.lower() in imp.lower() for imp in imports):
-                            return True
-                
-                # Use tree-sitter for framework pattern detection
-                patterns = tree_analyzer.detect_framework_patterns(txt, language, needles)
-                if patterns:
+    # Collect candidate files first (faster than checking each file individually)
+    candidate_files = []
+    try:
+        for p in folder.rglob("*"):
+            if (p.is_file() and 
+                p.suffix.lower() in TEXT_SCAN_EXTS and 
+                not path_in_excludes(p, excludes) and
+                p.stat().st_size <= MAX_FILE_SIZE):
+                candidate_files.append(p)
+    except (OSError, PermissionError):
+        return False
+    
+    if not candidate_files:
+        return False
+    
+    # Process files in parallel for better performance
+    with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(candidate_files))) as executor:
+        future_to_file = {
+            executor.submit(_scan_single_file, p, needles, tree_analyzer): p 
+            for p in candidate_files
+        }
+        
+        for future in as_completed(future_to_file):
+            try:
+                if future.result():  # Early termination on first match
                     return True
-            
-            # Fallback to simple string matching
-            for n in needles:
-                if n and (n in txt):
-                    return True
+            except Exception:
+                continue  # Skip problematic files
+    
     return False
+
+
+def _scan_single_file(path: Path, needles: list[str], tree_analyzer: TreeSitterFrameworkAnalyzer) -> bool:
+    """Scan a single file with streaming and early termination."""
+    try:
+        # Use streaming for import detection patterns
+        if any('import' in needle.lower() for needle in needles):
+            language = tree_analyzer.get_language_from_extension(path)
+            if language and TREE_SITTER_AVAILABLE:
+                # Use memory-mapped file reading for tree-sitter
+                with open(path, 'rb') as f:
+                    if path.stat().st_size > 0:
+                        try:
+                            with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+                                content = mm.read().decode('utf-8', errors='ignore')
+                                imports = tree_analyzer.detect_imports(content, language)
+                                for needle in needles:
+                                    if any(needle.lower() in imp.lower() for imp in imports):
+                                        return True
+                        except (OSError, ValueError):
+                            pass  # Fall back to regular processing
+        
+        # Stream file content for string matching (early termination)
+        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+            buffer = ''
+            while True:
+                chunk = f.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+                
+                buffer += chunk
+                # Check needles in current buffer
+                for needle in needles:
+                    if needle and needle in buffer:
+                        return True
+                
+                # Keep last part of buffer for patterns that might span chunks
+                if len(buffer) > CHUNK_SIZE:
+                    buffer = buffer[-1000:]  # Keep last 1000 chars for overlap
+        
+        return False
+        
+    except (OSError, PermissionError, UnicodeDecodeError):
+        return False
 
 
 # =============================
@@ -290,11 +380,15 @@ def scan_text_any(folder: Path, needles: list[str], excludes: set[str], tree_ana
 
 def eval_signal(sig: dict, folder: Path, pkg_json: dict | None, settings: dict, tree_analyzer: Optional[TreeSitterFrameworkAnalyzer] = None) -> tuple[float, list[str]]:
     """
-    Evaluate a single signal spec against `folder`.
-    Returns (score_delta, [emitted_signals])
+    Optimized signal evaluation with early returns and minimal processing.
     """
     t = sig.get("type")
     weight = float(sig.get("weight", 0.0))
+    
+    # Early return for zero-weight signals
+    if weight <= 0.0:
+        return 0.0, []
+        
     emitted: list[str] = []
     excludes = set(settings.get("exclude_dirs", []))
 
@@ -381,33 +475,34 @@ def eval_signal(sig: dict, folder: Path, pkg_json: dict | None, settings: dict, 
         if needle and scan_text_any(folder, [needle], excludes, tree_analyzer):
             emitted.append(f"cfg:{needle}")
             return weight, emitted
-        # extra check for yaml files (Flutter)
+        # extra check for yaml files (Flutter) - optimized with file size check
         for f in folder.rglob("*.yaml"):
             try:
-                txt = f.read_text(encoding="utf-8")
-                if re.search(needle, txt):
+                if f.stat().st_size > MAX_FILE_SIZE:
+                    continue
+                txt = read_text_safe(f)
+                if txt and re.search(needle, txt):
                     emitted.append(f"cfg_contains:{f.name}:{needle}")
                     return weight, emitted
             except Exception:
                 continue
         return 0.0, emitted
-    
-    
-    
 
 
-    # --- Python: requirements*.txt ---
+    # --- Python: requirements*.txt (optimized) ---
     if t == "req_txt_contains":
         needle = (sig.get("value") or "").lower()
-        # typical file names: requirements.txt, requirements-dev.txt, requirements/*.txt
+        if not needle:
+            return 0.0, emitted
+            
+        # Use cached file reading and size limits
         candidates = list(folder.glob("requirements*.txt")) + list(folder.rglob("requirements/*.txt"))
         for p in candidates:
-            # Use consistent file reading
-            lines = FileUtils.read_file_lines(str(p))
-            txt = ''.join(lines)
-            if needle in txt.lower():
-                emitted.append(f"req:{p.name}:{needle}")
-                return weight, emitted
+            if not path_in_excludes(p, excludes):
+                txt = read_text_safe(p)
+                if txt and needle in txt.lower():
+                    emitted.append(f"req:{p.name}:{needle}")
+                    return weight, emitted
         return 0.0, emitted
 
     # --- Python: toml_dep (pyproject.toml / poetry) ---
@@ -446,168 +541,230 @@ def eval_signal(sig: dict, folder: Path, pkg_json: dict | None, settings: dict, 
 
 def detect_frameworks_in_folder(folder: Path, rules: dict) -> list[dict]:
     """
-    Detect frameworks in a single folder using YAML rules with tree-sitter enhancement.
-    Reads package.json if present (for pkg_json_* signals),
-    and evaluates all supported signals against files under the folder.
+    Optimized framework detection with reduced logging and early termination.
     """
     settings = (rules or {}).get("settings", {}) or {}
     default_min = float(settings.get("default_min_score", 0.7))
     
-    print(f"    📁 Loading package.json if present...")
+    # Cache package.json loading
     pkg_json = load_json_safe(folder / "package.json")
-    if pkg_json:
+    if VERBOSE_LOGGING and pkg_json:
         print(f"    ✅ Found package.json with {len(pkg_json.get('dependencies', {}))} dependencies")
     
-    # Initialize tree-sitter analyzer for enhanced detection
+    # Use singleton tree-sitter analyzer
     tree_analyzer = TreeSitterFrameworkAnalyzer() if TREE_SITTER_AVAILABLE else None
-    print(f"    🌳 Tree-sitter support: {'enabled' if TREE_SITTER_AVAILABLE else 'disabled'}")
 
     results: list[dict] = []
-
-    # Prevent crashes if the 'frameworks' section is missing or invalid
     frameworks_spec = (rules or {}).get("frameworks") or {}
     if not isinstance(frameworks_spec, dict):
-        frameworks_spec = {}
+        return results
     
-    print(f"    🔍 Testing {len(frameworks_spec)} framework definitions...")
+    if VERBOSE_LOGGING:
+        print(f"    🔍 Testing {len(frameworks_spec)} framework definitions...")
 
-    for fw_name, spec in frameworks_spec.items():
-        # ★ This was the previous crash point — skip if the spec is not a dictionary (e.g., None, string, etc.)
-        if not isinstance(spec, dict):
-            print(f"      ⚠️  Skipping {fw_name}: invalid spec format ({type(spec).__name__})")
-            continue
-
-        print(f"      🧪 Testing framework: {fw_name}")
-        score = 0.0
-        fired: list[str] = []
-
-        signals_list = spec.get("signals") or []
-        if not isinstance(signals_list, list):
-            print(f"      ⚠️  {fw_name}: signals field is not a list, skipping")
-            signals_list = []
-        
-        print(f"        📊 Evaluating {len(signals_list)} signals...")
-
-        for i, sig in enumerate(signals_list, 1):
-            if not isinstance(sig, dict):
-                print(f"        ⚠️  Signal {i}: invalid format, skipping")
-                continue
-            
-            sig_type = sig.get('type', 'unknown')
-            print(f"        🔎 Signal {i}/{len(signals_list)}: {sig_type}")
-            
-            delta, msgs = eval_signal(sig, folder, pkg_json, settings, tree_analyzer)
-            if delta:
-                print(f"          ✅ Match! Score +{delta}, signals: {msgs}")
-                score += delta
-                fired.extend(msgs)
-            else:
-                print(f"          ❌ No match for {sig_type}")
-
-        min_needed = float(spec.get("min_score", default_min))
-        print(f"      📊 Final score for {fw_name}: {score:.2f} (min required: {min_needed})")
-        
-        if score >= min_needed and fired:
-            print(f"      ✅ {fw_name} detected! Confidence: {min(1.0, round(score, 3)):.2f}")
-            results.append({
-                "name": fw_name,
-                "confidence": min(1.0, round(score, 3)),
-                "signals": fired[:50],  # Prevent overly verbose outputs
-            })
-        else:
-            print(f"      ❌ {fw_name} not detected (score too low or no signals fired)")
+    # Process frameworks in parallel for better performance
+    framework_items = list(frameworks_spec.items())
     
-    print(f"    🎯 Framework detection complete for folder: {len(results)} frameworks found")
+    # Use threading for I/O bound framework detection
+    with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(framework_items))) as executor:
+        future_to_framework = {
+            executor.submit(_detect_single_framework, fw_name, spec, folder, pkg_json, settings, tree_analyzer, default_min): fw_name
+            for fw_name, spec in framework_items
+        }
+        
+        for future in as_completed(future_to_framework):
+            try:
+                result = future.result()
+                if result:
+                    results.append(result)
+            except Exception as e:
+                if VERBOSE_LOGGING:
+                    fw_name = future_to_framework[future]
+                    print(f"      ⚠️  Error processing {fw_name}: {e}")
+    
+    if VERBOSE_LOGGING:
+        print(f"    🎯 Framework detection complete: {len(results)} frameworks found")
     return results
 
+
+def _detect_single_framework(fw_name: str, spec: dict, folder: Path, pkg_json: dict | None, 
+                           settings: dict, tree_analyzer: Optional[TreeSitterFrameworkAnalyzer], 
+                           default_min: float) -> dict | None:
+    """Detect a single framework with optimized processing."""
+    if not isinstance(spec, dict):
+        return None
+
+    score = 0.0
+    fired: list[str] = []
+    signals_list = spec.get("signals") or []
+    
+    if not isinstance(signals_list, list):
+        return None
+    
+    # Early termination: if we've exceeded min_score, we can stop
+    min_needed = float(spec.get("min_score", default_min))
+    
+    for sig in signals_list:
+        if not isinstance(sig, dict):
+            continue
+        
+        delta, msgs = eval_signal(sig, folder, pkg_json, settings, tree_analyzer)
+        if delta:
+            score += delta
+            fired.extend(msgs)
+            
+            # Early termination if we've already exceeded the minimum
+            if score >= min_needed and len(fired) > 0:
+                break
+    
+    if score >= min_needed and fired:
+        return {
+            "name": fw_name,
+            "confidence": min(1.0, round(score, 3)),
+            "signals": fired[:20],  # Limit signal list for performance
+        }
+    
+    return None
+
+
+
+@lru_cache(maxsize=16)
+def _load_rules(rules_path: str) -> dict:
+    """Cache rules loading for performance."""
+    raw = Path(rules_path).read_text(encoding="utf-8")
+    rules = yaml.safe_load(raw)
+    if not isinstance(rules, dict):
+        raise ValueError(f"Invalid rules file format: {rules_path}")
+    return rules
 
 
 def detect_frameworks_recursive(project_root: Path, rules_path: str) -> dict:
     """
-    From the project root, recursively collect candidate folders and detect frameworks.
-    Candidate folders are those that contain any of:
-      - package.json
-      - pyproject.toml
-      - requirements*.txt (or requirements/*.txt)
-      - cookiecutter.json
-      - angular.json
-      - nest-cli.json
-    Excludes folders per rules.settings.exclude_dirs.
+    Optimized recursive framework detection with batch processing and parallel execution.
     """
-    print(f"🔍 Starting recursive framework detection from: {project_root}")
-    print(f"📋 Loading rules from: {rules_path}")
+    start_time = time.time()
     
-    raw = Path(rules_path).read_text(encoding="utf-8")
-    rules = yaml.safe_load(raw) 
-    if not isinstance(rules, dict):
-        raise ValueError(f"Invalid rules file format: {rules_path}")
+    if VERBOSE_LOGGING:
+        print(f"🔍 Starting recursive framework detection from: {project_root}")
+    
+    # Load and cache rules
+    rules = _load_rules(rules_path)
     settings = rules.get("settings", {})
     exclude_dirs = set(settings.get("exclude_dirs", []))
     
-    print(f"⚙️  Loaded {len(rules.get('frameworks', {}))} framework rules")
-    print(f"🚫 Excluding directories: {', '.join(sorted(exclude_dirs))}")
+    if VERBOSE_LOGGING:
+        print(f"⚙️  Loaded {len(rules.get('frameworks', {}))} framework rules")
 
-    candidates: set[Path] = set()
-    print(f"\n🔎 Scanning for candidate project files...")
-
-    # 1) package.json-based projects
-    package_json_count = 0
-    for pj in project_root.rglob("package.json"):
-        package_json_count += 1
-        if not path_in_excludes(pj, exclude_dirs):
-            candidates.add(pj.parent)
-            print(f"  📦 Found package.json candidate: {pj.parent.relative_to(project_root)}")
-        else:
-            print(f"  ⏭️  Skipped excluded package.json: {pj.parent.relative_to(project_root)}")
-    print(f"📦 Processed {package_json_count} package.json files")
-
-    # 2) Python / template / angular / nest workspaces
-    other_patterns = ["pyproject.toml", "requirements*.txt", "cookiecutter.json", "angular.json", "nest-cli.json"]
-    for pat in other_patterns:
-        pattern_count = 0
-        print(f"\n🔍 Searching for pattern: {pat}")
-        for f in project_root.rglob(pat):
-            pattern_count += 1
-            if not path_in_excludes(f, exclude_dirs):
-                candidates.add(f.parent)
-
-                candidates.add(f.parent)
-                print(f"  🎯 Found {pat} candidate: {f.parent.relative_to(project_root)}")
-            else:
-                print(f"  ⏭️  Skipped excluded {pat}: {f.parent.relative_to(project_root)}")
-        print(f"✅ Found {pattern_count} {pat} files")
-
-    print(f"\n📊 Total candidates found: {len(candidates)}")
+    # Collect candidates efficiently with single pass
+    candidates = _collect_candidates_optimized(project_root, exclude_dirs)
+    
     if not candidates:
-        print("❌ No candidate folders found for framework detection")
         return {
             "message": "No candidate folders found",
             "frameworks": {},
             "project_root": str(project_root.resolve()),
             "rules_version": rules.get("rules_version", "unknown"),
+            "scan_time_seconds": round(time.time() - start_time, 2)
         }
 
-    print(f"\n🔬 Starting framework detection in {len(candidates)} candidate folders...")
+    if VERBOSE_LOGGING:
+        print(f"\n🔬 Processing {len(candidates)} candidates in parallel...")
+    
+    # Process candidates in parallel
     all_results: dict[str, list[dict]] = {}
     
-    for i, folder in enumerate(sorted(candidates), 1):
-        relative = str(folder.relative_to(project_root)).replace("\\", "/") if folder != project_root else "."
-        print(f"\n[{i}/{len(candidates)}] 🔍 Analyzing folder: {relative}")
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        # Create relative path mapping for results
+        candidate_futures = {}
+        for folder in candidates:
+            relative = str(folder.relative_to(project_root)).replace("\\", "/") if folder != project_root else "."
+            future = executor.submit(detect_frameworks_in_folder, folder, rules)
+            candidate_futures[future] = relative
         
-        fw_list = detect_frameworks_in_folder(folder, rules)
-        if fw_list:
-            framework_names = [fw['name'] for fw in fw_list]
-            print(f"  ✅ Found frameworks: {', '.join(framework_names)}")
-            all_results[relative] = fw_list
-        else:
-            print(f"  📭 No frameworks detected in this folder")
+        # Collect results as they complete
+        for future in as_completed(candidate_futures):
+            try:
+                relative = candidate_futures[future]
+                fw_list = future.result()
+                if fw_list:
+                    all_results[relative] = fw_list
+            except Exception as e:
+                if VERBOSE_LOGGING:
+                    print(f"  ⚠️  Error processing candidate: {e}")
     
+    scan_time = time.time() - start_time
     total_frameworks = sum(len(fw_list) for fw_list in all_results.values())
-    print(f"\n🎉 Framework detection complete!")
-    print(f"📊 Results: {total_frameworks} frameworks found in {len(all_results)} folders")
+    
+    if VERBOSE_LOGGING:
+        print(f"\n🎉 Detection complete in {scan_time:.2f}s!")
+        print(f"📊 Results: {total_frameworks} frameworks in {len(all_results)} folders")
 
     return {
         "project_root": str(project_root.resolve()),
         "rules_version": rules.get("rules_version", "unknown"),
-        "frameworks": all_results
+        "frameworks": all_results,
+        "performance_metrics": {
+            "scan_time_seconds": round(scan_time, 2),
+            "candidates_processed": len(candidates),
+            "frameworks_found": total_frameworks,
+            "avg_time_per_candidate": round(scan_time / len(candidates), 4) if candidates else 0,
+            "tree_sitter_enabled": TREE_SITTER_AVAILABLE,
+            "max_workers": MAX_WORKERS,
+            "cache_enabled": True
         }
+    }
+
+
+def _collect_candidates_optimized(project_root: Path, exclude_dirs: set[str]) -> set[Path]:
+    """Efficiently collect candidate folders in a single filesystem pass."""
+    candidates: set[Path] = set()
+    target_files = {
+        "package.json", "pyproject.toml", "cookiecutter.json", 
+        "angular.json", "nest-cli.json"
+    }
+    
+    try:
+        # Single walk for all file patterns
+        for root, dirs, files in os.walk(project_root):
+            # Filter directories in-place for performance
+            dirs[:] = [d for d in dirs if d not in exclude_dirs]
+            
+            root_path = Path(root)
+            
+            # Check for target files
+            for file in files:
+                if file in target_files:
+                    if not path_in_excludes(root_path, exclude_dirs):
+                        candidates.add(root_path)
+                        break  # No need to check other files in this directory
+                elif file.startswith("requirements") and file.endswith(".txt"):
+                    if not path_in_excludes(root_path, exclude_dirs):
+                        candidates.add(root_path)
+                        break
+    
+    except (OSError, PermissionError) as e:
+        if VERBOSE_LOGGING:
+            print(f"⚠️  Filesystem access error: {e}")
+    
+    return candidates
+
+
+def clear_performance_caches():
+    """Clear all LRU caches to free memory."""
+    read_text_safe.cache_clear()
+    load_json_safe.cache_clear() 
+    load_toml_safe.cache_clear()
+    _load_rules.cache_clear()
+
+
+def get_performance_stats() -> dict:
+    """Get current cache performance statistics."""
+    return {
+        "read_text_safe_cache_info": read_text_safe.cache_info(),
+        "load_json_safe_cache_info": load_json_safe.cache_info(),
+        "load_toml_safe_cache_info": load_toml_safe.cache_info(),
+        "load_rules_cache_info": _load_rules.cache_info(),
+        "tree_sitter_available": TREE_SITTER_AVAILABLE,
+        "max_workers": MAX_WORKERS,
+        "max_file_size_mb": MAX_FILE_SIZE / (1024 * 1024)
+    }
