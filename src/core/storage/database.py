@@ -4,7 +4,7 @@ import json
 
 # Path to DB = /outputs/workmine.db (shared across whole project)
 DB_PATH = (
-    Path(__file__).resolve().parents[2]   # from src/core → src → project root
+    Path(__file__).resolve().parents[3]   # from src/core/storage → src/core → src → project root
     / "outputs"
     / "workmine.db"
 )

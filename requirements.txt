@@ -12,7 +12,7 @@ pytest             # testing framework
 pytest-cov         # for test coverage reports
 tqdm               # progress bars
 sqlite-utils       # optional helper for DB
-pyyaml>=6.0.2      # YAML loader for frameworks.yml
+pyyaml>=6.0.2      # YAML loader for frameworks_config.yml
 dotenv
 nltk
 tree-sitter==0.21.0

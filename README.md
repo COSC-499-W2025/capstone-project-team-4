@@ -55,22 +55,22 @@ open htmlcov/index.html
 ### Docker Development
 ```bash
 # Build and start service
-docker compose up --build -d
+docker compose -f config/docker/docker-compose.yml up --build -d
 
 # Run the main CLI
-docker compose exec app python -m src.main --help
+docker compose -f config/docker/docker-compose.yml exec app python -m src.main --help
 
 # Run commands
-docker compose exec app python -m src.main [OPTIONS] COMMAND [ARGS]...  
+docker compose -f config/docker/docker-compose.yml exec app python -m src.main [OPTIONS] COMMAND [ARGS]...  
 
 # Run tests
-docker compose exec app pytest
+docker compose -f config/docker/docker-compose.yml exec app pytest
 
 # Run tests with coverage
-docker compose exec app pytest --cov=src --cov-report=term-missing
+docker compose -f config/docker/docker-compose.yml exec app pytest --cov=src --cov-report=term-missing
 
 # remove container
-docker compose down
+docker compose -f config/docker/docker-compose.yml down
 ```
 
 ## 📖 Documentation

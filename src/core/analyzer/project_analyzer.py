@@ -6,7 +6,7 @@ from git import Repo, InvalidGitRepositoryError
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, List
-from src.core.code_complexity import (
+from .code_complexity_analyzer import (
     FunctionMetrics,
     analyze_file,
     EXT_TO_LANG,
@@ -27,40 +27,50 @@ def analyze_contributors(project_path=".", use_all_branches=False):
         - lines added / deleted
         - files modified
     """
+    print(f"📊 Starting contributor analysis for: {project_path}")
+    print(f"🌳 Branch scope: {'All branches' if use_all_branches else 'Current branch only'}")
 
     try:
         repo = Repo(project_path)
+        print(f"✅ Git repository found and loaded")
     except InvalidGitRepositoryError:
         print(
-            f"[WARN] No .git directory found at {project_path}. Returning empty contributors."
+            f"❌ [WARN] No .git directory found at {project_path}. Returning empty contributors."
         )
         return []
 
     contributors = {}
     commit_counts = defaultdict(int)
+    total_commits_processed = 0
+    bots_skipped = 0
 
     # NOTE: By default, it will get the commits from only the current branch HEAD. If you want to get all commits,
     # input -all instead. So it would be, `repo.iter_commits('--all')`
+    print(f"🔍 Starting commit history analysis...")
 
     commit_range = "--all" if use_all_branches else None
-    for commit in repo.iter_commits(commit_range):
-        name = commit.author.name.strip()
-        email = commit.author.email.strip().lower()
 
     try:
         commit_range = "--all" if use_all_branches else None
         for commit in repo.iter_commits(commit_range):
+            total_commits_processed += 1
             name = commit.author.name.strip()
             email = commit.author.email.strip().lower()
 
+            # Progress reporting every 50 commits
+            if total_commits_processed % 50 == 0:
+                print(f"  📊 Processed {total_commits_processed} commits, found {len(contributors)} unique contributors")
+
             # Skip bots
             if "[bot]" in name.lower():
+                bots_skipped += 1
                 continue
 
             key = name.lower()  # unify identity by name
 
             # Initialize contributor record
             if key not in contributors:
+                print(f"  👤 New contributor discovered: {name} ({email})")
                 contributors[key] = {
                     "name": name,
                     "primary_email": email,
@@ -117,13 +127,19 @@ def analyze_contributors(project_path=".", use_all_branches=False):
 
     except Exception as e:
         print(
-            f"[WARN] Error accessing Git repository commits: {e}. Returning empty contributors."
+            f"❌ [WARN] Error accessing Git repository commits: {e}. Returning empty contributors."
         )
         return []
+
+    print(f"✅ Commit analysis complete:")
+    print(f"  📊 Total commits processed: {total_commits_processed}")
+    print(f"  🤖 Bot commits skipped: {bots_skipped}")
+    print(f"  👥 Unique contributors found: {len(contributors)}")
 
     # Format contributors into final list
     total_commits = sum(commit_counts.values())
     contributor_list = []
+    print(f"\n🗜 Processing final contributor statistics...")
 
     for key, info in contributors.items():
         commit_count = commit_counts[key]
@@ -135,10 +151,15 @@ def analyze_contributors(project_path=".", use_all_branches=False):
             info["percent"] = 0
 
         # Convert defaultdict to normal dict for JSON
+        files_touched = len(info["files_modified"])
         info["files_modified"] = dict(info["files_modified"])
+        
+        print(f"  👤 {info['name']}: {commit_count} commits ({info['percent']}%), {files_touched} files touched")
+        print(f"    ➕ Lines: +{info['total_lines_added']} / -{info['total_lines_deleted']}")
 
         contributor_list.append(info)
 
+    print(f"✅ Contributor analysis complete: {len(contributor_list)} contributors processed\n")
     return contributor_list
 
 
@@ -147,15 +168,23 @@ def calculate_project_stats(project_path, file_list):
     Given the project root (with .git) and the file metadata list,
     compute full project-level statistics.
     """
+    print(f"📈 Calculating comprehensive project statistics...")
+    print(f"📂 Project path: {project_path}")
+    print(f"📊 File list contains: {len(file_list)} files")
 
     # File Stats
+    print(f"  🗋 Computing file statistics...")
     total_files = len(file_list)
     total_size = sum(
         f.get("file_size", 0) for f in file_list if f.get("file_size") is not None
     )
     avg_size = round(total_size / total_files, 2) if total_files > 0 else 0
+    print(f"    • Total files: {total_files}")
+    print(f"    • Total size: {total_size:,} bytes ({total_size/1024/1024:.2f} MB)")
+    print(f"    • Average file size: {avg_size:,} bytes")
 
     # Duration
+    print(f"  🕒 Computing project duration...")
     try:
         created_ts = min(
             f["created_timestamp"]
@@ -166,13 +195,18 @@ def calculate_project_stats(project_path, file_list):
             f["last_modified"] for f in file_list if f["last_modified"] is not None
         )
         duration_days = round((modified_ts - created_ts) / 86400, 2)
+        print(f"    • Project duration: {duration_days} days")
+        print(f"    • First file: {created_ts} | Latest: {modified_ts}")
     except ValueError:
         duration_days = 0
+        print(f"    ⚠️  Unable to calculate duration (missing timestamps)")
 
     # Contributors
     # For this, we can just analyze the current branch. Set `use_all_branches=True` if all branches need the commit history
+    print(f"\n👥 Analyzing project collaboration...")
     contributors = analyze_contributors(project_path)
     is_collaborative = len(contributors) > 1
+    print(f"  🤝 Collaborative project: {'Yes' if is_collaborative else 'No'} ({len(contributors)} contributors)")
 
     # Final Metrics
     metrics = {
@@ -183,18 +217,23 @@ def calculate_project_stats(project_path, file_list):
         "collaborative": is_collaborative,
     }
 
+    print(f"\n✅ Project statistics calculation complete!")
+    print(f"  🗊 Summary: {total_files} files, {duration_days} days, {len(contributors)} contributors\n")
+    
     return metrics
 
 
 def save_project_metrics(metrics: dict, output_filename="project_metrics.json"):
     """
-    Save project metrics (from calculate_project_stats) to JSON inside src/outputs
+    Save project metrics (from calculate_project_stats) to JSON in root /outputs
     """
 
-    outputs_dir = os.path.join(os.path.dirname(__file__), "..", "outputs")
-    os.makedirs(outputs_dir, exist_ok=True)
+    # Navigate to project root and use /outputs directory
+    project_root = Path(__file__).resolve().parents[3]  # src/core/analyzer → src/core → src → root
+    outputs_dir = project_root / "outputs"
+    outputs_dir.mkdir(exist_ok=True)
 
-    output_path = os.path.join(outputs_dir, output_filename)
+    output_path = str(outputs_dir / output_filename)
 
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2, ensure_ascii=False)
@@ -210,7 +249,7 @@ if __name__ == "__main__":
     cwd = os.getcwd()
     # By default, the metadata_parser puts the json as: capstone-project-team-4_metadata.json
     test_metadata_path = os.path.join(
-        cwd, "src/outputs/capstone-project-team-4_metadata.json"
+        cwd, "outputs/capstone-project-team-4_metadata.json"
     )
 
     with open(test_metadata_path, "r") as file:
@@ -255,16 +294,53 @@ def _should_analyze(path: Path) -> bool:
 
 
 def analyze_project(root: Path) -> ProjectAnalysisResult:
+    print(f"📊 Starting project code complexity analysis...")
+    print(f"📂 Target directory: {root}")
+    
     root = root.resolve()
     functions: List[FunctionMetrics] = []
+    files_processed = 0
+    files_skipped = 0
 
     if root.is_file():
+        print(f"📄 Analyzing single file: {root.name}")
         if _should_analyze(root):
-            functions.extend(analyze_file(root))
+            file_functions = analyze_file(root)
+            functions.extend(file_functions)
+            files_processed += 1
+            print(f"  ✅ Found {len(file_functions)} functions")
+        else:
+            files_skipped += 1
+            print(f"  ⚠️  File skipped (not supported or ignored)")
     else:
+        print(f"📁 Analyzing directory recursively...")
         for path in root.rglob("*"):
             if _should_analyze(path):
-                functions.extend(analyze_file(path))
+                try:
+                    file_functions = analyze_file(path)
+                    functions.extend(file_functions)
+                    files_processed += 1
+                    
+                    # Progress reporting every 10 files
+                    if files_processed % 10 == 0:
+                        print(f"  📊 Processed {files_processed} files, found {len(functions)} functions")
+                        
+                except Exception as e:
+                    print(f"  ❌ Error analyzing {path}: {e}")
+                    files_skipped += 1
+            else:
+                files_skipped += 1
+
+    print(f"\n✅ Code complexity analysis complete!")
+    print(f"  📄 Files processed: {files_processed}")
+    print(f"  ⚠️  Files skipped: {files_skipped}")
+    print(f"  🎯 Total functions found: {len(functions)}")
+    if functions:
+        avg_complexity = sum(f.cyclomatic_complexity for f in functions) / len(functions)
+        max_complexity = max(f.cyclomatic_complexity for f in functions)
+        print(f"  📈 Average complexity: {avg_complexity:.2f}")
+        print(f"  🔥 Maximum complexity: {max_complexity}")
+    print(f"")
 
     return ProjectAnalysisResult(
         project_root=str(root),
@@ -273,11 +349,18 @@ def analyze_project(root: Path) -> ProjectAnalysisResult:
 
 
 def project_analysis_to_dict(result: ProjectAnalysisResult) -> dict:
+    print(f"🗜 Processing complexity analysis results into structured format...")
     funcs = result.functions
+    print(f"  🎯 Processing {len(funcs)} functions from: {result.project_root}")
 
     total_functions = len(funcs)
     total_complexity = sum(f.cyclomatic_complexity for f in funcs)
     total_lines = sum(f.length_lines for f in funcs)
+    
+    print(f"  📈 Computing aggregate statistics...")
+    print(f"    • Total functions: {total_functions}")
+    print(f"    • Total complexity: {total_complexity}")
+    print(f"    • Total lines: {total_lines}")
 
     avg_complexity = total_complexity / total_functions if total_functions else 0.0
     avg_lines = total_lines / total_functions if total_functions else 0.0
@@ -289,6 +372,7 @@ def project_analysis_to_dict(result: ProjectAnalysisResult) -> dict:
     max_complexity = max((f.cyclomatic_complexity for f in funcs), default=0)
     max_loop_depth = max((f.max_loop_depth for f in funcs), default=0)
 
+    print(f"  🗺 Categorizing functions by complexity levels...")
     buckets = {
         "1-5": 0,
         "6-10": 0,
@@ -305,7 +389,10 @@ def project_analysis_to_dict(result: ProjectAnalysisResult) -> dict:
             buckets["11-20"] += 1
         else:
             buckets["21+"] += 1
+    
+    print(f"    • Complexity distribution: {buckets}")
 
+    print(f"  📁 Computing per-file statistics...")
     per_file: Dict[str, dict] = {}
     for f in funcs:
         pf = per_file.setdefault(
@@ -321,13 +408,15 @@ def project_analysis_to_dict(result: ProjectAnalysisResult) -> dict:
         pf["total_complexity"] += f.cyclomatic_complexity
         pf["total_lines"] += f.length_lines
         pf["max_complexity"] = max(pf["max_complexity"], f.cyclomatic_complexity)
+    
+    print(f"    • Analyzed {len(per_file)} files with functions")
 
     for path, stats in per_file.items():
         n = stats["function_count"]
         stats["avg_complexity"] = round(stats["total_complexity"] / n, 2)
         stats["avg_lines"] = round(stats["total_lines"] / n, 2)
 
-    return {
+    result_dict = {
         "project_root": result.project_root,
         "summary": {
             "total_functions": total_functions,
@@ -342,3 +431,10 @@ def project_analysis_to_dict(result: ProjectAnalysisResult) -> dict:
         "per_file": per_file,
         "functions": [asdict(f) for f in funcs],
     }
+    
+    print(f"\n✅ Complexity analysis data structure complete!")
+    print(f"  📋 Generated summary with {len(result_dict['functions'])} function records")
+    print(f"  📁 Per-file analysis for {len(per_file)} files")
+    print(f"  📈 Overall average complexity: {round(avg_complexity, 2)}\n")
+    
+    return result_dict

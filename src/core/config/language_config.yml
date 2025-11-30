@@ -1,5 +1,5 @@
-# Language detection configuration
-# Maps file extensions and special cases to programming languages
+# Comprehensive Language Configuration
+# Combines language detection rules with skill mappings
 
 # File extension mappings
 extensions:
@@ -109,6 +109,65 @@ filename_patterns:
   copying: Text
   install: Text
   news: Text
+
+# Language to skills mapping
+# Maps programming languages to conceptual skills they demonstrate
+language_skills:
+  # General Purpose Languages - Focus on paradigms and concepts
+  Python: []
+  Java: [Object-Oriented Programming]
+  "C#": [Object-Oriented Programming]
+  Go: []
+  Rust: []
+  PHP: []
+  Ruby: []
+  Kotlin: [Object-Oriented Programming]
+  Scala: [Functional Programming]
+  Elixir: [Functional Programming]
+  Erlang: [Functional Programming]
+  
+  # Frontend Languages
+  JavaScript: []
+  TypeScript: []
+  HTML: []
+  CSS: []
+  
+  # Mobile Languages
+  Swift: [iOS Development]
+  Dart: []
+  
+  # Systems & Low-Level
+  C: []
+  "C++": [Object-Oriented Programming]
+  Assembly: []
+  
+  # Data & Scientific
+  R: [Statistical Analysis]
+  Julia: [Scientific Computing]
+  MATLAB: [Scientific Computing]
+  
+  # Scripting Languages
+  Shell: [Automation]
+  PowerShell: [Automation]
+  Batch: [Automation]
+  Perl: []
+  Lua: []
+  Groovy: []
+  
+  # Functional Languages
+  Haskell: [Functional Programming]
+  "F#": [Functional Programming]
+  
+  # Query Languages
+  SQL: [Database Querying]
+  
+  # Markup/Data Formats
+  JSON: []
+  XML: []
+  YAML: []
+  
+  # Notebooks
+  "Jupyter Notebook": [Data Analysis]
 
 # Files and extensions to skip during analysis
 skip_patterns:

@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
 
-from src.core.github_api_extraction import (
+from src.core.extractor.github_extractor import (
     extract_skills,
     _ext_of,
     _get_paginated,
@@ -48,7 +48,7 @@ class TestSkillExtractor(unittest.TestCase):
         Ensure line counts are computed correctly and that mocking requests.get
         does not cause MagicMock arithmetic on .text.
         """
-        from src.core.github_api_extraction import get_language_line_counts, _list_contents
+        from src.core.extractor.github_extractor import get_language_line_counts, _list_contents
 
         # Fake "response" object for file downloads with real .text
         class FakeResp:
@@ -94,7 +94,7 @@ class TestSkillExtractor(unittest.TestCase):
         """
         Test that get_repo_data returns info, langs and decoded README.
         """
-        from src.core.github_api_extraction import get_repo_data
+        from src.core.extractor.github_extractor import get_repo_data
 
         mock_get.side_effect = [
             # repo info
@@ -177,7 +177,7 @@ class TestSkillExtractor(unittest.TestCase):
         """
         Test that get_skill_growth builds a timeline and accumulates skills.
         """
-        from src.core.github_api_extraction import EXT_SKILL_MAP
+        from src.core.extractor.github_extractor import EXT_SKILL_MAP
 
         # commits page1: 2 commits
         mock_get.side_effect = [
@@ -304,7 +304,7 @@ class TestSkillExtractor(unittest.TestCase):
     # ---------------- get_development_rhythm ----------------
     @patch("src.core.github_api_extraction.requests.get")
     def test_get_development_rhythm(self, mock_get):
-        from src.core.github_api_extraction import get_development_rhythm
+        from src.core.extractor.github_extractor import get_development_rhythm
 
         mock_get.side_effect = [
             MagicMock(status_code=200, json=lambda: [
@@ -331,7 +331,7 @@ class TestSkillExtractor(unittest.TestCase):
     # ---------------- get_technical_decisions ----------------
     @patch("src.core.github_api_extraction.requests.get")
     def test_get_technical_decisions(self, mock_get):
-        from src.core.github_api_extraction import get_technical_decisions
+        from src.core.extractor.github_extractor import get_technical_decisions
 
         mock_get.side_effect = [
             MagicMock(status_code=200, json=lambda: [
@@ -357,7 +357,7 @@ class TestSkillExtractor(unittest.TestCase):
     # ---------------- get_role_distribution ----------------
     @patch("src.core.github_api_extraction.requests.get")
     def test_get_role_distribution(self, mock_get):
-        from src.core.github_api_extraction import get_role_distribution
+        from src.core.extractor.github_extractor import get_role_distribution
 
         mock_get.side_effect = [
             # commits page

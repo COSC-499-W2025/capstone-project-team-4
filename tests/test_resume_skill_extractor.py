@@ -17,7 +17,7 @@ from unittest.mock import Mock, patch, MagicMock
 import os
 import json
 
-from src.core.resume_skill_extractor import (
+from src.core.analyzer.domain_skill_analyzer import (
     extract_resume_skills,
     analyze_project_skills,
     extract_languages_from_project,
@@ -100,7 +100,7 @@ class TestSkillExtraction:
     @pytest.fixture
     def mock_project_analyzer(self):
         """Mock ProjectAnalyzer for testing."""
-        with patch('src.core.language_analyzer.ProjectAnalyzer') as mock:
+        with patch('src.core.extractor.language_extractor.LanguageProjectAnalyzer') as mock:
             analyzer_instance = Mock()
             mock.return_value = analyzer_instance
             yield analyzer_instance
@@ -323,7 +323,7 @@ export default App;
         yield project_path
         shutil.rmtree(temp_dir)
     
-    @patch('src.core.language_analyzer.ProjectAnalyzer')
+    @patch('src.core.extractor.language_extractor.LanguageProjectAnalyzer')
     @patch('src.core.framework_detector.detect_frameworks_recursive')
     def test_python_project_skill_detection(self, mock_detector, mock_analyzer, python_flask_project):
         """Test skill detection in a Python Flask project."""
@@ -375,7 +375,7 @@ class TestEdgeCases:
     def test_empty_directory(self):
         """Test skill extraction on empty directory."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch('src.core.language_analyzer.ProjectAnalyzer') as mock_analyzer:
+            with patch('src.core.extractor.language_extractor.LanguageProjectAnalyzer') as mock_analyzer:
                 with patch('src.core.framework_detector.detect_frameworks_recursive') as mock_detector:
                     # Mock empty results
                     mock_analyzer_instance = Mock()
@@ -392,7 +392,7 @@ class TestEdgeCases:
         """Test behavior with nonexistent directory."""
         nonexistent_path = "/this/path/does/not/exist"
         
-        with patch('src.core.language_analyzer.ProjectAnalyzer') as mock_analyzer:
+        with patch('src.core.extractor.language_extractor.LanguageProjectAnalyzer') as mock_analyzer:
             with patch('src.core.framework_detector.detect_frameworks_recursive') as mock_detector:
                 # Mock to raise exception or return empty
                 mock_analyzer_instance = Mock()
@@ -407,7 +407,7 @@ class TestEdgeCases:
     def test_path_as_string_and_pathlib(self):
         """Test that both string and Path objects work."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch('src.core.language_analyzer.ProjectAnalyzer') as mock_analyzer:
+            with patch('src.core.extractor.language_extractor.LanguageProjectAnalyzer') as mock_analyzer:
                 with patch('src.core.framework_detector.detect_frameworks_recursive') as mock_detector:
                     # Setup mocks
                     mock_analyzer_instance = Mock()
@@ -459,7 +459,7 @@ class TestIntegration:
             (project_path / "README.md").write_text("# Test Project")
             
             # Mock only the external dependencies
-            with patch('src.core.language_analyzer.ProjectAnalyzer') as mock_analyzer:
+            with patch('src.core.extractor.language_extractor.LanguageProjectAnalyzer') as mock_analyzer:
                 with patch('src.core.framework_detector.detect_frameworks_recursive') as mock_detector:
                     # Setup minimal mocks
                     mock_analyzer_instance = Mock()

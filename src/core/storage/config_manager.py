@@ -9,14 +9,14 @@ import json
 import os
 import tempfile
 from typing import Dict, Any 
-from src.core.database import get_connection, init_db
-from src.core.utils import log_event
+from .database import get_connection, init_db
+from ..utils.common import log_event
 import os
 
 # Default config if no file exists or file is invalid
 def _get_cfg_path() -> Path:
-    project_root = Path(__file__).resolve().parents[1]  
-    data_dir = project_root / "data"                    
+    project_root = Path(__file__).resolve().parents[2]  # Go up to src/ directory
+    data_dir = project_root / "data"                    # Use src/data instead of src/core/data
     data_dir.mkdir(parents=True, exist_ok=True)
     return data_dir / "consent_config.json"
 

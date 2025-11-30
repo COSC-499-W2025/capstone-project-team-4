@@ -1,12 +1,14 @@
 services:
   app:
     platform: linux/amd64
-    build: .
+    build:
+      context: ../../
+      dockerfile: config/docker/Dockerfile
     container_name: capstone-container
     command: sleep infinity
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
+      - ../../:/app
     environment:
       - PYTHONPATH=/app

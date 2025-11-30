@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional, Literal, Dict, Any
 
-from .project_analyzer import analyze_contributors  # uses your existing git analyzer
+from ..analyzer.project_analyzer import analyze_contributors  # uses your existing git analyzer
 
 
 ContributorMatchField = Literal["name", "email"]

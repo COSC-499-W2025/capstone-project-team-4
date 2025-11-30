@@ -8,10 +8,10 @@ import typer
 import zipfile
 from tempfile import TemporaryDirectory
 
-from src.core import config_manager
+from src.core.storage import config_manager
 
 # Database functions
-from src.core.database import (
+from src.core.storage.database import (
     init_db,
     save_project,
     save_files,
@@ -23,27 +23,27 @@ from src.core.database import (
 )
 
 # Metadata / analysis imports
-from src.core.metadata_parser import parse_metadata
-from src.core.project_analyzer import (
+from src.core.extractor.metadata_extractor import parse_metadata
+from src.core.analyzer.project_analyzer import (
     analyze_contributors,
     analyze_project,
     project_analysis_to_dict,
     calculate_project_stats,
 )
-from src.core.resume_skill_extractor import analyze_project_skills
-from src.core.resume_item_generator import generate_resume_item  # <-- added
+from src.core.analyzer.domain_skill_analyzer import analyze_project_skills
+from src.core.reporting.resume_item_generator import generate_resume_item  # <-- added
 
-from src.core.contribution_ranking import (
+from src.core.reporting.contribution_ranking import (
     rank_projects_for_contributor,
     summarize_top_projects,
 )
-from src.core.project_contribution_log import (
+from src.core.reporting.project_contribution_log import (
     append_contribution_entry,
     rank_projects_from_log,
 )
-from src.core.alternate_skill_extractor import run_skill_extraction
+from src.core.analyzer.code_skill_analyzer import CodeSkillAnalyzer
 
-from src.utils import pretty_print_json
+from src.core.utils.common import pretty_print_json
 
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
@@ -127,7 +127,7 @@ def analyze_project_cli(
     save_resume_skills(project_id, skill_report.get("skill_categories", {}))
 
     try:
-        from src.core.database import save_detected_technologies
+        from src.core.storage.database import save_detected_technologies
     except Exception:
         save_detected_technologies = None
     if save_detected_technologies:
@@ -182,13 +182,13 @@ def analyze_project_cli(
         )
     )
 
-    # Skill extractor secondary output
+    # Skill extractor secondary output using modern CodeSkillAnalyzer
     skills_output_file = project_dir / "skills_extracted.json"
-    metadata_json_path = project_dir / "metadata.json"
-    skills_result = run_skill_extraction(
-        metadata_path=str(metadata_json_path), output_path=str(skills_output_file)
-    )
+    print("🎯 Starting code skill analysis with CodeSkillAnalyzer...")
+    code_skill_analyzer = CodeSkillAnalyzer()
+    skills_result = code_skill_analyzer.analyze_project_skills(path)
     skills_output_file.write_text(json.dumps(skills_result, indent=2))
+    print(f"✅ Code skill analysis complete! Skills saved to: {skills_output_file}")
 
     (project_dir / "complexity.json").write_text(
         json.dumps(report["code_complexity"], indent=2)

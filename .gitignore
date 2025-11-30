@@ -80,7 +80,6 @@ desktop.ini
 *.log
 
 # Output files
-src/outputs/
 outputs/
 
 # Temporary files

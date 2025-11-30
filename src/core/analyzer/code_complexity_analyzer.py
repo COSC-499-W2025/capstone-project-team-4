@@ -252,15 +252,25 @@ def _get_function_name(node) -> str:
 def _calculate_cyclomatic(node, spec) -> int:
     complexity = 1
     stack = [node]
+    branch_count = 0
+    loop_count = 0
 
     branch_nodes = spec["branch_nodes"]
     loop_nodes = spec["loop_nodes"]
 
     while stack:
         n = stack.pop()
-        if n.type in branch_nodes or n.type in loop_nodes:
+        if n.type in branch_nodes:
+            branch_count += 1
+            complexity += 1
+        elif n.type in loop_nodes:
+            loop_count += 1
             complexity += 1
         stack.extend(n.children)
+    
+    if branch_count > 0 or loop_count > 0:
+        print(f"      🔀 Found {branch_count} branches, {loop_count} loops")
+    
     return complexity
 
 
@@ -294,41 +304,66 @@ def _max_loop_depth(node, spec) -> int:
     return max_depth
 
 def analyze_file(path: Path) -> List[FunctionMetrics]:
+    print(f"🔍 Starting complexity analysis for: {path.name}")
+    
     language = _detect_language_from_extension(path)
     if not language:
+        print(f"⚠️  No language detected for extension: {path.suffix}")
         return []
 
+    print(f"📝 Detected language: {language}")
+    
     spec = _get_spec_for_language(language)
     if not spec:
+        print(f"❌ No language specification found for: {language}")
         return []
+    
+    print(f"📋 Using specification with {len(spec['function_nodes'])} function node types")
 
     parser_name = LANG_TO_PARSER_NAME.get(language)
     if not parser_name:
+        print(f"❌ No parser name mapping for: {language}")
         return []
 
+    print(f"🔧 Initializing parser: {parser_name}")
     parser = _get_parser_for_language(parser_name)
     source = path.read_bytes()
     tree = parser.parse(source)
     root = tree.root_node
+    print(f"🌳 AST parsed successfully, root node type: {root.type}")
 
     results: List[FunctionMetrics] = []
     stack = [root]
+    nodes_processed = 0
+    functions_found = 0
+    
+    print(f"🔎 Starting AST traversal to find functions...")
 
     while stack:
         node = stack.pop()
+        nodes_processed += 1
+        
+        # Progress reporting every 100 nodes
+        if nodes_processed % 100 == 0:
+            print(f"  📊 Processed {nodes_processed} nodes, found {functions_found} functions")
 
         if node.type in spec["function_nodes"]:
+            functions_found += 1
             func_name = _get_function_name(node)
+            print(f"  🎯 Analyzing function: '{func_name}' (type: {node.type})")
 
             start_line = node.start_point[0] + 1
             end_line = node.end_point[0] + 1
             length_lines = max(1, end_line - start_line + 1)
+            print(f"    📏 Lines {start_line}-{end_line} ({length_lines} lines)")
 
             complexity = _calculate_cyclomatic(node, spec)
             complexity_per_10 = complexity * 10.0 / length_lines
+            print(f"    🧮 Cyclomatic complexity: {complexity} (per 10 lines: {complexity_per_10:.2f})")
 
             is_method = _is_method(node, spec)
             loop_depth = _max_loop_depth(node, spec)
+            print(f"    🔗 Method: {is_method}, Max loop depth: {loop_depth}")
 
             results.append(
                 FunctionMetrics(
@@ -346,10 +381,20 @@ def analyze_file(path: Path) -> List[FunctionMetrics]:
 
         stack.extend(node.children)
 
+    print(f"✅ Complexity analysis complete:")
+    print(f"  📊 Total nodes processed: {nodes_processed}")
+    print(f"  🎯 Functions analyzed: {len(results)}")
+    if results:
+        avg_complexity = sum(f.cyclomatic_complexity for f in results) / len(results)
+        max_complexity = max(f.cyclomatic_complexity for f in results)
+        print(f"  📈 Average complexity: {avg_complexity:.2f}")
+        print(f"  🔥 Maximum complexity: {max_complexity}")
+    print(f"")
+    
     return results
 
 
 
 def analyze_python_file(path: Path) -> List[FunctionMetrics]: # Backwards-compatible helper used elsewhere in the project. Internally just calls analyze_file.
-
+    print(f"🐍 Using Python-specific analyzer (legacy wrapper)")
     return analyze_file(path)

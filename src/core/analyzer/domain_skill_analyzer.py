@@ -350,46 +350,80 @@ def extract_resume_skills(
         >>> extract_resume_skills('/path/to/project')
         ['Backend Development', 'RESTful APIs', 'Containerization', 'Photo Editing']
     """
-    from .language_analyzer import ProjectAnalyzer
-    from .framework_detector import detect_frameworks_recursive
+    from ..extractor.language_extractor import LanguageProjectAnalyzer as ProjectAnalyzer
+    from ..extractor.framework_extractor import detect_frameworks_recursive
     
+    print(f"🚀 Starting comprehensive skill extraction for: {root_dir}")
     root_path = Path(root_dir)
     all_skills = set()
     
+    print(f"📂 Analyzing project directory: {root_path.resolve()}")
+    
     # Get languages if not provided
     if languages is None:
+        print(f"🔍 Languages not provided, detecting from project...")
         analyzer = ProjectAnalyzer()
         language_stats = analyzer.analyze_project_languages(str(root_path))
         # Extract language names (excluding 'Unknown' and empty stats)
         languages = [lang for lang, count in language_stats.items() 
                     if lang != 'Unknown' and count > 0]
+        print(f"📝 Detected {len(languages)} languages: {', '.join(languages) if languages else 'None'}")
+    else:
+        print(f"📝 Using provided languages ({len(languages)}): {', '.join(languages)}")
     
     # Get frameworks if not provided
     if frameworks is None:
+        print(f"🔧 Frameworks not provided, detecting from project...")
         # Use the default rules file path
-        rules_path = Path(__file__).parent / "rules" / "frameworks.yml"
+        rules_path = Path(__file__).parent.parent / "config" / "frameworks_config.yml"
         if rules_path.exists():
+            print(f"📋 Using framework rules from: {rules_path.name}")
             fw_results = detect_frameworks_recursive(root_path, str(rules_path))
             # Extract framework names from the nested structure
             frameworks = []
             for folder_frameworks in fw_results.get('frameworks', {}).values():
                 for fw in folder_frameworks:
                     frameworks.append(fw.get('name', ''))
+            print(f"⚙️  Detected {len(frameworks)} frameworks: {', '.join(frameworks) if frameworks else 'None'}")
         else:
-            print(f"Warning: Framework rules file not found at {rules_path}")
+            print(f"❌ Warning: Framework rules file not found at {rules_path}")
             frameworks = []
+    else:
+        print(f"⚙️  Using provided frameworks ({len(frameworks)}): {', '.join(frameworks)}")
     
     # Extract skills from each source
-    all_skills.update(extract_skills_from_languages(languages))
-    all_skills.update(extract_skills_from_frameworks(frameworks))
-    all_skills.update(extract_skills_from_files(root_path))
+    print(f"\n🎯 Extracting skills from multiple sources...")
+    
+    lang_skills = extract_skills_from_languages(languages)
+    print(f"📝 Language-based skills: {len(lang_skills)} found")
+    all_skills.update(lang_skills)
+    
+    framework_skills = extract_skills_from_frameworks(frameworks)
+    print(f"⚙️  Framework-based skills: {len(framework_skills)} found")
+    all_skills.update(framework_skills)
+    
+    file_skills = extract_skills_from_files(root_path)
+    print(f"📁 File-based skills: {len(file_skills)} found")
+    all_skills.update(file_skills)
     
     # Cross-source inference: Add contextual skills based on language + framework combinations
     # This is where we infer skills like "Backend Development", "Frontend Development", etc.
-    all_skills.update(_infer_contextual_skills(languages, frameworks))
+    print(f"🧠 Inferring contextual skills from combinations...")
+    contextual_skills = _infer_contextual_skills(languages, frameworks)
+    print(f"💡 Contextual skills inferred: {len(contextual_skills)} found")
+    all_skills.update(contextual_skills)
     
     # Sort and return
-    return sorted(list(all_skills))
+    final_skills = sorted(list(all_skills))
+    print(f"\n✅ Skill extraction complete!")
+    print(f"  📊 Total unique skills: {len(final_skills)}")
+    if final_skills:
+        print(f"  🎯 Top 5 skills: {', '.join(final_skills[:5])}")
+        if len(final_skills) > 5:
+            print(f"  ➕ And {len(final_skills) - 5} more...")
+    print(f"")
+    
+    return final_skills
 
 
 def _infer_contextual_skills(languages: List[str], frameworks: List[str]) -> Set[str]:
@@ -501,16 +535,27 @@ def extract_skills_from_languages(languages: List[str]) -> Set[str]:
     Returns:
         Set of skills derived from the languages
     """
+    print(f"  📝 Processing {len(languages)} languages for skill extraction...")
     skills = set()
+    skills_added = 0
     
     for language in languages:
         if language in LANGUAGE_SKILLS:
-            skills.update(LANGUAGE_SKILLS[language])
+            lang_skills = LANGUAGE_SKILLS[language]
+            if lang_skills:
+                print(f"    ✓ {language}: {', '.join(lang_skills)}")
+                skills_added += len(lang_skills)
+            skills.update(lang_skills)
+        else:
+            print(f"    ⚠️  {language}: No skill mapping found")
     
     # Web Design skill when HTML + CSS are detected together
     if 'HTML' in languages and 'CSS' in languages:
+        print(f"    💡 Combination detected: HTML + CSS → Web Design")
         skills.add('Web Design')
+        skills_added += 1
     
+    print(f"  📊 Language skills extracted: {skills_added} skills from {len(languages)} languages")
     return skills
 
 
@@ -528,27 +573,44 @@ def extract_skills_from_frameworks(frameworks: List[str]) -> Set[str]:
     Returns:
         Set of skills derived from the frameworks
     """
+    print(f"  ⚙️  Processing {len(frameworks)} frameworks for skill extraction...")
     skills = set()
+    skills_added = 0
     
     # Add skills directly from framework mappings
     for framework in frameworks:
         if framework in FRAMEWORK_SKILLS:
-            skills.update(FRAMEWORK_SKILLS[framework])
+            fw_skills = FRAMEWORK_SKILLS[framework]
+            if fw_skills:
+                print(f"    ✓ {framework}: {', '.join(fw_skills)}")
+                skills_added += len(fw_skills)
+            skills.update(fw_skills)
+        else:
+            print(f"    ⚠️  {framework}: No skill mapping found")
     
     # Add framework combination-based specializations
     # These are skills that only emerge from using MULTIPLE frameworks together
     framework_set = set(frameworks)
     
+    print(f"    🔍 Checking for framework combination specializations...")
+    
     # Machine Learning Engineering - using multiple ML frameworks shows ML engineering skill
     ml_frameworks = {'TensorFlow', 'PyTorch', 'Keras', 'Scikit-learn'}
-    if len(framework_set & ml_frameworks) >= 2:
+    ml_detected = framework_set & ml_frameworks
+    if len(ml_detected) >= 2:
+        print(f"    💡 ML Engineering: {', '.join(ml_detected)} → Machine Learning Engineering")
         skills.add('Machine Learning Engineering')
+        skills_added += 1
     
     # Testing Expertise - using multiple testing frameworks shows testing specialization
     test_frameworks = {'Jest', 'Pytest', 'Cypress', 'Playwright', 'JUnit', 'Vitest', 'Mocha', 'RSpec'}
-    if len(framework_set & test_frameworks) >= 2:
+    test_detected = framework_set & test_frameworks
+    if len(test_detected) >= 2:
+        print(f"    💡 Test Specialization: {', '.join(test_detected)} → Test Automation")
         skills.add('Test Automation')
+        skills_added += 1
     
+    print(f"  📊 Framework skills extracted: {skills_added} skills from {len(frameworks)} frameworks")
     return skills
 
 
@@ -565,9 +627,12 @@ def extract_skills_from_files(root_dir: Union[str, Path]) -> Set[str]:
     Returns:
         Set of skills derived from file types
     """
+    print(f"  📁 Scanning files in directory for specialized skills...")
     root_path = Path(root_dir)
     skills = set()
     file_counter = Counter()
+    files_scanned = 0
+    skills_from_files = 0
     
     # Walk through directory and count file types
     for dirpath, dirnames, filenames in os.walk(root_path):
@@ -576,74 +641,97 @@ def extract_skills_from_files(root_dir: Union[str, Path]) -> Set[str]:
         dirnames[:] = [d for d in dirnames if d not in skip_dirs]
         
         for filename in filenames:
+            files_scanned += 1
             ext = os.path.splitext(filename)[1].lower()
             
             # Also check for special filenames without extensions
             if filename.lower() in FILE_TYPE_SKILLS:
-                skills.update(FILE_TYPE_SKILLS[filename.lower()])
+                file_skills = FILE_TYPE_SKILLS[filename.lower()]
+                print(f"    🎯 Special file '{filename}' → {', '.join(file_skills)}")
+                skills.update(file_skills)
+                skills_from_files += len(file_skills)
             
             if ext in FILE_TYPE_SKILLS:
                 file_counter[ext] += 1
     
+    print(f"    📊 Scanned {files_scanned} files, found {len(file_counter)} relevant file types")
+    
     # Add skills based on file type counts with thresholds
     # This prevents adding "Photography" for a single logo file
+    print(f"    🔍 Analyzing file type patterns with thresholds...")
     
     # Photography skills (require multiple files)
     photo_raw_exts = {'.raw', '.cr2', '.nef', '.arw'}
     photo_count = sum(file_counter[ext] for ext in photo_raw_exts if ext in file_counter)
     if photo_count >= 3:
+        print(f"    📸 RAW photo files ({photo_count}) → Photography + RAW Processing")
         skills.add('Photography')
         skills.add('RAW Photo Processing')
+        skills_from_files += 2
     
     standard_photo_exts = {'.jpg', '.jpeg'}
     standard_photo_count = sum(file_counter[ext] for ext in standard_photo_exts if ext in file_counter)
     if standard_photo_count >= 10:
+        print(f"    📷 Standard photo files ({standard_photo_count}) → Photography")
         skills.add('Photography')
+        skills_from_files += 1
     
     # Design skills
-    if file_counter.get('.psd', 0) >= 1:
-        skills.update(FILE_TYPE_SKILLS['.psd'])
-    
-    if file_counter.get('.ai', 0) >= 1:
-        skills.update(FILE_TYPE_SKILLS['.ai'])
-    
-    if file_counter.get('.sketch', 0) >= 1:
-        skills.update(FILE_TYPE_SKILLS['.sketch'])
-    
-    if file_counter.get('.fig', 0) >= 1:
-        skills.update(FILE_TYPE_SKILLS['.fig'])
+    design_files = [('.psd', 'Photoshop'), ('.ai', 'Illustrator'), ('.sketch', 'Sketch'), ('.fig', 'Figma')]
+    for ext, name in design_files:
+        if file_counter.get(ext, 0) >= 1:
+            design_skills = FILE_TYPE_SKILLS[ext]
+            print(f"    🎨 {name} files ({file_counter[ext]}) → {', '.join(design_skills)}")
+            skills.update(design_skills)
+            skills_from_files += len(design_skills)
     
     # Video editing (require multiple files)
     video_exts = {'.mp4', '.avi', '.mov', '.wmv'}
     video_count = sum(file_counter[ext] for ext in video_exts if ext in file_counter)
     if video_count >= 2:
+        print(f"    🎬 Video files ({video_count}) → Video Editing + Multimedia Production")
         skills.add('Video Editing')
         skills.add('Multimedia Production')
+        skills_from_files += 2
     
     # Audio production (require multiple files)
     audio_exts = {'.wav', '.flac', '.aac'}
     audio_count = sum(file_counter[ext] for ext in audio_exts if ext in file_counter)
     if audio_count >= 3:
+        print(f"    🎵 Audio files ({audio_count}) → Audio Editing + Music Production")
         skills.add('Audio Editing')
         skills.add('Music Production')
+        skills_from_files += 2
     
     # 3D modeling
     modeling_exts = {'.blend', '.obj', '.fbx', '.stl'}
-    if any(file_counter.get(ext, 0) >= 1 for ext in modeling_exts):
+    modeling_files = [ext for ext in modeling_exts if file_counter.get(ext, 0) >= 1]
+    if modeling_files:
+        print(f"    🎯 3D files ({', '.join(modeling_files)}) → 3D Modeling")
         skills.add('3D Modeling')
+        skills_from_files += 1
     
     # Technical writing
     if file_counter.get('.tex', 0) >= 1:
-        skills.update(FILE_TYPE_SKILLS['.tex'])
+        tex_skills = FILE_TYPE_SKILLS['.tex']
+        print(f"    📄 LaTeX files ({file_counter['.tex']}) → {', '.join(tex_skills)}")
+        skills.update(tex_skills)
+        skills_from_files += len(tex_skills)
     
     if file_counter.get('.md', 0) >= 5:
+        print(f"    📖 Markdown files ({file_counter['.md']}) → Documentation + Technical Writing")
         skills.add('Documentation')
         skills.add('Technical Writing')
+        skills_from_files += 2
     
     # Data Science indicators
     if file_counter.get('.ipynb', 0) >= 1:
-        skills.update(FILE_TYPE_SKILLS['.ipynb'])
+        jupyter_skills = FILE_TYPE_SKILLS['.ipynb']
+        print(f"    🔬 Jupyter notebooks ({file_counter['.ipynb']}) → {', '.join(jupyter_skills)}")
+        skills.update(jupyter_skills)
+        skills_from_files += len(jupyter_skills)
     
+    print(f"  📊 File skills extracted: {skills_from_files} skills from {len(file_counter)} file types")
     return skills
 
 
@@ -657,7 +745,7 @@ def extract_languages_from_project(root_dir: Union[str, Path]) -> List[str]:
     Returns:
         List of detected programming languages
     """
-    from .language_analyzer import ProjectAnalyzer
+    from ..extractor.language_extractor import LanguageProjectAnalyzer as ProjectAnalyzer
     
     analyzer = ProjectAnalyzer()
     language_stats = analyzer.analyze_project_languages(str(root_dir))
@@ -671,10 +759,10 @@ def extract_frameworks_from_project(root_dir: Union[str, Path]) -> List[str]:
     Extract frameworks from a project directory, returning a deduplicated list.
     Uses confidence scores from detector when available and picks the highest.
     """
-    from .framework_detector import detect_frameworks_recursive
+    from ..extractor.framework_extractor import detect_frameworks_recursive
 
     root_path = Path(root_dir)
-    rules_path = Path(__file__).parent / "rules" / "frameworks.yml"
+    rules_path = Path(__file__).parent.parent / "config" / "frameworks_config.yml"
 
     if not rules_path.exists():
         print(f"Warning: Framework rules file not found at {rules_path}")
@@ -714,18 +802,26 @@ def analyze_project_skills(root_dir: Union[str, Path]) -> dict:
     Returns:
         Dictionary containing languages, frameworks, skills, and skill categories
     """
+    print(f"🎯 Starting comprehensive project skill analysis")
+    print(f"📂 Target directory: {root_dir}")
+    print(f"=" * 60)
+    
     root_path = Path(root_dir)
     
     # Extract languages and frameworks
+    print(f"🔍 Phase 1: Language and Framework Detection")
     languages = extract_languages_from_project(root_path)
     frameworks = extract_frameworks_from_project(root_path)
     
     # Extract all skills
+    print(f"\n🎯 Phase 2: Comprehensive Skill Extraction")
     skills = extract_resume_skills(root_path, languages, frameworks)
     
     # Categorize skills
+    print(f"\n📋 Phase 3: Skill Categorization")
     categories = get_skill_categories()
     categorized_skills = {}
+    uncategorized_count = 0
     
     for skill in skills:
         placed = False
@@ -741,8 +837,14 @@ def analyze_project_skills(root_dir: Union[str, Path]) -> dict:
             if 'Other' not in categorized_skills:
                 categorized_skills['Other'] = []
             categorized_skills['Other'].append(skill)
+            uncategorized_count += 1
     
-    return {
+    # Print categorization summary
+    print(f"  📊 Skills categorized into {len(categorized_skills)} categories:")
+    for category, cat_skills in categorized_skills.items():
+        print(f"    • {category}: {len(cat_skills)} skills")
+    
+    result = {
         'languages': languages,
         'frameworks': frameworks,
         'skills': skills,
@@ -750,6 +852,16 @@ def analyze_project_skills(root_dir: Union[str, Path]) -> dict:
         'total_skills': len(skills),
         'project_path': str(root_path.resolve())
     }
+    
+    print(f"\n" + "=" * 60)
+    print(f"✅ Project skill analysis complete!")
+    print(f"  📝 Languages: {len(languages)}")
+    print(f"  ⚙️  Frameworks: {len(frameworks)}")
+    print(f"  🎯 Total Skills: {len(skills)}")
+    print(f"  📋 Categories: {len(categorized_skills)}")
+    print(f"")
+    
+    return result
 
 
 def get_skill_categories() -> dict:

@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch, mock_open, MagicMock
 
-from src.core.metadata_parser import parse_metadata, save_metadata_json, should_skip_file
+from src.core.extractor.metadata_extractor import parse_metadata, save_metadata_json, should_skip_file
 
 
 class TestFixtures:

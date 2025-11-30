@@ -5,9 +5,10 @@ import yaml
 from pathlib import Path
 from unittest.mock import patch, mock_open, MagicMock
 
-from src.core.language_analyzer import (
-    FileStats, Constants, LanguageConfig, CommentDetector, FileUtils,
-    FileWalker, FileAnalyzer, ProjectAnalyzer, StatsFormatter,
+from src.core.extractor.language_parser import Constants, LanguageConfig, CommentDetector, FileUtils
+from src.core.analyzer.file_analyzer import FileStats, FileAnalyzer
+from src.core.extractor.language_extractor import (
+    FileWalker, LanguageProjectAnalyzer as ProjectAnalyzer, StatsFormatter,
     analyze_project_languages, analyze_project_lines_of_code
 )
 
@@ -407,7 +408,7 @@ class TestPublicAPI:
     
     def test_public_functions(self):
         """Test public API functions delegate correctly to ProjectAnalyzer."""
-        with patch('src.core.language_analyzer.ProjectAnalyzer') as mock_analyzer_class:
+        with patch('src.core.extractor.language_extractor.LanguageProjectAnalyzer') as mock_analyzer_class:
             mock_analyzer = MagicMock()
             mock_analyzer_class.return_value = mock_analyzer
             mock_analyzer.analyze_project_languages.return_value = {'Python': 5}

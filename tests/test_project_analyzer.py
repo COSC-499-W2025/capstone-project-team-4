@@ -1,6 +1,6 @@
 import os
 import subprocess
-from src.core.project_analyzer import calculate_project_stats, analyze_contributors
+from src.core.analyzer.project_analyzer import calculate_project_stats, analyze_contributors
 
 def test_calculate_project_stats():
     file_list = [

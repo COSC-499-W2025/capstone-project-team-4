@@ -3,7 +3,7 @@ from pathlib import Path
 import builtins
 import pytest
 from src.core import config_manager
-from src.core.utils import log_event, LOG_FILE
+from src.core.utils.logging import log_event, LOG_FILE
 
 @pytest.fixture(autouse=True)
 def clean_log_file(tmp_path, monkeypatch):

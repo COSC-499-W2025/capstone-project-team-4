@@ -5,7 +5,7 @@ import tempfile
 from typing import Optional, Dict, Any
 
 from .zip_file_validator import validate_zip, validate_dir
-from .metadata_parser import parse_metadata
+from ..extractor.metadata_extractor import parse_metadata
 
 
 def validate_and_parse(zip_path: str | Path) -> Dict[str, Any]:
