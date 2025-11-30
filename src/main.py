@@ -302,7 +302,7 @@ def browse(
 
     try:
         data = json.loads(selected_file.read_text())
-        pretty_print_json.pretty_print_json(selected_file.name, data, raw)
+        pretty_print_json(selected_file.name, data, raw)
     except Exception as e:
         typer.secho(f"Error reading JSON: {e}", fg="red")
 
