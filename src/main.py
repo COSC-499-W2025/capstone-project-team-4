@@ -47,6 +47,8 @@ from src.core.alternate_skill_extractor import run_skill_extraction
 
 from src.utils import pretty_print_json
 
+from src.core.aggregate_outputs import aggregate_outputs, format_markdown, _serialize_projects
+
 
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
@@ -480,6 +482,29 @@ def rank_projects_from_log_cli(
             f"Lines changed: +{added}/-{deleted} (total {total_lines}) | Files touched: {files}\n"
         )
 
+
+@app.command("aggregate-outputs")
+def aggregate_outputs_cli(
+    outputs: Path = typer.Argument("outputs", help="Path to outputs directory"),
+    json_output: bool = typer.Option(False, "--json", help="Print JSON instead of Markdown"),
+    out: Optional[Path] = typer.Option(None, "--out", "-o", help="Save output to file instead of printing"),
+):
+    """
+    Aggregate all analyzed project outputs into a dashboard summary.
+    """
+    projects = aggregate_outputs(outputs)
+
+    if json_output:
+        serial = _serialize_projects(projects)
+        content = json.dumps(serial, ensure_ascii=False, indent=2)
+    else:
+        content = format_markdown(projects)
+
+    if out:
+        out.write_text(content, encoding="utf-8")
+        typer.secho(f" Aggregated report saved to: {out}", fg="green")
+    else:
+        typer.echo(content)
 
 if __name__ == "__main__":
     print("Running in virtual env:", check_virtual_env())
