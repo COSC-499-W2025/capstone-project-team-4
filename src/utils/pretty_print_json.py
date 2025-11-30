@@ -26,6 +26,16 @@ def pretty_print_json(file_name: str, data: dict, raw: bool = False):
         typer.echo(json.dumps(data, indent=2))
         return
 
+    # preserve formatting for skills_extracted.json
+    if str(file_name).endswith("skills_extracted.json"):
+        try:
+            from pathlib import Path
+            typer.echo(Path(file_name).read_text())
+            return
+        except Exception:
+            typer.echo(json.dumps(data, indent=2))
+            return
+
     # NOTE: This is for the generated resume item/summary thing
     # Pretty print: overview.json eh idk I think that should be the resume item?
     # This is just a placeholder for now

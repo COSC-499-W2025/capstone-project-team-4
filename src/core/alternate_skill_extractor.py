@@ -1,80 +1,90 @@
 import re
 import os
 import json
+from datetime import datetime
 from collections import defaultdict
 
 SUPPORTED_LANGUAGES = {
-    "javascript","typescript","java","python","c","c++","c#",
-    "go","rust","php","ruby","shell","powershell","html",
-    "css","yaml","json","markdown","sql"
+    "javascript", "typescript", "java", "python", "c", "c++", "c#",
+    "go", "rust", "php", "ruby", "shell", "powershell", "html",
+    "css", "yaml", "json", "markdown", "sql"
 }
 
 def get_skill_mapping_path(language):
-    base_dir = os.path.join(
-        os.path.dirname(__file__),  # src/core/
-        "..",                       # src/
-        "data"                      # src/data
-    )
+    base_dir = os.path.join(os.path.dirname(__file__), "..", "data")
     base_dir = os.path.abspath(base_dir)
-
-    lang = language.lower()
-    mapping = os.path.join(base_dir, f"skill_mapping_{lang}.json")
+    mapping = os.path.join(base_dir, f"skill_mapping_{language.lower()}.json")
     return mapping if os.path.exists(mapping) else None
 
 
 def load_mapping(path):
-    """Load mapping file {skill: [regex]}"""
     with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    return {entry["skill"]: entry["identifiers"] for entry in data}
+        return {entry["skill"]: entry["identifiers"] for entry in json.load(f)}
+
+# Fast safe loading
+def safe_read_file(path):
+    for enc in ["utf-8", "latin-1"]:
+        try:
+            with open(path, "r", encoding=enc) as f:
+                return f.read()
+        except Exception:
+            pass
+    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+        return f.read()
 
 
-def analyze_code_file(file_path, language, loc):
-    """Analyze a single file and return skill matches."""
+def pretty_dump(data, file_path):
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+def analyze_code_file(file_path, language, created_ts=None, modified_ts=None):
+    """
+    Fast version:
+    - Uses re.findall()
+    - Returns total matches PER SKILL
+    - No line-by-line counting
+    - No storing occurrences
+    """
     mapping_path = get_skill_mapping_path(language)
     if mapping_path is None:
-        return {"error": f"No mapping for language: {language}"}
+        return None
 
     mapping = load_mapping(mapping_path)
-
     if not os.path.exists(file_path):
-        return {"error": f"File missing: {file_path}"}
+        return None
 
-    with open(file_path, "r", encoding="utf-8") as f:
-        text = f.read()
+    text = safe_read_file(file_path)
+    ts = modified_ts or created_ts
 
-    scores = defaultdict(lambda: {"raw_count": 0, "identifier_list": []})
+    skill_match_counts = {}
 
     for skill, patterns in mapping.items():
         total = 0
         for pat in patterns:
             try:
-                matches = re.findall(pat, text, flags=re.MULTILINE)
-                if matches:
-                    scores[skill]["identifier_list"].append(f"{pat} ({len(matches)})")
-                total += len(matches)
+                total += len(re.findall(pat, text))
             except re.error:
                 continue
 
-        scores[skill]["raw_count"] = total
-        scores[skill]["density_score"] = round((total / max(loc, 1)) * 100, 4)
+        if total > 0:
+            skill_match_counts[skill] = total
 
-    # Only return non-zero skills
-    non_zero = {s: info for s, info in scores.items() if info["raw_count"] > 0}
+    return skill_match_counts, ts
 
-    return {
-        "file_path": file_path,
-        "language": language,
-        "loc": loc,
-        "mapping_used": mapping_path,
-        "skill_scores": non_zero
-    }
 
+# HEATMAP PURPOSE (SUMMARY)
+#
+# The heat map tracks *when* each skill is used throughout
+# the project timeline. For every match of every skill regex,
+# we increment the count for that skill on the file's timestamp
+# date. This produces a chronological distribution of skill
+# activity, allowing us to visualize:
+#
+#   - Which skills were used the most
+#   - When specific skills were active (by day)
+#   - How a developer's skill usage evolved over time
 
 def run_skill_extraction(metadata_path, output_path):
-    if not os.path.exists(metadata_path):
-        return {"error": f"Metadata not found: {metadata_path}"}
-
     with open(metadata_path, "r", encoding="utf-8") as f:
         meta = json.load(f)
 
@@ -87,60 +97,60 @@ def run_skill_extraction(metadata_path, output_path):
         "files_skipped": 0,
         "languages_encountered": set(),
         "unsupported_languages": {},
-
-        "global_skill_counts": defaultdict(int),
-        "skills_by_language": defaultdict(lambda: defaultdict(int))
+        "global_skill_counts": defaultdict(int)
     }
 
-    reports = []
+    # per match heatmap
+    heatmap = defaultdict(lambda: defaultdict(int))
 
     for f in files:
         lang = f.get("language", "").lower()
-        loc = f.get("lines_of_code", 0)
         rel = f.get("path")
+        created_ts = f.get("created_timestamp")
+        modified_ts = f.get("last_modified")
 
         if lang not in SUPPORTED_LANGUAGES:
-            summary["unsupported_languages"].setdefault(lang, 0)
-            summary["unsupported_languages"][lang] += 1
+            summary["unsupported_languages"][lang] = summary["unsupported_languages"].get(lang, 0) + 1
             summary["files_skipped"] += 1
             continue
 
-        absolute_path = os.path.join(project_root, rel)
         summary["languages_encountered"].add(lang)
 
-        result = analyze_code_file(absolute_path, lang, loc)
+        absolute_path = os.path.join(project_root, rel)
+        result = analyze_code_file(absolute_path, lang, created_ts, modified_ts)
 
-        if "error" in result:
+        if result is None:
             summary["files_skipped"] += 1
             continue
 
-        for skill, info in result["skill_scores"].items():
-            count = info["raw_count"]
+        skill_counts, ts = result
 
-            summary["global_skill_counts"][skill] += count # Global aggregation
-            summary["skills_by_language"][lang][skill] += count  # Per-language aggregation
+        for skill, count in skill_counts.items():
+            # Count matches globally
+            summary["global_skill_counts"][skill] += count
 
-        reports.append(result)
+            # Heatmap increments PER MATCH
+            if ts:
+                date = datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
+                heatmap[skill][date] += count
+
         summary["files_analyzed"] += 1
 
     summary["languages_encountered"] = list(summary["languages_encountered"])
 
-    # Sort global skills
     summary["global_skill_counts"] = dict(
         sorted(summary["global_skill_counts"].items(), key=lambda x: x[1], reverse=True)
     )
 
-    # Sort each language bucket
-    sorted_lang_skills = {}
-    for lang, skill_dict in summary["skills_by_language"].items():
-        sorted_lang_skills[lang] = dict(
-            sorted(skill_dict.items(), key=lambda x: x[1], reverse=True)
-        )
-    summary["skills_by_language"] = sorted_lang_skills
+    heatmap = {skill: dict(days) for skill, days in heatmap.items()}
 
     final = {
         "summary": summary,
-        "file_reports": reports
+        "skill_activity_heatmap": heatmap
     }
+
+    if output_path:
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        pretty_dump(final, output_path)
 
     return final
