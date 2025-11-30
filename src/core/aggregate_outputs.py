@@ -52,12 +52,32 @@ def infer_complexity_level(complexity_json: Dict[str, Any]) -> str:
         return "Medium"
     return "Low"
 
+def _epoch_to_dt(v) -> Optional[datetime]:
+    try:
+        if v is None:
+            return None
+        # created_timestamp / last_modified likely are epoch floats/ints (seconds)
+        return datetime.fromtimestamp(float(v))
+    except Exception:
+        return None
+
 def extract_record(project_dir: Path, ts_dir: Path) -> Dict[str, Any]:
-    rec = {"name": project_dir.name, "started": None, "languages": [], "frameworks": [], "skills": [], "loc": None, "files": None, "complexity": None, "key_features": [], "ts_dir_date": None}
+    rec = {
+        "name": project_dir.name,
+        "started": None,
+        "languages": [],
+        "frameworks": [],
+        "skills": [],
+        "files": None,
+        "complexity": None,
+        "key_features": [],
+        "ts_dir_date": None,
+        "earliest_file_created": None,
+        "latest_file_modified": None,
+    }
     skill_path = ts_dir / "skill_extract.json"
     meta_path = ts_dir / "metadata.json"
     complexity_path = ts_dir / "complexity.json"
-    stats_path = ts_dir / "stats_summary.json"
     tech_path = ts_dir / "technologies.json"
 
     # skill_extract first
@@ -88,22 +108,28 @@ def extract_record(project_dir: Path, ts_dir: Path) -> Dict[str, Any]:
     if not rec["frameworks"]:
         rec["frameworks"] = tech.get("frameworks") or []
 
-    # metadata: files count
+    # metadata: files count and per-file timestamps
     meta = try_load_json(meta_path) or {}
     files = meta.get("files")
+    earliest = None
+    latest = None
     if isinstance(files, list):
         rec["files"] = len(files)
-
-    # stats_summary for LOC
-    stats = try_load_json(stats_path) or {}
-    if stats:
-        for key in ("total_loc", "loc", "total_lines", "lines"):
-            if key in stats:
-                try:
-                    rec["loc"] = int(stats[key])
-                    break
-                except Exception:
-                    pass
+        for f in files:
+            # fields observed: created_timestamp, last_modified (epoch)
+            c = f.get("created_timestamp")
+            m = f.get("last_modified")
+            cd = _epoch_to_dt(c)
+            md = _epoch_to_dt(m)
+            if cd:
+                if earliest is None or cd < earliest:
+                    earliest = cd
+            if md:
+                if latest is None or md > latest:
+                    latest = md
+    # record file-level earliest/latest if found
+    rec["earliest_file_created"] = earliest
+    rec["latest_file_modified"] = latest
 
     # complexity
     comp = try_load_json(complexity_path) or {}
@@ -125,9 +151,11 @@ def extract_record(project_dir: Path, ts_dir: Path) -> Dict[str, Any]:
             dt = None
     rec["ts_dir_date"] = dt
 
-    # fallback for started: parse timestamp folder name or project_dir mtime
+    # fallback for started: use file-level earliest or ts_dir or project_dir mtime
     if not rec["started"]:
-        if dt:
+        if rec["earliest_file_created"]:
+            rec["started"] = rec["earliest_file_created"]
+        elif dt:
             rec["started"] = dt
     if not rec["started"]:
         try:
@@ -149,26 +177,48 @@ def aggregate_outputs(outputs_root: Path) -> List[Dict[str, Any]]:
         records = [extract_record(proj_dir, ts) for ts in ts_dirs]
         if not records:
             continue
-        # earliest started among records
+
+        # compute project-level earliest created and latest modified across all timestamp records
+        earliest_createds = [r["earliest_file_created"] for r in records if r.get("earliest_file_created")]
+        latest_modifieds = [r["latest_file_modified"] for r in records if r.get("latest_file_modified")]
+
+        project_earliest = min(earliest_createds) if earliest_createds else None
+        project_latest = max(latest_modifieds) if latest_modifieds else None
+
+        # choose representative record (earliest started)
         records_with_started = [r for r in records if r.get("started")]
         records_with_started.sort(key=lambda r: r["started"])
         earliest = records_with_started[0] if records_with_started else records[0]
-        # last updated is max ts_dir_date among records (fallback to latest started)
+
+        # last_updated is max ts_dir_date among records (fallback to project_latest or earliest started)
         ts_dates = [r["ts_dir_date"] for r in records if r.get("ts_dir_date")]
-        last_updated = max(ts_dates) if ts_dates else (earliest.get("started") or datetime.now())
+        last_updated = max(ts_dates) if ts_dates else (project_latest or (earliest.get("started") or datetime.now()))
 
         # normalize lists
         earliest["languages"] = sorted(set(earliest.get("languages") or []))
         earliest["frameworks"] = sorted(set(earliest.get("frameworks") or []))
         earliest["skills"] = sorted(set(earliest.get("skills") or []))
 
-        # attach last_updated
+        # attach computed timestamps
         earliest["last_updated"] = last_updated
+        earliest["earliest_file_created"] = project_earliest
+        earliest["latest_file_modified"] = project_latest
 
         projects.append(earliest)
     # sort by last_updated descending so newest appear first
     projects.sort(key=lambda p: p.get("last_updated") or datetime.min, reverse=True)
     return projects
+
+def _serialize_projects(projects: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    for p in projects:
+        d = dict(p)  # shallow copy
+        # convert datetimes to ISO strings
+        for k in ("started", "ts_dir_date", "last_updated", "earliest_file_created", "latest_file_modified"):
+            v = d.get(k)
+            d[k] = v.isoformat() if isinstance(v, datetime) else (None if v is None else str(v))
+        out.append(d)
+    return out
 
 def format_markdown(projects: List[Dict[str, Any]]) -> str:
     lines = []
@@ -180,6 +230,13 @@ def format_markdown(projects: List[Dict[str, Any]]) -> str:
         started = p.get("started")
         if started:
             lines.append(f"   - Started: {started.strftime('%Y-%m-%d')}")
+        # optional: include file-level earliest/latest if available
+        ef = p.get("earliest_file_created")
+        lm = p.get("latest_file_modified")
+        if ef:
+            lines.append(f"   - Earliest file created: {ef.strftime('%Y-%m-%d')}")
+        if lm:
+            lines.append(f"   - Latest file modified: {lm.strftime('%Y-%m-%d')}")
         tech = []
         if p.get("frameworks"):
             tech.extend(p["frameworks"])
@@ -187,9 +244,8 @@ def format_markdown(projects: List[Dict[str, Any]]) -> str:
             tech.extend([l for l in p["languages"] if l not in tech])
         if tech:
             lines.append(f"   - Tech: {', '.join(tech)}")
-        loc = f"{p['loc']:,}" if isinstance(p.get("loc"), int) else ("Unknown" if p.get("loc") is None else str(p.get("loc")))
         files = str(p["files"]) if p.get("files") is not None else "Unknown"
-        lines.append(f"   - LOC: {loc} / Files: {files}")
+        lines.append(f"   - Files: {files}")
         if p.get("complexity"):
             lines.append(f"   - Complexity: {p['complexity']}")
         if p.get("key_features"):
@@ -202,10 +258,20 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("outputs", nargs="?", default="outputs", help="Path to outputs root")
     ap.add_argument("--out", "-o", help="Write markdown to file")
+    ap.add_argument("--json", action="store_true", help="Print JSON summary instead of markdown")
     args = ap.parse_args()
 
     out_root = Path(args.outputs)
     projects = aggregate_outputs(out_root)
+
+    if args.json:
+        serial = _serialize_projects(projects)
+        print(json.dumps(serial, ensure_ascii=False, indent=2))
+        if args.out:
+            Path(args.out).write_text(json.dumps(serial, ensure_ascii=False, indent=2), encoding="utf-8")
+            print("Wrote:", args.out)
+        return
+
     md = format_markdown(projects)
     if args.out:
         Path(args.out).write_text(md, encoding="utf-8")
