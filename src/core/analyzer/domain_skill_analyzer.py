@@ -50,8 +50,8 @@ LANGUAGE_SKILLS = {
     'C++': ['Object-Oriented Programming'],
     'Assembly': [],
     
-    # Data & Scientific - These DO imply specific domains
-    'R': ['Statistical Analysis'],
+    # Data & Scientific
+    'R': ['Statistical Analysis', 'Data Science'],
     'Julia': ['Scientific Computing'],
     'MATLAB': ['Scientific Computing'],
     
@@ -253,53 +253,19 @@ FRAMEWORK_SKILLS = {
 }
 
 
-# File extension to skills mapping for specialized file types
+# File extension to skills mapping for CS-related file types
 FILE_TYPE_SKILLS = {
-    # Design Files - Adobe Creative Suite
-    '.psd': ['Adobe Photoshop', 'Photo Editing', 'Graphic Design', 'Digital Art'],
-    '.ai': ['Adobe Illustrator', 'Vector Graphics', 'Graphic Design', 'Logo Design'],
-    '.eps': ['Vector Graphics', 'Print Design', 'Adobe Illustrator'],
+    # UI/UX Design Files - CS-related design
+    '.sketch': ['UI/UX Design', 'Interface Design', 'Prototyping'],
+    '.fig': ['UI/UX Design', 'Collaborative Design', 'Prototyping'],
     
-    # Design Files - Modern Tools
-    '.sketch': ['Sketch', 'UI/UX Design', 'Interface Design', 'Prototyping'],
-    '.fig': ['Figma', 'UI/UX Design', 'Collaborative Design', 'Prototyping'],
+    # Web Graphics
+    '.svg': ['Vector Graphics', 'Web Graphics'],
+    '.webp': ['Web Graphics', 'Image Optimization'],
     
-    # Photography - RAW Formats
-    '.raw': ['Photography', 'RAW Photo Processing', 'Professional Photography'],
-    '.cr2': ['Photography', 'Canon RAW Processing', 'Professional Photography'],
-    '.nef': ['Photography', 'Nikon RAW Processing', 'Professional Photography'],
-    '.arw': ['Photography', 'Sony RAW Processing', 'Professional Photography'],
-    
-    # Standard Image Formats (when in large quantities)
-    '.jpg': ['Photography', 'Image Editing'],
-    '.jpeg': ['Photography', 'Image Editing'],
-    '.png': ['Image Editing', 'Digital Graphics'],
-    '.webp': ['Modern Web Graphics', 'Image Optimization'],
-    
-    # Vector & Scalable Graphics
-    '.svg': ['Vector Graphics', 'Scalable Design', 'Web Graphics'],
-    
-    # Video Files
-    '.mp4': ['Video Editing', 'Multimedia Production'],
-    '.avi': ['Video Editing', 'Multimedia Production'],
-    '.mov': ['Video Editing', 'Multimedia Production'],
-    '.wmv': ['Video Editing', 'Multimedia Production'],
-    '.flv': ['Video Editing', 'Streaming Media'],
-    '.webm': ['Web Video', 'Modern Video Formats'],
-    
-    # Audio Files
-    '.mp3': ['Audio Editing', 'Music Production'],
-    '.wav': ['Audio Editing', 'Professional Audio', 'Music Production'],
-    '.flac': ['Audio Engineering', 'Lossless Audio', 'Music Production'],
-    '.aac': ['Audio Editing', 'Audio Compression'],
-    '.ogg': ['Audio Editing', 'Open-Source Audio'],
-    
-    # 3D & CAD
-    '.blend': ['Blender', '3D Modeling', '3D Animation'],
-    '.obj': ['3D Modeling', '3D Graphics'],
-    '.fbx': ['3D Modeling', '3D Animation', 'Game Development'],
-    '.stl': ['3D Modeling', '3D Printing', 'CAD'],
-    '.dwg': ['AutoCAD', 'CAD', 'Technical Drawing'],
+    # 3D & Game Development
+    '.obj': ['3D Graphics', 'Game Development'],
+    '.fbx': ['3D Graphics', 'Game Development'],
     
     # Documents & Technical Writing
     '.tex': ['LaTeX', 'Technical Writing', 'Document Preparation'],
@@ -657,27 +623,10 @@ def extract_skills_from_files(root_dir: Union[str, Path]) -> Set[str]:
     print(f"    📊 Scanned {files_scanned} files, found {len(file_counter)} relevant file types")
     
     # Add skills based on file type counts with thresholds
-    # This prevents adding "Photography" for a single logo file
     print(f"    🔍 Analyzing file type patterns with thresholds...")
     
-    # Photography skills (require multiple files)
-    photo_raw_exts = {'.raw', '.cr2', '.nef', '.arw'}
-    photo_count = sum(file_counter[ext] for ext in photo_raw_exts if ext in file_counter)
-    if photo_count >= 3:
-        print(f"    📸 RAW photo files ({photo_count}) → Photography + RAW Processing")
-        skills.add('Photography')
-        skills.add('RAW Photo Processing')
-        skills_from_files += 2
-    
-    standard_photo_exts = {'.jpg', '.jpeg'}
-    standard_photo_count = sum(file_counter[ext] for ext in standard_photo_exts if ext in file_counter)
-    if standard_photo_count >= 10:
-        print(f"    📷 Standard photo files ({standard_photo_count}) → Photography")
-        skills.add('Photography')
-        skills_from_files += 1
-    
-    # Design skills
-    design_files = [('.psd', 'Photoshop'), ('.ai', 'Illustrator'), ('.sketch', 'Sketch'), ('.fig', 'Figma')]
+    # UI/UX Design skills
+    design_files = [('.sketch', 'Sketch'), ('.fig', 'Figma')]
     for ext, name in design_files:
         if file_counter.get(ext, 0) >= 1:
             design_skills = FILE_TYPE_SKILLS[ext]
@@ -685,30 +634,12 @@ def extract_skills_from_files(root_dir: Union[str, Path]) -> Set[str]:
             skills.update(design_skills)
             skills_from_files += len(design_skills)
     
-    # Video editing (require multiple files)
-    video_exts = {'.mp4', '.avi', '.mov', '.wmv'}
-    video_count = sum(file_counter[ext] for ext in video_exts if ext in file_counter)
-    if video_count >= 2:
-        print(f"    🎬 Video files ({video_count}) → Video Editing + Multimedia Production")
-        skills.add('Video Editing')
-        skills.add('Multimedia Production')
-        skills_from_files += 2
-    
-    # Audio production (require multiple files)
-    audio_exts = {'.wav', '.flac', '.aac'}
-    audio_count = sum(file_counter[ext] for ext in audio_exts if ext in file_counter)
-    if audio_count >= 3:
-        print(f"    🎵 Audio files ({audio_count}) → Audio Editing + Music Production")
-        skills.add('Audio Editing')
-        skills.add('Music Production')
-        skills_from_files += 2
-    
-    # 3D modeling
-    modeling_exts = {'.blend', '.obj', '.fbx', '.stl'}
-    modeling_files = [ext for ext in modeling_exts if file_counter.get(ext, 0) >= 1]
-    if modeling_files:
-        print(f"    🎯 3D files ({', '.join(modeling_files)}) → 3D Modeling")
-        skills.add('3D Modeling')
+    # 3D graphics and game development
+    graphics_exts = {'.obj', '.fbx'}
+    graphics_files = [ext for ext in graphics_exts if file_counter.get(ext, 0) >= 1]
+    if graphics_files:
+        print(f"    🎯 3D/Game files ({', '.join(graphics_files)}) → 3D Graphics")
+        skills.add('3D Graphics')
         skills_from_files += 1
     
     # Technical writing
@@ -866,7 +797,7 @@ def analyze_project_skills(root_dir: Union[str, Path]) -> dict:
 
 def get_skill_categories() -> dict:
     """
-    Return a categorized view of all possible skills.
+    Return a categorized view of all possible CS-related skills.
     
     Returns:
         Dictionary mapping skill categories to lists of skills
@@ -876,10 +807,11 @@ def get_skill_categories() -> dict:
         'Web Development': set(),
         'Mobile Development': set(),
         'Data Science & ML': set(),
-        'Design & Creative': set(),
+        'UI/UX Design': set(),
         'DevOps & Infrastructure': set(),
         'Testing & QA': set(),
         'Database & ORM': set(),
+        'Game Development': set(),
         'Other': set(),
     }
     
@@ -908,8 +840,10 @@ def get_skill_categories() -> dict:
     # Categorize file type skills
     for skills in FILE_TYPE_SKILLS.values():
         for skill in skills:
-            if any(keyword in skill for keyword in ['Design', 'Photo', 'Video', 'Audio', '3D', 'Graphics']):
-                categories['Design & Creative'].add(skill)
+            if any(keyword in skill for keyword in ['UI/UX', 'Interface', 'Prototyping']):
+                categories['UI/UX Design'].add(skill)
+            elif any(keyword in skill for keyword in ['3D', 'Graphics', 'Game']):
+                categories['Game Development'].add(skill)
     
     return {k: sorted(list(v)) for k, v in categories.items() if v}
 

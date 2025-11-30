@@ -78,6 +78,7 @@ class TreeSitterFrameworkAnalyzer:
     def _initialize_parsers(self):
         """Initialize tree-sitter parsers for supported languages."""
         if not TREE_SITTER_AVAILABLE:
+            print("⚠️  Tree-sitter not available, using fallback parsing")
             return
             
         supported_languages = ['python', 'java', 'javascript', 'typescript', 'c', 'cpp', 'go', 'rust', 'ruby']
@@ -100,6 +101,9 @@ class TreeSitterFrameworkAnalyzer:
                     
             except Exception:
                 continue
+        
+        if self.parsers:
+            print(f"🔧 Tree-sitter parsers loaded: {len(self.parsers)} languages")
     
     def detect_imports(self, code: str, language: str) -> Set[str]:
         """Extract import statements using tree-sitter for accurate parsing."""
@@ -631,10 +635,12 @@ def _detect_single_framework(fw_name: str, spec: dict, folder: Path, pkg_json: d
 @lru_cache(maxsize=16)
 def _load_rules(rules_path: str) -> dict:
     """Cache rules loading for performance."""
+    print(f"📋 Loading framework rules from: {Path(rules_path).name}")
     raw = Path(rules_path).read_text(encoding="utf-8")
     rules = yaml.safe_load(raw)
     if not isinstance(rules, dict):
         raise ValueError(f"Invalid rules file format: {rules_path}")
+    print(f"📊 Loaded {len(rules.get('frameworks', {}))} framework definitions")
     return rules
 
 
@@ -643,6 +649,7 @@ def detect_frameworks_recursive(project_root: Path, rules_path: str) -> dict:
     Optimized recursive framework detection with batch processing and parallel execution.
     """
     start_time = time.time()
+    print(f"🔍 Detecting frameworks in: {project_root.name}")
     
     if VERBOSE_LOGGING:
         print(f"🔍 Starting recursive framework detection from: {project_root}")
@@ -659,6 +666,7 @@ def detect_frameworks_recursive(project_root: Path, rules_path: str) -> dict:
     candidates = _collect_candidates_optimized(project_root, exclude_dirs)
     
     if not candidates:
+        print("⚠️  No framework candidate folders found")
         return {
             "message": "No candidate folders found",
             "frameworks": {},
@@ -667,6 +675,7 @@ def detect_frameworks_recursive(project_root: Path, rules_path: str) -> dict:
             "scan_time_seconds": round(time.time() - start_time, 2)
         }
 
+    print(f"🔬 Processing {len(candidates)} candidates...")
     if VERBOSE_LOGGING:
         print(f"\n🔬 Processing {len(candidates)} candidates in parallel...")
     
@@ -695,6 +704,7 @@ def detect_frameworks_recursive(project_root: Path, rules_path: str) -> dict:
     scan_time = time.time() - start_time
     total_frameworks = sum(len(fw_list) for fw_list in all_results.values())
     
+    print(f"✅ Found {total_frameworks} frameworks in {scan_time:.1f}s")
     if VERBOSE_LOGGING:
         print(f"\n🎉 Detection complete in {scan_time:.2f}s!")
         print(f"📊 Results: {total_frameworks} frameworks in {len(all_results)} folders")
@@ -743,6 +753,7 @@ def _collect_candidates_optimized(project_root: Path, exclude_dirs: set[str]) ->
                         break
     
     except (OSError, PermissionError) as e:
+        print(f"⚠️  Filesystem access error: {e}")
         if VERBOSE_LOGGING:
             print(f"⚠️  Filesystem access error: {e}")
     
