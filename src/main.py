@@ -44,6 +44,11 @@ from src.core.project_contribution_log import (
     rank_projects_from_log,
 )
 from src.core.alternate_skill_extractor import run_skill_extraction
+from src.core.project_summarizer import (
+    print_project_rankings,
+    SortCriteria
+)
+
 from src.core.alternate_skill_extractor import pretty_dump
 from src.utils import pretty_print_json
 
@@ -396,6 +401,22 @@ def info() -> None:
     typer.echo("  browse             — Show all analyzed projects sorted by project name and tiemstamp. ")
     typer.echo("  delete-output      — Show all analyzed projects sorted by project name and timestamp, then user can delete specific analyzed timestamp. ") 
    
+
+
+@app.command("summarize")
+def summarize(
+    sort_by: SortCriteria = typer.Option(
+        "comprehensive", "--sort", "-s", 
+        help="Sort criteria: complexity, contributions, skills, lines_of_code, file_count, recent, comprehensive"
+    ),
+    limit: int = typer.Option(10, "--limit", "-l", help="Number of projects to show"),
+):
+    """Show top ranked projects with detailed analysis."""
+    print_project_rankings(sort_by, limit)
+
+
+
+
 
 
 @app.command(
