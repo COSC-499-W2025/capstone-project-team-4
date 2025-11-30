@@ -27,6 +27,23 @@ def load_mapping(path):
         data = json.load(f)
     return {entry["skill"]: entry["identifiers"] for entry in data}
 
+# Safe read file
+def safe_read_file(path):
+    """Attempt UTF-8 first, fallback to latin-1, then UTF-8 ignore."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read(), "utf-8", False
+    except UnicodeDecodeError:
+        try:
+            # Latin-1 to decode anything without errors
+            with open(path, "r", encoding="latin-1") as f:
+                return f.read(), "latin-1", True
+        except Exception:
+            # Ignore invalid bytes BUT continue execution
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                return f.read(), "utf-8-ignore", True
+
+
 def pretty_dump(data, file_path):
     """Pretty JSON for chronological sorting """
     def serialize(obj, level=0):
@@ -83,13 +100,13 @@ def analyze_code_file(file_path, language, loc):
     if not os.path.exists(file_path):
         return {"error": f"File missing: {file_path}"}
 
-    with open(file_path, "r", encoding="utf-8") as f:
-        text = f.read()
+    # Safe read
+    text, encoding_used, fallback = safe_read_file(file_path)
 
     scores = defaultdict(lambda: {
         "raw_count": 0,
-        "identifier_summary": defaultdict(int),   # pattern counts
-        "occurrence_lines": []                    # line numbers only
+        "identifier_summary": defaultdict(int),
+        "occurrence_lines": []
     })
 
     for skill, patterns in mapping.items():
@@ -98,20 +115,17 @@ def analyze_code_file(file_path, language, loc):
             try:
                 for match in re.finditer(pat, text, flags=re.MULTILINE):
                     total += 1
-
                     idx = match.start()
                     line = text.count("\n", 0, idx) + 1
 
                     scores[skill]["identifier_summary"][pat] += 1
                     scores[skill]["occurrence_lines"].append(line)
-
             except re.error:
                 continue
 
         scores[skill]["raw_count"] = total
         scores[skill]["density_score"] = round((total / max(loc, 1)) * 100, 4)
 
-    # Keep only skills that appear
     non_zero = {
         s: {
             "raw_count": info["raw_count"],
@@ -128,6 +142,8 @@ def analyze_code_file(file_path, language, loc):
         "language": language,
         "loc": loc,
         "mapping_used": mapping_path,
+        "encoding_used": encoding_used,
+        "encoding_fallback": fallback,
         "higher-level skill": non_zero
     }
 
@@ -152,7 +168,7 @@ def run_skill_extraction(metadata_path, output_path):
     }
 
     reports = []
-    global_chronology = defaultdict(list)  # skill → list of line numbers
+    global_chronology = defaultdict(list)
 
     for f in files:
         lang = f.get("language", "").lower()
@@ -207,7 +223,6 @@ def run_skill_extraction(metadata_path, output_path):
                 "occurrence_lines": ordered_lines 
             })
 
-    # Sort skills chronologically
     skill_development_order = sorted(
         skill_development_order,
         key=lambda x: x["occurrence_lines"][0] if x["occurrence_lines"] else 99999999
