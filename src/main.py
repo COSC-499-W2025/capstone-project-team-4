@@ -394,8 +394,8 @@ def info() -> None:
     typer.echo("  info              — Show this screen")
     typer.echo("  rank-contributions — Rank a contributor's impact within a Git project. python -m src.main rank-contributions <file_path> --name <contributor_name> OR --email <contributor_email> \n")
     typer.echo("  rank-projects      — Show all analyzed projects for a contributor, ranked by contribution score. python -m src.main rank-projects <contributor_name> OR <contributor_email>  The name/email you use must be consistent when calling rank-projects\n")
-    typer.echo("  browse             — Show all analyzed projects sorted by project name and tiemstamp.
-    typer.echo("  delete-output      — Show all analyzed projects sorted by project name and timestamp, then user can delete specific analyzed timestamp.
+    typer.echo("  browse             — Show all analyzed projects sorted by project name and tiemstamp. ")
+    typer.echo("  delete-output      — Show all analyzed projects sorted by project name and timestamp, then user can delete specific analyzed timestamp. ") 
    
 
 
