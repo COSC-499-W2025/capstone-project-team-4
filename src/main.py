@@ -49,8 +49,8 @@ from src.core.project_summarizer import (
     SortCriteria
 )
 
+from src.core.alternate_skill_extractor import pretty_dump
 from src.utils import pretty_print_json
-
 
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
@@ -195,7 +195,7 @@ def analyze_project_cli(
     skills_result = run_skill_extraction(
         metadata_path=str(metadata_json_path), output_path=str(skills_output_file)
     )
-    skills_output_file.write_text(json.dumps(skills_result, indent=2))
+    pretty_dump(skills_result, skills_output_file)
 
     (project_dir / "complexity.json").write_text(
         json.dumps(report["code_complexity"], indent=2)
