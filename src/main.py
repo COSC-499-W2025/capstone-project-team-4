@@ -198,7 +198,7 @@ def analyze_project_cli(
     pretty_dump(skills_result, skills_output_file)
 
     (project_dir / "complexity.json").write_text(
-        json.dumps(report["code_complexity"], indent=2)
+        json.dumps(complexity_dict, indent=2)
     )
 
     if report.get("contributors") and len(report["contributors"]) > 0:
