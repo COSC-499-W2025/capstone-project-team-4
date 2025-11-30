@@ -36,6 +36,8 @@ from src.core.reporting.resume_item_generator import generate_resume_item  # <--
 from src.core.reporting.contribution_ranking import (
     rank_projects_for_contributor,
     summarize_top_projects,
+    get_available_contributors,
+    find_contributor_suggestions,
 )
 from src.core.reporting.project_contribution_log import (
     append_contribution_entry,
@@ -355,35 +357,78 @@ def rank_contributions(
     project: Path = typer.Argument(...),
     name: Optional[str] = typer.Option(None, "--name"),
     email: Optional[str] = typer.Option(None, "--email"),
+    username: Optional[str] = typer.Option(None, "--username", help="Match by username/handle"),
+    list_contributors: bool = typer.Option(False, "--list", help="List all available contributors"),
 ):
     config_manager.require_consent()
-
-    if not name and not email:
-        typer.secho("You must specify either --name or --email", fg="red")
-        raise typer.Exit()
-
-    identifier = email if email else name
-    match_by = "email" if email else "name"
 
     project = project.resolve()
     if not (project.exists() and (project / ".git").exists()):
         typer.secho("❌ Invalid project or missing .git", fg="red")
         raise typer.Exit()
 
+    # Handle --list option
+    if list_contributors:
+        typer.secho("📋 Available contributors:", fg="blue", bold=True)
+        contributors = get_available_contributors(project)
+        for i, contrib in enumerate(contributors, 1):
+            typer.echo(f"{i:2}. {contrib['name']} ({contrib['primary_email']}) - {contrib['commits']} commits")
+            if contrib.get('all_emails') and len(contrib['all_emails']) > 1:
+                other_emails = [e for e in contrib['all_emails'] if e != contrib['primary_email']]
+                if other_emails:
+                    typer.echo(f"     📧 Other emails: {', '.join(other_emails)}")
+        return
+
+    # Validate input parameters
+    provided_fields = [name, email, username]
+    provided_count = sum(1 for field in provided_fields if field is not None)
+    
+    if provided_count == 0:
+        typer.secho("❌ You must specify either --name, --email, or --username", fg="red")
+        typer.secho("💡 Use --list to see available contributors", fg="blue")
+        raise typer.Exit()
+    
+    if provided_count > 1:
+        typer.secho("❌ Please specify only one of --name, --email, or --username", fg="red")
+        raise typer.Exit()
+
+    # Determine match parameters
+    if email:
+        identifier, match_by = email, "email"
+    elif name:
+        identifier, match_by = name, "name"
+    else:
+        identifier, match_by = username, "username"
+
+    typer.secho(f"🔍 Searching for contributor by {match_by}: '{identifier}'", fg="blue")
+
     ranked = rank_projects_for_contributor(
         [project], match_by=match_by, identifier=identifier
     )
+    
     if not ranked:
-        typer.secho("No contributions found.", fg="yellow")
+        typer.secho(f"❌ No contributions found for {match_by}: '{identifier}'", fg="red")
+        
+        # Provide helpful suggestions
+        suggestions = find_contributor_suggestions(project, identifier, max_suggestions=3)
+        if suggestions:
+            typer.secho("\n💡 Did you mean one of these contributors?", fg="yellow")
+            for i, suggestion in enumerate(suggestions, 1):
+                typer.echo(f"  {i}. {suggestion['name']} ({suggestion['primary_email']}) - {suggestion['commits']} commits")
+        else:
+            typer.secho("\n💡 Use --list to see all available contributors", fg="blue")
+        
         raise typer.Exit()
 
+    # Success - show results
     summary_obj = ranked[0]
     append_contribution_entry(
         summary_obj, extra={"source_command": "rank-contributions"}
     )
     summary = summarize_top_projects(ranked, top_n=1)[0]
 
-    typer.echo("Contribution Summary\n-----------------------")
+    typer.secho("✅ Contribution Summary", fg="green", bold=True)
+    typer.echo("-" * 50)
     typer.echo(summary)
 
 

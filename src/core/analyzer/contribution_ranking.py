@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional, Literal, Dict, Any
 
-from .analyzer.project_analyzer import analyze_contributors  # uses your existing git analyzer
+from .project_analyzer import analyze_contributors  # uses your existing git analyzer
 
 
-ContributorMatchField = Literal["name", "email"]
+ContributorMatchField = Literal["name", "email", "username", "any"]
 
 
 @dataclass
@@ -48,15 +48,22 @@ def compute_contribution_score( # Compute a numeric score from a contributor rec
     )
 
 
-def _find_contributor( #Find a contributor in the list by name or email (case-insensitive). `contributors` is the list returned by analyze_contributors().
-    
+def _find_contributor(
     contributors: List[Dict[str, Any]],
     *,
     match_by: ContributorMatchField,
     value: str,
 ) -> Optional[Dict[str, Any]]:
+    """Find a contributor by name, email, username, or any field (case-insensitive).
     
-    
+    Args:
+        contributors: List returned by analyze_contributors()
+        match_by: Field to match against ('name', 'email', 'username', 'any')
+        value: Value to search for
+        
+    Returns:
+        Matching contributor dict or None if not found
+    """
     value_lower = value.lower()
 
     for c in contributors:
@@ -64,16 +71,75 @@ def _find_contributor( #Find a contributor in the list by name or email (case-in
             if c.get("name", "").lower() == value_lower:
                 return c
         elif match_by == "email":
+            # Check primary email
             if c.get("primary_email", "").lower() == value_lower:
                 return c
-            # Also check all_emails if available
+            # Check all_emails if available
             all_emails = c.get("all_emails", [])
             for email in all_emails:
                 if isinstance(email, str) and email.lower() == value_lower:
                     return c
+        elif match_by == "username":
+            # Check for username in various fields
+            username = c.get("username", "").lower()
+            if username == value_lower:
+                return c
+            # Also check if the value appears in the name or email
+            name = c.get("name", "").lower()
+            if value_lower in name or name in value_lower:
+                return c
+        elif match_by == "any":
+            # Check all possible fields
+            fields_to_check = [
+                c.get("name", ""),
+                c.get("primary_email", ""),
+                c.get("username", "")
+            ]
+            # Add all emails
+            all_emails = c.get("all_emails", [])
+            fields_to_check.extend(str(email) for email in all_emails if isinstance(email, str))
+            
+            # Check exact matches first
+            for field in fields_to_check:
+                if field.lower() == value_lower:
+                    return c
+            
+            # Then check partial matches (for usernames that might appear in names)
+            for field in fields_to_check:
+                if field and (value_lower in field.lower() or field.lower() in value_lower):
+                    return c
 
     return None
 
+
+def _find_similar_contributors(
+    contributors: List[Dict[str, Any]],
+    value: str,
+    max_suggestions: int = 5
+) -> List[Dict[str, Any]]:
+    """Find contributors with similar names/emails for suggestions."""
+    value_lower = value.lower()
+    suggestions = []
+    
+    for c in contributors:
+        # Check if any field contains the search value or vice versa
+        fields = [
+            c.get("name", ""),
+            c.get("primary_email", ""),
+            c.get("username", "")
+        ]
+        
+        # Add all emails
+        all_emails = c.get("all_emails", [])
+        fields.extend(str(email) for email in all_emails if isinstance(email, str))
+        
+        for field in fields:
+            if field and (value_lower in field.lower() or field.lower() in value_lower):
+                if c not in suggestions:
+                    suggestions.append(c)
+                break
+    
+    return suggestions[:max_suggestions]
 
 
 def rank_projects_for_contributor(
@@ -131,7 +197,16 @@ on that project.
         )
 
         if contributor is None:
-            continue
+            # Try fuzzy matching if exact match fails
+            if match_by != "any":
+                contributor = _find_contributor(
+                    contributors,
+                    match_by="any",
+                    value=identifier,
+                )
+            
+            if contributor is None:
+                continue
 
         resolved_identifier = (
             contributor.get("primary_email")
@@ -157,6 +232,67 @@ on that project.
 
     summaries.sort(key=lambda s: s.contribution_score, reverse=True)
     return summaries
+
+
+def get_available_contributors(
+    project_root: str | Path
+) -> List[Dict[str, str]]:
+    """Get list of available contributors with their identifiers for user reference.
+    
+    Returns:
+        List of dicts with contributor info: name, email, username
+    """
+    contributors = analyze_contributors(str(project_root))
+    
+    result = []
+    for c in contributors:
+        info = {
+            "name": c.get("name", ""),
+            "primary_email": c.get("primary_email", ""),
+            "username": c.get("username", ""),
+            "commits": c.get("commits", 0),
+        }
+        # Add all emails for completeness
+        all_emails = c.get("all_emails", [])
+        if all_emails:
+            info["all_emails"] = [str(email) for email in all_emails if isinstance(email, str)]
+        
+        result.append(info)
+    
+    # Sort by number of commits (most active first)
+    result.sort(key=lambda x: x["commits"], reverse=True)
+    return result
+
+
+def find_contributor_suggestions(
+    project_root: str | Path,
+    search_value: str,
+    max_suggestions: int = 3
+) -> List[Dict[str, str]]:
+    """Find similar contributors when exact match fails.
+    
+    Args:
+        project_root: Path to git repository
+        search_value: The value that failed to match
+        max_suggestions: Maximum number of suggestions to return
+        
+    Returns:
+        List of similar contributors with their info
+    """
+    contributors = analyze_contributors(str(project_root))
+    similar = _find_similar_contributors(contributors, search_value, max_suggestions)
+    
+    result = []
+    for c in similar:
+        info = {
+            "name": c.get("name", ""),
+            "primary_email": c.get("primary_email", ""),
+            "username": c.get("username", ""),
+            "commits": c.get("commits", 0),
+        }
+        result.append(info)
+    
+    return result
 
 
 def summarize_top_projects( # Turn the top N ranked projects into human-readable text summaries.
