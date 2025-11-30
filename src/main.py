@@ -166,6 +166,9 @@ def analyze_project_cli(
     report["project_root"] = metadata_block["project_root"]
     report["files"] = metadata_block["files"]
     report["stats_summary"] = project_stats
+    
+    # Override contributors with enhanced deduplication data
+    report["contributors"] = contributors
 
     # ------------------------- 9️⃣ Output folder + JSON files -------------------------
     project_dir = out_dir / project_name / timestamp
