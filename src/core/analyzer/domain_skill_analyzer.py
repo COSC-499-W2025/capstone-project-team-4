@@ -872,7 +872,7 @@ def get_skill_categories() -> dict:
         Dictionary mapping skill categories to lists of skills
     """
     categories = {
-        'Programming Languages': set(),
+        'Programming Paradigms': set(),
         'Web Development': set(),
         'Mobile Development': set(),
         'Data Science & ML': set(),
@@ -887,7 +887,7 @@ def get_skill_categories() -> dict:
     for skills in LANGUAGE_SKILLS.values():
         for skill in skills:
             if any(keyword in skill for keyword in ['Programming', 'Development', 'Scripting']):
-                categories['Programming Languages'].add(skill)
+                categories['Programming Paradigms'].add(skill)
     
     # Categorize framework skills
     for skills in FRAMEWORK_SKILLS.values():

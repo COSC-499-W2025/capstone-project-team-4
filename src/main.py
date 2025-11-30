@@ -126,6 +126,18 @@ def analyze_project_cli(
 
     save_resume_skills(project_id, skill_report.get("skill_categories", {}))
 
+    # ------------------------- 5.1️⃣ Detailed Language Analysis -------------------------
+    from src.core.extractor.language_extractor import LanguageProjectAnalyzer, StatsFormatter
+    language_analyzer = LanguageProjectAnalyzer()
+    language_analyzer.analyze_project_languages(str(project_root))
+    detailed_language_analysis = StatsFormatter.format_analysis_to_json(language_analyzer, str(project_root))
+
+    # ------------------------- 5.2️⃣ Detailed Framework Detection -------------------------
+    from src.core.extractor.framework_extractor import detect_frameworks_recursive
+    from pathlib import Path as PathlibPath
+    rules_path = PathlibPath(__file__).parent / "core" / "config" / "frameworks_config.yml"
+    detailed_framework_analysis = detect_frameworks_recursive(PathlibPath(project_root), str(rules_path))
+
     try:
         from src.core.storage.database import save_detected_technologies
     except Exception:
@@ -204,6 +216,16 @@ def analyze_project_cli(
 
     (project_dir / "skill_extract.json").write_text(
         json.dumps(report["resume_skills"], indent=2)
+    )
+
+    # Save detailed language analysis
+    (project_dir / "language_analysis.json").write_text(
+        json.dumps(detailed_language_analysis, indent=2)
+    )
+
+    # Save detailed framework detection results
+    (project_dir / "framework_detection.json").write_text(
+        json.dumps(detailed_framework_analysis, indent=2)
     )
     if "detected_technologies" not in report:
         try:
