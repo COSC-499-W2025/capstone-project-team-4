@@ -14,10 +14,153 @@ from .code_complexity_analyzer import (
 
 
 # Git/Collaboration Analysis Functions
+def _extract_base_email(email):
+    """Extract the base email from GitHub noreply formats."""
+    email = email.lower().strip()
+    if '@users.noreply.github.com' in email:
+        noreply_part = email.split('@users.noreply.github.com')[0]
+        if '+' in noreply_part:
+            # Format: "12345+actual@email.com@users.noreply.github.com"
+            base_part = noreply_part.split('+', 1)[1]
+            if '@' in base_part:
+                return base_part  # Return the actual email
+        # Return the noreply format as-is if no actual email found
+    return email
+
+
+def _should_merge_contributors(contrib1, contrib2):
+    """
+    Determine if two contributors should be merged based on various heuristics.
+    """
+    name1, name2 = contrib1['name'].lower(), contrib2['name'].lower()
+    emails1 = set(contrib1['all_emails'])
+    emails2 = set(contrib2['all_emails'])
+    
+    # Extract base emails for comparison
+    base_emails1 = {_extract_base_email(e) for e in emails1}
+    base_emails2 = {_extract_base_email(e) for e in emails2}
+    
+    # Rule 1: Exact same real email address (non-noreply)
+    real_emails1 = {e for e in base_emails1 if '@users.noreply.github.com' not in e}
+    real_emails2 = {e for e in base_emails2 if '@users.noreply.github.com' not in e}
+    
+    if real_emails1 and real_emails2 and real_emails1.intersection(real_emails2):
+        return True
+    
+    # Rule 2: Extract embedded real emails from GitHub noreply formats
+    embedded_emails1 = set()
+    embedded_emails2 = set()
+    
+    for email in emails1:
+        if '@users.noreply.github.com' in email and '+' in email:
+            noreply_part = email.split('@users.noreply.github.com')[0]
+            if '+' in noreply_part:
+                potential_email = noreply_part.split('+', 1)[1]
+                if '@' in potential_email and '.' in potential_email:
+                    embedded_emails1.add(potential_email)
+    
+    for email in emails2:
+        if '@users.noreply.github.com' in email and '+' in email:
+            noreply_part = email.split('@users.noreply.github.com')[0]
+            if '+' in noreply_part:
+                potential_email = noreply_part.split('+', 1)[1]
+                if '@' in potential_email and '.' in potential_email:
+                    embedded_emails2.add(potential_email)
+    
+    # Check if embedded emails match real emails
+    if embedded_emails1.intersection(real_emails2) or embedded_emails2.intersection(real_emails1):
+        return True
+    
+    if embedded_emails1.intersection(embedded_emails2):
+        return True
+    
+    # Rule 3: Same real email with different names (variations)
+    if real_emails1.intersection(real_emails2):
+        return True
+    
+    # Rule 4: Name similarity analysis
+    # Remove common variations and check similarity
+    clean_name1 = name1.replace('-', '').replace('_', '').replace(' ', '').replace('.', '')
+    clean_name2 = name2.replace('-', '').replace('_', '').replace(' ', '').replace('.', '')
+    
+    # Check if one name contains the other
+    if len(clean_name1) >= 3 and len(clean_name2) >= 3:
+        if clean_name1 in clean_name2 or clean_name2 in clean_name1:
+            # Additional check: ensure this isn't a false positive
+            # If names are very different lengths, require additional evidence
+            length_ratio = max(len(clean_name1), len(clean_name2)) / min(len(clean_name1), len(clean_name2))
+            if length_ratio <= 2.0:  # Names are reasonably similar in length
+                return True
+    
+    # Rule 5: Check for common GitHub username patterns
+    # Extract potential usernames from both names and emails
+    usernames1 = {name1.replace(' ', '').replace('-', '').lower()}
+    usernames2 = {name2.replace(' ', '').replace('-', '').lower()}
+    
+    # Add variations from email usernames
+    for email in emails1:
+        if '@' in email:
+            username = email.split('@')[0].lower()
+            usernames1.add(username.replace('.', '').replace('_', '').replace('-', ''))
+            # For noreply emails, extract the actual username part
+            if '@users.noreply.github.com' in email:
+                if '+' in username:
+                    actual_username = username.split('+')[1] if not username.split('+')[1].isdigit() else None
+                    if actual_username:
+                        usernames1.add(actual_username.replace('.', '').replace('_', '').replace('-', ''))
+    
+    for email in emails2:
+        if '@' in email:
+            username = email.split('@')[0].lower()
+            usernames2.add(username.replace('.', '').replace('_', '').replace('-', ''))
+            # For noreply emails, extract the actual username part
+            if '@users.noreply.github.com' in email:
+                if '+' in username:
+                    actual_username = username.split('+')[1] if not username.split('+')[1].isdigit() else None
+                    if actual_username:
+                        usernames2.add(actual_username.replace('.', '').replace('_', '').replace('-', ''))
+    
+    # Check for username matches
+    if usernames1.intersection(usernames2):
+        return True
+    
+    return False
+
+
+def _merge_contributors(primary, secondary):
+    """
+    Merge two contributor records, keeping the primary as base.
+    """
+    # Combine all stats
+    primary['commits'] += secondary['commits']
+    primary['total_lines_added'] += secondary['total_lines_added']
+    primary['total_lines_deleted'] += secondary['total_lines_deleted']
+    
+    # Merge history
+    primary['history'].extend(secondary['history'])
+    
+    # Merge file modifications
+    for file_path, count in secondary['files_modified'].items():
+        primary['files_modified'][file_path] = primary['files_modified'].get(file_path, 0) + count
+    
+    # Merge email lists and ensure no duplicates
+    all_emails_combined = primary.get('all_emails', []) + secondary.get('all_emails', [])
+    # Add primary emails if not already in the lists
+    all_emails_combined.extend([primary.get('primary_email', ''), secondary.get('primary_email', '')])
+    # Remove duplicates and empty strings
+    primary['all_emails'] = [email for email in set(all_emails_combined) if email.strip()]
+    
+    # Use the more complete name (longer is usually better)
+    if len(secondary['name']) > len(primary['name']):
+        primary['name'] = secondary['name']
+    
+    return primary
+
+
 def analyze_contributors(project_path=".", use_all_branches=False):
     """
     Analyze commit history for all contributors.
-    Groups by contributor NAME to avoid duplicates (noreply vs real email).
+    Groups contributors by normalized identity to avoid duplicates (noreply vs real email, name variations).
     If use_all_branches=True then use '--all', otherwise just analyze the current branch
 
     Includes:
@@ -41,6 +184,7 @@ def analyze_contributors(project_path=".", use_all_branches=False):
 
     contributors = {}
     commit_counts = defaultdict(int)
+    contributor_emails = defaultdict(set)  # Track all emails per contributor
     total_commits_processed = 0
     bots_skipped = 0
 
@@ -54,26 +198,28 @@ def analyze_contributors(project_path=".", use_all_branches=False):
         commit_range = "--all" if use_all_branches else None
         for commit in repo.iter_commits(commit_range):
             total_commits_processed += 1
-            name = commit.author.name.strip()
-            email = commit.author.email.strip().lower()
+            raw_name = commit.author.name.strip()
+            raw_email = commit.author.email.strip().lower()
 
             # Progress reporting every 50 commits
             if total_commits_processed % 50 == 0:
                 print(f"  📊 Processed {total_commits_processed} commits, found {len(contributors)} unique contributors")
 
             # Skip bots
-            if "[bot]" in name.lower():
+            if "[bot]" in raw_name.lower():
                 bots_skipped += 1
                 continue
 
-            key = name.lower()  # unify identity by name
+            # Use name+email as initial unique key (we'll deduplicate later)
+            identity_key = f"{raw_name}|{raw_email}"
 
             # Initialize contributor record
-            if key not in contributors:
-                print(f"  👤 New contributor discovered: {name} ({email})")
-                contributors[key] = {
-                    "name": name,
-                    "primary_email": email,
+            if identity_key not in contributors:
+                print(f"  👤 New contributor discovered: {raw_name} ({raw_email})")
+                contributors[identity_key] = {
+                    "name": raw_name,
+                    "primary_email": raw_email,
+                    "all_emails": [raw_email],
                     "commits": 0,
                     "percent": 0,
                     "history": [],
@@ -81,25 +227,26 @@ def analyze_contributors(project_path=".", use_all_branches=False):
                     "total_lines_deleted": 0,
                     "files_modified": defaultdict(int),
                 }
+                contributor_emails[identity_key] = set([raw_email])
 
-            commit_counts[key] += 1
+            commit_counts[identity_key] += 1
 
             try:
                 stats = commit.stats
                 # Per-file modifications
                 for file_path, file_stats in stats.files.items():
-                    contributors[key]["files_modified"][file_path] += 1
+                    contributors[identity_key]["files_modified"][file_path] += 1
 
                 # Line-level stats
-                contributors[key]["total_lines_added"] += stats.total.get(
+                contributors[identity_key]["total_lines_added"] += stats.total.get(
                     "insertions", 0
                 )
-                contributors[key]["total_lines_deleted"] += stats.total.get(
+                contributors[identity_key]["total_lines_deleted"] += stats.total.get(
                     "deletions", 0
                 )
 
                 # Commit history entry
-                contributors[key]["history"].append(
+                contributors[identity_key]["history"].append(
                     {
                         "hash": commit.hexsha,
                         "message": commit.message.strip(),
@@ -107,6 +254,8 @@ def analyze_contributors(project_path=".", use_all_branches=False):
                         "files_changed": list(stats.files.keys()),
                         "insertions": stats.total.get("insertions", 0),
                         "deletions": stats.total.get("deletions", 0),
+                        "author_name": raw_name,
+                        "author_email": raw_email,
                     }
                 )
             except Exception as stats_error:
@@ -114,7 +263,7 @@ def analyze_contributors(project_path=".", use_all_branches=False):
                     f"[WARN] Error getting stats for commit {commit.hexsha}: {stats_error}"
                 )
                 # Add commit without stats
-                contributors[key]["history"].append(
+                contributors[identity_key]["history"].append(
                     {
                         "hash": commit.hexsha,
                         "message": commit.message.strip(),
@@ -122,6 +271,8 @@ def analyze_contributors(project_path=".", use_all_branches=False):
                         "files_changed": [],
                         "insertions": 0,
                         "deletions": 0,
+                        "author_name": raw_name,
+                        "author_email": raw_email,
                     }
                 )
 
@@ -134,15 +285,51 @@ def analyze_contributors(project_path=".", use_all_branches=False):
     print(f"✅ Commit analysis complete:")
     print(f"  📊 Total commits processed: {total_commits_processed}")
     print(f"  🤖 Bot commits skipped: {bots_skipped}")
-    print(f"  👥 Unique contributors found: {len(contributors)}")
+    print(f"  👥 Initial contributors found: {len(contributors)}")
+
+    # Deduplicate contributors by merging likely duplicates
+    print(f"\n🔄 Deduplicating contributors...")
+    deduplicated_contributors = {}
+    processed_keys = set()
+    
+    for key1, contrib1 in contributors.items():
+        if key1 in processed_keys:
+            continue
+            
+        # Start with this contributor as the base
+        merged_contrib = dict(contrib1)
+        merged_contrib['all_emails'] = list(contributor_emails[key1])
+        merged_commit_count = commit_counts[key1]
+        
+        # Check against all other contributors for potential merges
+        for key2, contrib2 in contributors.items():
+            if key1 == key2 or key2 in processed_keys:
+                continue
+                
+            # Prepare contrib2 with all emails for comparison
+            contrib2_with_emails = dict(contrib2)
+            contrib2_with_emails['all_emails'] = list(contributor_emails[key2])
+            
+            if _should_merge_contributors(merged_contrib, contrib2_with_emails):
+                print(f"  🔗 Merging {contrib2['name']} into {merged_contrib['name']}")
+                merged_contrib = _merge_contributors(merged_contrib, contrib2_with_emails)
+                merged_commit_count += commit_counts[key2]
+                processed_keys.add(key2)
+        
+        deduplicated_contributors[key1] = merged_contrib
+        commit_counts[key1] = merged_commit_count
+        processed_keys.add(key1)
+    
+    print(f"✅ Deduplication complete: {len(contributors)} → {len(deduplicated_contributors)} unique contributors")
+    contributors = deduplicated_contributors
 
     # Format contributors into final list
-    total_commits = sum(commit_counts.values())
+    total_commits = sum(commit_counts[k] for k in contributors.keys())
     contributor_list = []
     print(f"\n🗜 Processing final contributor statistics...")
 
-    for key, info in contributors.items():
-        commit_count = commit_counts[key]
+    for contributor_key, info in contributors.items():
+        commit_count = commit_counts[contributor_key]
         info["commits"] = commit_count
 
         if total_commits > 0:
@@ -150,11 +337,41 @@ def analyze_contributors(project_path=".", use_all_branches=False):
         else:
             info["percent"] = 0
 
+        # Ensure all_emails is properly set and contains all email variations
+        if 'all_emails' not in info or not info['all_emails']:
+            info["all_emails"] = [info["primary_email"]]
+        
+        # Remove duplicates and sort emails for consistency
+        info["all_emails"] = sorted(list(set(info["all_emails"])))
+        
         # Convert defaultdict to normal dict for JSON
         files_touched = len(info["files_modified"])
         info["files_modified"] = dict(info["files_modified"])
         
+        # Add metadata to identify merged contributors
+        info["is_merged_contributor"] = len(info.get('all_emails', [])) > 1
+        info["email_count"] = len(info.get('all_emails', []))
+        
+        # Categorize email types for better understanding
+        real_emails = [e for e in info.get('all_emails', []) if '@users.noreply.github.com' not in e]
+        github_emails = [e for e in info.get('all_emails', []) if '@users.noreply.github.com' in e]
+        info["real_emails"] = real_emails
+        info["github_noreply_emails"] = github_emails
+        
+        # Enhanced output showing merged contributor details
+        email_count = len(info['all_emails'])
+        email_summary = f"{email_count} email(s)" if email_count > 1 else info['primary_email']
         print(f"  👤 {info['name']}: {commit_count} commits ({info['percent']}%), {files_touched} files touched")
+        print(f"    📧 Emails: {email_summary}")
+        if email_count > 1:
+            print(f"       🔗 Merged identities: {sorted(info['all_emails'])}")
+            # Show which emails are real vs GitHub noreply
+            real_emails = [e for e in info['all_emails'] if '@users.noreply.github.com' not in e]
+            noreply_emails = [e for e in info['all_emails'] if '@users.noreply.github.com' in e]
+            if real_emails:
+                print(f"       ✉️  Real emails: {real_emails}")
+            if noreply_emails:
+                print(f"       🐙 GitHub emails: {noreply_emails}")
         print(f"    ➕ Lines: +{info['total_lines_added']} / -{info['total_lines_deleted']}")
 
         contributor_list.append(info)
