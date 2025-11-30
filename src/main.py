@@ -40,10 +40,8 @@ from src.core.project_contribution_log import (
     rank_projects_from_log,
 )
 from src.core.alternate_skill_extractor import run_skill_extraction
-
-
+from src.core.alternate_skill_extractor import pretty_dump
 from src.utils import pretty_print_json
-
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
 
@@ -185,7 +183,7 @@ def analyze_project_cli(
         metadata_path=str(metadata_json_path),
         output_path=str(skills_output_file)
     )
-    skills_output_file.write_text(json.dumps(skills_result, indent=2))
+    pretty_dump(skills_result, skills_output_file)
 
     # complexity
     (project_dir / "complexity.json").write_text(
@@ -293,7 +291,7 @@ def browse(
         data = json.loads(selected_file.read_text())
         # typer.echo(json.dumps(data, indent=2))
         # Bruh why is Python like this?
-        pretty_print_json.pretty_print_json(selected_file.name, data, raw)
+        pretty_print_json.pretty_print_json(selected_file, data, raw)
     except Exception as e:
         typer.secho(f"Error reading JSON: {e}", fg=typer.colors.RED)
 
