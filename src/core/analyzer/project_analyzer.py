@@ -2,10 +2,13 @@ from __future__ import annotations
 import os
 import json
 from collections import defaultdict
+from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 from git import Repo, InvalidGitRepositoryError
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Set, Tuple
 from .code_complexity_analyzer import (
     FunctionMetrics,
     analyze_file,
@@ -14,7 +17,8 @@ from .code_complexity_analyzer import (
 
 
 # Git/Collaboration Analysis Functions
-def _extract_base_email(email):
+@lru_cache(maxsize=1024)  # Cache email processing results
+def _extract_base_email(email: str) -> str:
     """Extract the base email from GitHub noreply formats."""
     email = email.lower().strip()
     if '@users.noreply.github.com' in email:
@@ -28,9 +32,13 @@ def _extract_base_email(email):
     return email
 
 
-def _extract_username(name, emails):
+@lru_cache(maxsize=512)  # Cache username extraction results
+def _extract_username(name: str, emails_tuple: Tuple[str, ...]) -> str:
     """Extract a reasonable username from name and email information."""
     # Priority order: GitHub username from noreply email, email username, cleaned name
+    
+    # Convert tuple back to list for processing (needed for caching)
+    emails = list(emails_tuple)
     
     # Try to extract GitHub username from noreply emails
     for email in emails:
@@ -63,18 +71,28 @@ def _extract_username(name, emails):
     return "unknown"
 
 
-def _should_merge_contributors(contrib1, contrib2):
-    """
-    Determine if two contributors should be merged based on various heuristics.
-    """
-    name1, name2 = contrib1['name'].lower(), contrib2['name'].lower()
-    emails1 = set(contrib1['all_emails'])
-    emails2 = set(contrib2['all_emails'])
+@lru_cache(maxsize=256)  # Cache merge decisions
+def _should_merge_contributors_cached(name1: str, name2: str, emails1_tuple: Tuple[str, ...], emails2_tuple: Tuple[str, ...]) -> bool:
+    """Cached version of contributor merge detection."""
+    emails1 = set(emails1_tuple)
+    emails2 = set(emails2_tuple)
+    
+    # Quick check: if any emails match exactly, merge
+    if emails1.intersection(emails2):
+        return True
     
     # Extract base emails for comparison
     base_emails1 = {_extract_base_email(e) for e in emails1}
     base_emails2 = {_extract_base_email(e) for e in emails2}
     
+    # Quick base email intersection check
+    if base_emails1.intersection(base_emails2):
+        return True
+        
+    return _detailed_merge_check(name1, name2, emails1, emails2, base_emails1, base_emails2)
+
+def _detailed_merge_check(name1: str, name2: str, emails1: Set[str], emails2: Set[str], base_emails1: Set[str], base_emails2: Set[str]) -> bool:
+    """Detailed merge checking logic separated for performance."""
     # Rule 1: Exact same real email address (non-noreply)
     real_emails1 = {e for e in base_emails1 if '@users.noreply.github.com' not in e}
     real_emails2 = {e for e in base_emails2 if '@users.noreply.github.com' not in e}
@@ -162,6 +180,16 @@ def _should_merge_contributors(contrib1, contrib2):
     return False
 
 
+def _should_merge_contributors(contrib1: dict, contrib2: dict) -> bool:
+    """Wrapper function to maintain API compatibility with caching."""
+    name1 = contrib1['name'].lower()
+    name2 = contrib2['name'].lower() 
+    emails1_tuple = tuple(sorted(contrib1['all_emails']))
+    emails2_tuple = tuple(sorted(contrib2['all_emails']))
+    
+    return _should_merge_contributors_cached(name1, name2, emails1_tuple, emails2_tuple)
+
+
 def _merge_contributors(primary, secondary):
     """
     Merge two contributor records, keeping the primary as base.
@@ -192,7 +220,7 @@ def _merge_contributors(primary, secondary):
     return primary
 
 
-def analyze_contributors(project_path=".", use_all_branches=False):
+def analyze_contributors(project_path=".", use_all_branches=False, max_commits: Optional[int] = None, include_history=True):
     """
     Analyze commit history for all contributors.
     Groups contributors by normalized identity to avoid duplicates (noreply vs real email, name variations).
@@ -201,12 +229,22 @@ def analyze_contributors(project_path=".", use_all_branches=False):
     Includes:
         - total commits
         - percent of total commits
-        - commit history
+        - commit history (optional for performance)
         - lines added / deleted
         - files modified
+        
+    Args:
+        project_path: Path to git repository
+        use_all_branches: Whether to analyze all branches
+        max_commits: Maximum commits to process (None for all)
+        include_history: Whether to include detailed commit history (memory intensive)
     """
-    print(f"📊 Starting contributor analysis for: {project_path}")
+    start_time = time.time()
+    print(f"⚡ Starting optimized contributor analysis for: {project_path}")
     print(f"🌳 Branch scope: {'All branches' if use_all_branches else 'Current branch only'}")
+    if max_commits:
+        print(f"🔢 Max commits limit: {max_commits:,}")
+    print(f"📝 Include history: {'Yes' if include_history else 'No (performance mode)'}")
 
     try:
         repo = Repo(project_path)
@@ -222,26 +260,48 @@ def analyze_contributors(project_path=".", use_all_branches=False):
     contributor_emails = defaultdict(set)  # Track all emails per contributor
     total_commits_processed = 0
     bots_skipped = 0
+    
+    # Pre-compile bot detection pattern for performance
+    bot_indicators = {"[bot]", "bot@", "noreply@github.com", "dependabot"}
 
     # NOTE: By default, it will get the commits from only the current branch HEAD. If you want to get all commits,
     # input -all instead. So it would be, `repo.iter_commits('--all')`
-    print(f"🔍 Starting commit history analysis...")
+    print(f"🔍 Starting optimized commit history analysis...")
 
     commit_range = "--all" if use_all_branches else None
+    
+    # Batch processing for better performance
+    batch_size = 100
+    commits_batch = []
 
     try:
         commit_range = "--all" if use_all_branches else None
-        for commit in repo.iter_commits(commit_range):
+        commit_iter = repo.iter_commits(commit_range)
+        
+        # Apply max_commits limit if specified
+        if max_commits:
+            from itertools import islice
+            commit_iter = islice(commit_iter, max_commits)
+            
+        for commit in commit_iter:
             total_commits_processed += 1
+            
+            # Progress reporting every 100 commits (reduced frequency)
+            if total_commits_processed % 100 == 0:
+                elapsed = time.time() - start_time
+                rate = total_commits_processed / elapsed
+                print(f"  ⚡ Processed {total_commits_processed:,} commits ({rate:.1f}/sec), found {len(contributors)} unique contributors")
+                
+            # Early exit if max_commits reached
+            if max_commits and total_commits_processed >= max_commits:
+                print(f"  🔢 Reached max commits limit: {max_commits:,}")
+                break
+
             raw_name = commit.author.name.strip()
             raw_email = commit.author.email.strip().lower()
 
-            # Progress reporting every 50 commits
-            if total_commits_processed % 50 == 0:
-                print(f"  📊 Processed {total_commits_processed} commits, found {len(contributors)} unique contributors")
-
-            # Skip bots
-            if "[bot]" in raw_name.lower():
+            # Optimized bot detection
+            if any(indicator in raw_name.lower() or indicator in raw_email for indicator in bot_indicators):
                 bots_skipped += 1
                 continue
 
@@ -280,19 +340,20 @@ def analyze_contributors(project_path=".", use_all_branches=False):
                     "deletions", 0
                 )
 
-                # Commit history entry
-                contributors[identity_key]["history"].append(
-                    {
-                        "hash": commit.hexsha,
-                        "message": commit.message.strip(),
-                        "timestamp": commit.committed_date,
-                        "files_changed": list(stats.files.keys()),
-                        "insertions": stats.total.get("insertions", 0),
-                        "deletions": stats.total.get("deletions", 0),
-                        "author_name": raw_name,
-                        "author_email": raw_email,
-                    }
-                )
+                # Commit history entry (only if requested for memory efficiency)
+                if include_history:
+                    contributors[identity_key]["history"].append(
+                        {
+                            "hash": commit.hexsha,
+                            "message": commit.message.strip(),
+                            "timestamp": commit.committed_date,
+                            "files_changed": list(stats.files.keys()),
+                            "insertions": stats.total.get("insertions", 0),
+                            "deletions": stats.total.get("deletions", 0),
+                            "author_name": raw_name,
+                            "author_email": raw_email,
+                        }
+                    )
             except Exception as stats_error:
                 print(
                     f"[WARN] Error getting stats for commit {commit.hexsha}: {stats_error}"
@@ -317,8 +378,10 @@ def analyze_contributors(project_path=".", use_all_branches=False):
         )
         return []
 
+    commit_analysis_time = time.time() - start_time
     print(f"✅ Commit analysis complete:")
-    print(f"  📊 Total commits processed: {total_commits_processed}")
+    print(f"  📊 Total commits processed: {total_commits_processed:,} in {commit_analysis_time:.2f}s")
+    print(f"  ⚡ Processing rate: {total_commits_processed/commit_analysis_time:.1f} commits/sec")
     print(f"  🤖 Bot commits skipped: {bots_skipped}")
     print(f"  👥 Initial contributors found: {len(contributors)}")
 
@@ -379,8 +442,8 @@ def analyze_contributors(project_path=".", use_all_branches=False):
         # Remove duplicates and sort emails for consistency
         info["all_emails"] = sorted(list(set(info["all_emails"])))
         
-        # Extract username and determine primary email
-        username = _extract_username(info["name"], info["all_emails"])
+        # Extract username and determine primary email (convert to tuple for caching)
+        username = _extract_username(info["name"], tuple(info["all_emails"]))
         
         # Choose primary email (prefer real emails over GitHub noreply)
         real_emails = [e for e in info["all_emails"] if '@users.noreply.github.com' not in e]
@@ -428,18 +491,32 @@ def analyze_contributors(project_path=".", use_all_branches=False):
 
         contributor_list.append(contributor_output)
 
-    print(f"✅ Contributor analysis complete: {len(contributor_list)} contributors processed\n")
+    total_time = time.time() - start_time
+    print(f"✅ Contributor analysis complete: {len(contributor_list)} contributors processed")
+    print(f"⏱️  Total analysis time: {total_time:.2f}s")
+    print(f"🚀 Performance: {total_commits_processed/total_time:.1f} commits/sec\n")
     return contributor_list
 
 
-def calculate_project_stats(project_path, file_list):
+def calculate_project_stats(project_path, file_list, include_contributors=True, max_commits=None):
     """
     Given the project root (with .git) and the file metadata list,
     compute full project-level statistics.
+    
+    Args:
+        project_path: Path to project root
+        file_list: List of file metadata
+        include_contributors: Whether to analyze contributors (can be slow)
+        max_commits: Maximum commits to process for contributor analysis
     """
-    print(f"📈 Calculating comprehensive project statistics...")
+    start_time = time.time()
+    print(f"⚡ Calculating optimized project statistics...")
     print(f"📂 Project path: {project_path}")
-    print(f"📊 File list contains: {len(file_list)} files")
+    print(f"📊 File list contains: {len(file_list):,} files")
+    if not include_contributors:
+        print(f"⚠️  Contributors analysis: DISABLED (performance mode)")
+    elif max_commits:
+        print(f"📊 Max commits for analysis: {max_commits:,}")
 
     # File Stats
     print(f"  🗋 Computing file statistics...")
@@ -470,12 +547,24 @@ def calculate_project_stats(project_path, file_list):
         duration_days = 0
         print(f"    ⚠️  Unable to calculate duration (missing timestamps)")
 
-    # Contributors
-    # For this, we can just analyze the current branch. Set `use_all_branches=True` if all branches need the commit history
-    print(f"\n👥 Analyzing project collaboration...")
-    contributors = analyze_contributors(project_path)
-    is_collaborative = len(contributors) > 1
-    print(f"  🤝 Collaborative project: {'Yes' if is_collaborative else 'No'} ({len(contributors)} contributors)")
+    # Contributors (conditional analysis for performance)
+    if include_contributors:
+        # For this, we can just analyze the current branch. Set `use_all_branches=True` if all branches need the commit history
+        print(f"\n👥 Analyzing project collaboration...")
+        contributor_start = time.time()
+        contributors = analyze_contributors(
+            project_path, 
+            use_all_branches=False, 
+            max_commits=max_commits,
+            include_history=False  # Skip history for performance in stats calculation
+        )
+        contributor_time = time.time() - contributor_start
+        is_collaborative = len(contributors) > 1
+        print(f"  🤝 Collaborative project: {'Yes' if is_collaborative else 'No'} ({len(contributors)} contributors in {contributor_time:.2f}s)")
+    else:
+        contributors = []
+        is_collaborative = False
+        print(f"\n👥 Skipping collaboration analysis for performance...")
 
     # Final Metrics
     metrics = {
@@ -486,8 +575,11 @@ def calculate_project_stats(project_path, file_list):
         "collaborative": is_collaborative,
     }
 
+    total_time = time.time() - start_time
     print(f"\n✅ Project statistics calculation complete!")
-    print(f"  🗊 Summary: {total_files} files, {duration_days} days, {len(contributors)} contributors\n")
+    print(f"  🗊 Summary: {total_files:,} files, {duration_days} days, {len(contributors)} contributors")
+    print(f"  ⏱️  Total analysis time: {total_time:.2f}s")
+    print(f"  🚀 File processing rate: {total_files/total_time:.1f} files/sec\n")
     
     return metrics
 
@@ -562,9 +654,21 @@ def _should_analyze(path: Path) -> bool:
     return True
 
 
-def analyze_project(root: Path) -> ProjectAnalysisResult:
-    print(f"📊 Starting project code complexity analysis...")
+def analyze_project(root: Path, max_workers: int = 4, max_files: Optional[int] = None) -> ProjectAnalysisResult:
+    """
+    Analyze project code complexity with performance optimizations.
+    
+    Args:
+        root: Path to analyze
+        max_workers: Number of parallel workers for file analysis
+        max_files: Maximum files to analyze (None for all)
+    """
+    start_time = time.time()
+    print(f"⚡ Starting optimized project code complexity analysis...")
     print(f"📂 Target directory: {root}")
+    print(f"👥 Parallel workers: {max_workers}")
+    if max_files:
+        print(f"📊 Max files limit: {max_files:,}")
     
     root = root.resolve()
     functions: List[FunctionMetrics] = []
@@ -582,9 +686,45 @@ def analyze_project(root: Path) -> ProjectAnalysisResult:
             files_skipped += 1
             print(f"  ⚠️  File skipped (not supported or ignored)")
     else:
-        print(f"📁 Analyzing directory recursively...")
+        print(f"📁 Analyzing directory with parallel processing...")
+        
+        # Collect all files to analyze first
+        files_to_analyze = []
         for path in root.rglob("*"):
             if _should_analyze(path):
+                files_to_analyze.append(path)
+                if max_files and len(files_to_analyze) >= max_files:
+                    print(f"  📊 Reached max files limit: {max_files:,}")
+                    break
+            else:
+                files_skipped += 1
+        
+        print(f"  📋 Found {len(files_to_analyze)} files to analyze, {files_skipped} skipped")
+        
+        # Process files in parallel
+        if max_workers > 1 and len(files_to_analyze) > 1:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_path = {executor.submit(analyze_file, path): path for path in files_to_analyze}
+                
+                for future in as_completed(future_to_path):
+                    path = future_to_path[future]
+                    try:
+                        file_functions = future.result()
+                        functions.extend(file_functions)
+                        files_processed += 1
+                        
+                        # Progress reporting every 20 files
+                        if files_processed % 20 == 0:
+                            elapsed = time.time() - start_time
+                            rate = files_processed / elapsed
+                            print(f"  ⚡ Processed {files_processed}/{len(files_to_analyze)} files ({rate:.1f}/sec), found {len(functions)} functions")
+                            
+                    except Exception as e:
+                        print(f"  ❌ Error analyzing {path}: {e}")
+                        files_skipped += 1
+        else:
+            # Sequential processing for small sets or single worker
+            for path in files_to_analyze:
                 try:
                     file_functions = analyze_file(path)
                     functions.extend(file_functions)
@@ -592,16 +732,18 @@ def analyze_project(root: Path) -> ProjectAnalysisResult:
                     
                     # Progress reporting every 10 files
                     if files_processed % 10 == 0:
-                        print(f"  📊 Processed {files_processed} files, found {len(functions)} functions")
+                        elapsed = time.time() - start_time
+                        rate = files_processed / elapsed
+                        print(f"  📊 Processed {files_processed}/{len(files_to_analyze)} files ({rate:.1f}/sec), found {len(functions)} functions")
                         
                 except Exception as e:
                     print(f"  ❌ Error analyzing {path}: {e}")
                     files_skipped += 1
-            else:
-                files_skipped += 1
 
+    analysis_time = time.time() - start_time
     print(f"\n✅ Code complexity analysis complete!")
-    print(f"  📄 Files processed: {files_processed}")
+    print(f"  📄 Files processed: {files_processed} in {analysis_time:.2f}s")
+    print(f"  ⚡ Processing rate: {files_processed/analysis_time:.1f} files/sec")
     print(f"  ⚠️  Files skipped: {files_skipped}")
     print(f"  🎯 Total functions found: {len(functions)}")
     if functions:
@@ -609,6 +751,7 @@ def analyze_project(root: Path) -> ProjectAnalysisResult:
         max_complexity = max(f.cyclomatic_complexity for f in functions)
         print(f"  📈 Average complexity: {avg_complexity:.2f}")
         print(f"  🔥 Maximum complexity: {max_complexity}")
+        print(f"  🚀 Function analysis rate: {len(functions)/analysis_time:.1f} functions/sec")
     print(f"")
 
     return ProjectAnalysisResult(
