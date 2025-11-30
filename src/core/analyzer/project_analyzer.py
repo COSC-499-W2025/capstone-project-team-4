@@ -28,6 +28,41 @@ def _extract_base_email(email):
     return email
 
 
+def _extract_username(name, emails):
+    """Extract a reasonable username from name and email information."""
+    # Priority order: GitHub username from noreply email, email username, cleaned name
+    
+    # Try to extract GitHub username from noreply emails
+    for email in emails:
+        if '@users.noreply.github.com' in email.lower():
+            noreply_part = email.split('@users.noreply.github.com')[0]
+            if '+' in noreply_part:
+                # Format: "12345+username@users.noreply.github.com"
+                potential_username = noreply_part.split('+', 1)[1]
+                if '@' not in potential_username and potential_username.strip():
+                    return potential_username.strip()
+            else:
+                # Format: "username@users.noreply.github.com"
+                if noreply_part.strip() and not noreply_part.isdigit():
+                    return noreply_part.strip()
+    
+    # Try to extract username from regular email addresses
+    for email in emails:
+        if '@' in email and '@users.noreply.github.com' not in email.lower():
+            username_part = email.split('@')[0]
+            if username_part.strip():
+                return username_part.strip()
+    
+    # Fall back to cleaned name (remove spaces, convert to lowercase)
+    if name:
+        cleaned_name = name.lower().replace(' ', '').replace('-', '').replace('_', '')
+        if cleaned_name:
+            return cleaned_name
+    
+    # Final fallback
+    return "unknown"
+
+
 def _should_merge_contributors(contrib1, contrib2):
     """
     Determine if two contributors should be merged based on various heuristics.
@@ -344,37 +379,54 @@ def analyze_contributors(project_path=".", use_all_branches=False):
         # Remove duplicates and sort emails for consistency
         info["all_emails"] = sorted(list(set(info["all_emails"])))
         
-        # Convert defaultdict to normal dict for JSON
-        files_touched = len(info["files_modified"])
-        info["files_modified"] = dict(info["files_modified"])
+        # Extract username and determine primary email
+        username = _extract_username(info["name"], info["all_emails"])
         
-        # Add metadata to identify merged contributors
-        info["is_merged_contributor"] = len(info.get('all_emails', [])) > 1
-        info["email_count"] = len(info.get('all_emails', []))
+        # Choose primary email (prefer real emails over GitHub noreply)
+        real_emails = [e for e in info["all_emails"] if '@users.noreply.github.com' not in e]
+        primary_email = real_emails[0] if real_emails else info["all_emails"][0]
+        
+        # Restructure the output to have name, username, email as primary fields
+        contributor_output = {
+            "name": info["name"],
+            "username": username,
+            "email": primary_email,
+            "commits": commit_count,
+            "percent": info["percent"],
+            "total_lines_added": info["total_lines_added"],
+            "total_lines_deleted": info["total_lines_deleted"],
+            "files_modified": dict(info["files_modified"]),
+            "history": info["history"],
+            # Additional metadata for debugging/analysis
+            "all_emails": info["all_emails"],
+            "is_merged_contributor": len(info.get('all_emails', [])) > 1,
+            "email_count": len(info.get('all_emails', []))
+        }
+        
+        # Convert defaultdict to normal dict for JSON
+        files_touched = len(contributor_output["files_modified"])
         
         # Categorize email types for better understanding
         real_emails = [e for e in info.get('all_emails', []) if '@users.noreply.github.com' not in e]
         github_emails = [e for e in info.get('all_emails', []) if '@users.noreply.github.com' in e]
-        info["real_emails"] = real_emails
-        info["github_noreply_emails"] = github_emails
+        contributor_output["real_emails"] = real_emails
+        contributor_output["github_noreply_emails"] = github_emails
         
         # Enhanced output showing merged contributor details
-        email_count = len(info['all_emails'])
-        email_summary = f"{email_count} email(s)" if email_count > 1 else info['primary_email']
-        print(f"  👤 {info['name']}: {commit_count} commits ({info['percent']}%), {files_touched} files touched")
-        print(f"    📧 Emails: {email_summary}")
+        email_count = len(contributor_output['all_emails'])
+        email_summary = f"{email_count} email(s)" if email_count > 1 else contributor_output['email']
+        print(f"  👤 {contributor_output['name']} (@{contributor_output['username']}): {commit_count} commits ({contributor_output['percent']}%), {files_touched} files touched")
+        print(f"    📧 Primary email: {contributor_output['email']}")
         if email_count > 1:
-            print(f"       🔗 Merged identities: {sorted(info['all_emails'])}")
+            print(f"       🔗 All emails: {sorted(contributor_output['all_emails'])}")
             # Show which emails are real vs GitHub noreply
-            real_emails = [e for e in info['all_emails'] if '@users.noreply.github.com' not in e]
-            noreply_emails = [e for e in info['all_emails'] if '@users.noreply.github.com' in e]
-            if real_emails:
-                print(f"       ✉️  Real emails: {real_emails}")
-            if noreply_emails:
-                print(f"       🐙 GitHub emails: {noreply_emails}")
-        print(f"    ➕ Lines: +{info['total_lines_added']} / -{info['total_lines_deleted']}")
+            if contributor_output['real_emails']:
+                print(f"       ✉️  Real emails: {contributor_output['real_emails']}")
+            if contributor_output['github_noreply_emails']:
+                print(f"       🐙 GitHub emails: {contributor_output['github_noreply_emails']}")
+        print(f"    ➕ Lines: +{contributor_output['total_lines_added']} / -{contributor_output['total_lines_deleted']}")
 
-        contributor_list.append(info)
+        contributor_list.append(contributor_output)
 
     print(f"✅ Contributor analysis complete: {len(contributor_list)} contributors processed\n")
     return contributor_list
