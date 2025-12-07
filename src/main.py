@@ -76,13 +76,10 @@ def analyze_project_cli(
         "--include-files/--no-include-files",
         help="Include full file list (metadata)",
     ),
-    out: Optional[Path] = typer.Option(
-        None, "--out", "-o", help="Output directory (default: ./outputs)"
-    ),
 ):
     config_manager.require_consent()
 
-    out_dir = (out or Path.cwd() / "outputs").resolve()
+    out_dir = (Path.cwd() / "outputs").resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     path = path.resolve()
@@ -204,7 +201,7 @@ def analyze_project_cli(
 
     if report.get("contributors") and len(report["contributors"]) > 0:
         (project_dir / "contributors.json").write_text(
-            json.dumps(report["contributors"], indent=2)
+            json.dumps(complexity_dict, indent=2)
         )
 
     (project_dir / "skill_extract.json").write_text(
@@ -549,7 +546,7 @@ def skill_timeline(project_path: str):
 
 @app.command("menu", help="Interactive menu to access common features")
 def menu() -> None:
-    # Check consent; if missing → prompt user
+    # Check consent; if missing -> prompt user to consent 
     if not config_manager.has_consent():
         typer.secho(
             "Consent is required to use the interactive menu.",
@@ -559,7 +556,7 @@ def menu() -> None:
             config_manager.set_consent(True)
             typer.secho("Consent granted.\n", fg=typer.colors.GREEN)
         else:
-            typer.secho("Consent not granted. Exiting menu.\n", fg=typer.colors.RED)
+            typer.secho("Consent not granted. Exiting menu.\n")
             return
     
     while True: 
