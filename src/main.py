@@ -54,8 +54,6 @@ from src.core.alternate_skill_extractor import pretty_dump
 from src.utils import pretty_print_json
 from src.core.alternate_skill_extractor import run_skill_extraction
 
-from src.core.aggregate_outputs import aggregate_outputs, format_markdown, _serialize_projects
-
 
 app = typer.Typer(help="Mining Digital Work Artifacts CLI")
 
@@ -375,16 +373,25 @@ def consent(
     if grant and revoke:
         print("Error: choose either --grant OR --revoke.")
         raise typer.Exit(code=2)
-
+    changed = False  
     if grant:
         config_manager.set_consent(True)
         print("Consent granted.")
+        changed = True
     if revoke:
         config_manager.set_consent(False)
         print("Consent revoked.")
+        changed = True
     if external is not None:
         config_manager.set_external_allowed(external)
         print(f"External allowed = {external}")
+        changed = True
+    if changed:
+        try:
+            config_manager.bump_notice_version()
+            print("⚙️ Updated notice version.")
+        except Exception as e:
+            print(f"Warning: could not update notice version ({e})")
     print("\nCurrent configuration:")
     print(config_manager.read_cfg())
 
@@ -540,30 +547,174 @@ def skill_timeline(project_path: str):
             typer.echo(f"   - {skill} ({count})")
         typer.echo("")  # newline per date
 
+@app.command("menu", help="Interactive menu to access common features")
+def menu() -> None:
+    # Check consent; if missing → prompt user
+    if not config_manager.has_consent():
+        typer.secho(
+            "Consent is required to use the interactive menu.",
+            fg=typer.colors.YELLOW,
+        )
+        if typer.confirm("Grant consent now?", default=True):
+            config_manager.set_consent(True)
+            typer.secho("Consent granted.\n", fg=typer.colors.GREEN)
+        else:
+            typer.secho("Consent not granted. Exiting menu.\n", fg=typer.colors.RED)
+            return
+    
+    while True: 
+        typer.secho(" \n Digital Artifact Mining - Interactive Menu \n", fg=typer.colors.CYAN, bold=True)
+        typer.echo ("="*40)
+        typer.echo(" [1] Analyze a project")
+        typer.echo(" [2] Summarize top ranked projects")
+        typer.echo(" [3] Browse previous outputs")
+        typer.echo(" [4] Rank contributions within a project")
+        typer.echo(" [5] Rank projects for a contributor (from log)")
+        typer.echo(" [6] Show skill timeline for latest analysis")
+        typer.echo(" [7] Delete a generated output")
+        typer.echo(" [8] Show status / manage consent")
+        typer.echo(" [9] Info (list commands)")
+        typer.echo(" [q] Quit")
+        typer.echo("")
+        
+        choice = (typer.prompt('Enter choice (1–9 or "q" to quit)', default="q").strip().lower())
 
-@app.command("aggregate-outputs")
-def aggregate_outputs_cli(
-    outputs: Path = typer.Argument("outputs", help="Path to outputs directory"),
-    json_output: bool = typer.Option(False, "--json", help="Print JSON instead of Markdown"),
-    out: Optional[Path] = typer.Option(None, "--out", "-o", help="Save output to file instead of printing"),
-):
-    """
-    Aggregate all analyzed project outputs into a dashboard summary.
-    """
-    projects = aggregate_outputs(outputs)
+        if choice in ("q"):
+            typer.secho("Exiting menu.", fg=typer.colors.CYAN)
+            break
 
-    if json_output:
-        serial = _serialize_projects(projects)
-        content = json.dumps(serial, ensure_ascii=False, indent=2)
-    else:
-        content = format_markdown(projects)
+        elif choice == "1":
+                path_str = typer.prompt("Enter path to project directory or ZIP file")
+                include_files = typer.confirm(
+                "Include full file list (metadata.json)?", default=True
+            )
 
-    if out:
-        out.write_text(content, encoding="utf-8")
-        typer.secho(f" Aggregated report saved to: {out}", fg="green")
-    else:
-        typer.echo(content)
+                path = Path(path_str).expanduser()
+
+                try:
+                    analyze_project_cli(path=path, include_files=include_files)
+                except SystemExit:
+                    pass
+
+        elif choice == "2":
+            sort_str = typer.prompt(
+                "Sort by (comprehensive/complexity/contributions/skills/lines_of_code/file_count/recent)",
+                default="comprehensive",
+            )
+            limit_str = typer.prompt(
+                "Number of projects to show (blank = 10)", default="10"
+            )
+            try:
+                limit = int(limit_str.strip()) if limit_str.strip() else 10
+            except ValueError:
+                typer.secho("Invalid number, defaulting to 10.", fg=typer.colors.YELLOW)
+                limit = 10
+
+            try:
+                summarize(sort_by=sort_str, limit=limit)
+            except SystemExit:
+                pass
+                
+        elif choice == "3":
+            raw = typer.confirm("Show raw JSON (instead of pretty view)?", default=False)
+            try:
+                browse(out=None, raw=raw)
+            except SystemExit:
+                pass
+        
+        elif choice == "4": # Using name and email will yield different outputs because name for example Jaiden/jaidenlo@gmail.com is tied together but Slimosaurus is linked to the noreply email alias
+            project_str = typer.prompt(
+                "Path to project directory containing a .git folder"
+            )
+            identifier = typer.prompt("Contributor identifier (name or email)")
+            use_email = typer.confirm("Is this an email/name?", default=True)
+
+            project = Path(project_str).expanduser()
+            name = None
+            email = None
+            if use_email:
+                email = identifier
+            else:
+                name = identifier
+
+            try:
+                rank_contributions(project=project, name=name, email=email)
+            except SystemExit:
+                pass
+
+        elif choice == "5":
+            identifier = typer.prompt("Contributor identifier (name or email)")
+            use_email = typer.confirm("Is this an email address?", default=True)
+            top_n_str = typer.prompt(
+                "Show top N projects (blank = all)", default=""
+            )
+            top_n = None
+            if top_n_str.strip():
+                try:
+                    top_n = int(top_n_str.strip())
+                except ValueError:
+                    typer.secho(
+                        "Invalid number, showing all projects.", fg=typer.colors.YELLOW
+                    )
+
+            name = None
+            email = None
+            if use_email:
+                email = identifier
+            else:
+                name = identifier
+
+            try:
+                rank_projects_from_log_cli(name=name, email=email, top_n=top_n)
+            except SystemExit:
+                pass
+
+        
+        elif choice == "6":
+            project_str = typer.prompt(
+                "Path to project directory (or folder name under ./outputs)"
+            )
+            try:
+                skill_timeline(project_path=project_str)
+            except SystemExit:
+                pass
+
+        elif choice == "7":
+            out_str = typer.prompt(
+                "Outputs directory (blank = ./outputs)", default=""
+            )
+            out = Path(out_str).expanduser() if out_str else None
+            try:
+                delete_output(out=out)
+            except SystemExit:
+                pass
+
+        elif choice == "8": 
+            typer.echo()
+            status()
+            typer.echo()
+            if typer.confirm("Change consent settings?", default=False):
+                grant = typer.confirm("Grant consent?", default=False)
+                revoke = False
+                if not grant:
+                    revoke = typer.confirm("Revoke consent?", default=False)
+                external = typer.confirm(
+                    "Allow external services (if any are used)?", default=True
+                )
+                consent(grant=grant, revoke=revoke, external=external)
+
+        elif choice == "9":
+            info()
+
+
+        else:
+            typer.secho(
+                "Invalid choice. Please pick 1–9 or q.",
+                fg=typer.colors.RED,
+            )
 
 if __name__ == "__main__":
     print("Running in virtual env:", check_virtual_env())
     app()
+
+
