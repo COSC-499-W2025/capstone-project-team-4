@@ -177,8 +177,8 @@ docker compose down
 
 ### 🔬 Technical Documentation
 
-- [🔄 Alternative Skill Extraction Pipeline](docs/skill_extraction_alternative_pipeline.md)
-- [🗺️ Skill Mapping](docs/skill_mapping.md)
+- [🔄 Alternative Skill Extraction Pipeline](docs/plan/skill_extraction_alternative_pipeline.md)
+- [🗺️ Skill Mapping](docs/plan/skill_mapping.md)
 
 ## 🛠️ Technology Stack
 
