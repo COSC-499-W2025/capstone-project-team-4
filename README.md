@@ -29,9 +29,8 @@ This project provides a project analysis system that scans GitHub repositories o
 
 ### Key Features
 
-- 🔍 **Comprehensive Code Analysis** - Analyzes multiple programming languages and frameworks
+- 🔍 **Comprehensive Analysis** - Analyzes multiple programming languages, frameworks and code complexity
 - 📊 **Contribution Tracking** - Identifies individual contributions and code patterns
-- 🛠️ **Language and Framework Detection** - Automatically detects languages, frameworks and technologies used
 - 📝 **Resume Generation** - Creates professional resume items from code contributions
 - 🔐 **Privacy-Focused** - Processes data locally with user consent mechanisms
 - 🐳 **Docker Support** - Easy deployment with containerization
