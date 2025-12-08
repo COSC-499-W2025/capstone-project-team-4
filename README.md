@@ -47,7 +47,7 @@ _Figure 1: Overall System Architecture_
 
 _Figure 2: Data Flow Diagram (Level 1)_
 
-![Analysis Pipeline](docs/design/Analysis%20Pipeline.png)
+![Analysis Pipeline](docs\design\Analysis-Pipeline.png)
 
 _Figure 3: Analysis Pipeline Flow_
 
