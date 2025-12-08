@@ -170,6 +170,7 @@ docker compose down
 ### 📋 Project Planning
 
 - [💡 Project Proposal](docs/plan/COSC%20499-Team-4-Project-Proposal.md) - Initial project scope and vision
+- [🚩 Milestones](docs/plan/milestone.md) - Project milestone checklist
 - [📝 Individual Logs](docs/logs/) - Weekly individual progress logs
 - [👥 Team Logs](docs/logs/Team/) - Weekly team progress logs
 
