@@ -1,0 +1,203 @@
+[
+    {
+        "skill": "Core PowerShell Scripting",
+        "identifiers": [
+            "\\bfunction\\b",
+            "\\bparam\\b",
+            "\\bBegin\\b",
+            "\\bProcess\\b",
+            "\\bEnd\\b",
+            "\\bWrite-Host\\b",
+            "\\bWrite-Output\\b",
+            "\\$PSVersionTable",
+            "\\$args"
+        ]
+    },
+    {
+        "skill": "Objects, Pipelining & Core Cmdlets",
+        "identifiers": [
+            "\\bGet-\\w+",
+            "\\bSet-\\w+",
+            "\\bNew-\\w+",
+            "\\bRemove-\\w+",
+            "\\bSelect-Object\\b",
+            "\\bWhere-Object\\b",
+            "\\bForEach-Object\\b",
+            "\\bSort-Object\\b",
+            "\\bGroup-Object\\b",
+            "\\bFormat-Table\\b",
+            "\\bFormat-List\\b"
+        ]
+    },
+    {
+        "skill": "Variables & Operators",
+        "identifiers": [
+            "\\$[A-Za-z_][A-Za-z0-9_]*",
+            "\\b-contains\\b",
+            "\\b-notcontains\\b",
+            "\\b-like\\b",
+            "\\b-match\\b",
+            "\\b-notmatch\\b",
+            "\\bin\\b",
+            "\\b-split\\b"
+        ]
+    },
+    {
+        "skill": "Error Handling",
+        "identifiers": [
+            "\\btry\\b",
+            "\\bcatch\\b",
+            "\\bfinally\\b",
+            "\\bthrow\\b",
+            "\\bWrite-Error\\b",
+            "\\bErrorActionPreference\\b",
+            "\\bTrap\\b"
+        ]
+    },
+    {
+        "skill": "Modules & Importing",
+        "identifiers": [
+            "\\bImport-Module\\b",
+            "\\bGet-Module\\b",
+            "\\bInstall-Module\\b",
+            "\\bFind-Module\\b",
+            "\\bExport-ModuleMember\\b"
+        ]
+    },
+    {
+        "skill": "File System Automation",
+        "identifiers": [
+            "\\bGet-ChildItem\\b",
+            "\\bGet-Content\\b",
+            "\\bSet-Content\\b",
+            "\\bAdd-Content\\b",
+            "\\bCopy-Item\\b",
+            "\\bMove-Item\\b",
+            "\\bRemove-Item\\b",
+            "\\bNew-Item\\b",
+            "\\bTest-Path\\b"
+        ]
+    },
+    {
+        "skill": "Registry Automation",
+        "identifiers": [
+            "\\bGet-ItemProperty\\b",
+            "\\bSet-ItemProperty\\b",
+            "HKLM:",
+            "HKCU:",
+            "Registry::"
+        ]
+    },
+    {
+        "skill": "Networking & Web Requests",
+        "identifiers": [
+            "\\bTest-Connection\\b",
+            "\\bInvoke-WebRequest\\b",
+            "\\bInvoke-RestMethod\\b",
+            "\\bResolve-DnsName\\b",
+            "\\bTest-NetConnection\\b"
+        ]
+    },
+    {
+        "skill": "JSON, XML & Data Serialization",
+        "identifiers": [
+            "\\bConvertTo-Json\\b",
+            "\\bConvertFrom-Json\\b",
+            "\\bConvertTo-Xml\\b",
+            "\\bConvertFrom-Xml\\b",
+            "\\bConvertFrom-Csv\\b",
+            "\\bImport-Csv\\b"
+        ]
+    },
+    {
+        "skill": "Processes & Services",
+        "identifiers": [
+            "\\bGet-Process\\b",
+            "\\bStart-Process\\b",
+            "\\bStop-Process\\b",
+            "\\bGet-Service\\b",
+            "\\bStart-Service\\b",
+            "\\bStop-Service\\b",
+            "\\bRestart-Service\\b"
+        ]
+    },
+    {
+        "skill": "Scheduled Tasks",
+        "identifiers": [
+            "\\bRegister-ScheduledTask\\b",
+            "\\bGet-ScheduledTask\\b",
+            "\\bUnregister-ScheduledTask\\b",
+            "\\bSet-ScheduledTask\\b"
+        ]
+    },
+    {
+        "skill": "Security & Cryptography",
+        "identifiers": [
+            "\\bGet-Credential\\b",
+            "\\bConvertTo-SecureString\\b",
+            "\\bConvertFrom-SecureString\\b",
+            "\\bProtect-CmsMessage\\b",
+            "\\bUnprotect-CmsMessage\\b"
+        ]
+    },
+    {
+        "skill": "PowerShell Remoting (WinRM)",
+        "identifiers": [
+            "\\bEnter-PSSession\\b",
+            "\\bExit-PSSession\\b",
+            "\\bInvoke-Command\\b",
+            "\\bNew-PSSession\\b",
+            "\\bGet-PSSession\\b"
+        ]
+    },
+    {
+        "skill": "Active Directory",
+        "identifiers": [
+            "Import-Module\\s+ActiveDirectory",
+            "\\bGet-ADUser\\b",
+            "\\bGet-ADGroup\\b",
+            "\\bAdd-ADGroupMember\\b",
+            "\\bRemove-ADUser\\b"
+        ]
+    },
+    {
+        "skill": "Cloud Modules (Azure / AWS)",
+        "identifiers": [
+            "Az\\.",
+            "\\bGet-Az",
+            "\\bSet-Az",
+            "\\bNew-Az",
+            "AWS.Tools",
+            "\\bGet-EC2",
+            "\\bGet-S3"
+        ]
+    },
+    {
+        "skill": "Logging & Diagnostics",
+        "identifiers": [
+            "\\bWrite-Verbose\\b",
+            "\\bWrite-Debug\\b",
+            "\\bWrite-Information\\b",
+            "\\bStart-Transcript\\b",
+            "\\bStop-Transcript\\b"
+        ]
+    },
+    {
+        "skill": "Desired State Configuration (DSC)",
+        "identifiers": [
+            "\\bConfiguration\\b",
+            "\\bImport-DscResource\\b",
+            "\\bStart-DscConfiguration\\b",
+            "\\bGet-DscConfiguration\\b"
+        ]
+    },
+    {
+        "skill": "PowerShell Core (pwsh)",
+        "identifiers": [
+            "\\bpwsh\\b",
+            "\\$PSStyle",
+            "\\$IsCoreCLR",
+            "\\bForEach-Object -Parallel\\b"
+        ]
+    }
+]
