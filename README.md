@@ -76,6 +76,8 @@ docker compose down
 ## 📖 Documentation
 - [Contributing Guidelines](.github/CONTRIBUTING.md)
 - ## Revised Diagram Links
-- [Revised DFD Level 1](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/diagrams/docs/design/dfd-level-1-revised.png)
-- [Revised System Architecture](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/diagrams/docs/design/system-architecture-revised.png)
-- [New WBS Table](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/diagrams/docs/design/WBS)
+- [Revised DFD Level 1](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/docs/update_to_diagram/docs/design/dfd-level-1-revised.png)
+- [Revised System Architecture](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/docs/update_to_diagram/docs/design/SystemArchitectureDiagram.png)
+- [New WBS Table](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/docs/update_to_diagram/docs/design/WBS.txt)
+- [CLI Documentation](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/docs/update_to_diagram/docs/design/CLI%20Documentation.md)
+- [Team Contract](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/docs/update_to_diagram/docs/contract/CapstoneTeamContract.pdf)
