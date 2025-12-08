@@ -20,10 +20,10 @@ from src.core.database import (
     save_complexity,
     save_contributors,
     save_resume_skills,
-    save_resume_item,  
+    save_resume_item,
     assemble_report_from_db,
     get_latest_project_id_for_path,
-    get_skill_timeline_for_project
+    get_skill_timeline_for_project,
 )
 
 # Metadata / analysis imports
@@ -35,7 +35,7 @@ from src.core.project_analyzer import (
     calculate_project_stats,
 )
 from src.core.resume_skill_extractor import analyze_project_skills
-from src.core.resume_item_generator import generate_resume_item  
+from src.core.resume_item_generator import generate_resume_item
 
 from src.core.contribution_ranking import (
     rank_projects_for_contributor,
@@ -45,10 +45,7 @@ from src.core.project_contribution_log import (
     append_contribution_entry,
     rank_projects_from_log,
 )
-from src.core.project_summarizer import (
-    print_project_rankings,
-    SortCriteria
-)
+from src.core.project_summarizer import print_project_rankings, SortCriteria
 
 from src.core.alternate_skill_extractor import pretty_dump
 from src.utils import pretty_print_json
@@ -201,7 +198,7 @@ def analyze_project_cli(
 
     if report.get("contributors") and len(report["contributors"]) > 0:
         (project_dir / "contributors.json").write_text(
-            json.dumps(complexity_dict, indent=2)
+            json.dumps(report["contributors"], indent=2)
         )
 
     (project_dir / "skill_extract.json").write_text(
@@ -286,7 +283,10 @@ def browse(
     except Exception as e:
         typer.secho(f"Error reading JSON: {e}", fg="red")
 
-@app.command("delete-output") # Similar to browse, opens a directory selector that lets you select project & timestamp to delete 
+
+@app.command(
+    "delete-output"
+)  # Similar to browse, opens a directory selector that lets you select project & timestamp to delete
 def delete_output(
     out: Optional[Path] = typer.Option(
         None, "--out", "-o", help="Outputs directory (default: ./outputs)"
@@ -294,12 +294,12 @@ def delete_output(
 ):
     out_dir = (out or Path.cwd() / "outputs").resolve()
 
-    #Verify outputs folder exists
+    # Verify outputs folder exists
     if not out_dir.exists():
         typer.secho("outputs folder not found.")
         raise typer.Exit()
 
-    #Select the name of your project 
+    # Select the name of your project
     projects = [d for d in out_dir.iterdir() if d.is_dir()]
     if not projects:
         typer.secho(" No projects found.")
@@ -316,7 +316,7 @@ def delete_output(
         typer.secho("Invalid selection.")
         raise typer.Exit()
 
-    # Select timestamp you want 
+    # Select timestamp you want
     timestamps = [d for d in project.iterdir() if d.is_dir()]
     if not timestamps:
         typer.secho("No timestamped runs found for this project.")
@@ -324,8 +324,7 @@ def delete_output(
 
     timestamps.sort(key=lambda p: p.name)
 
-    typer.secho(
-        f"\n Select a timestamp to delete for {project.name}:\n")
+    typer.secho(f"\n Select a timestamp to delete for {project.name}:\n")
     for i, r in enumerate(timestamps, start=1):
         typer.echo(f"[{i}] {r.name}")
 
@@ -337,15 +336,14 @@ def delete_output(
         raise typer.Exit()
 
     # Confirm delete
-    typer.secho(
-        f"\n You are about to delete the output folder:\n  {run}\n")
+    typer.secho(f"\n You are about to delete the output folder:\n  {run}\n")
     confirm = typer.prompt("Type 'yes' to confirm deletion", default="no")
 
     if confirm.lower() != "yes":
         typer.secho("Deletion cancelled.")
         raise typer.Exit()
 
-    # Delete the selected run folder 
+    # Delete the selected run folder
     try:
         shutil.rmtree(run)
         typer.secho(f" Deleted portfolio output: {run}")
@@ -353,7 +351,6 @@ def delete_output(
         typer.secho("Failed to delete output folder.")
         typer.secho(f" Details: {e}")
         raise typer.Exit(code=1)
-
 
 
 @app.command("status")
@@ -370,7 +367,7 @@ def consent(
     if grant and revoke:
         print("Error: choose either --grant OR --revoke.")
         raise typer.Exit(code=2)
-    changed = False  
+    changed = False
     if grant:
         config_manager.set_consent(True)
         print("Consent granted.")
@@ -393,7 +390,7 @@ def consent(
     print(config_manager.read_cfg())
 
 
-@app.command("info",help="Show information about the CLI.")
+@app.command("info", help="Show information about the CLI.")
 def info() -> None:
     typer.echo("📊 Mining Digital Work Artifacts CLI")
     typer.echo("=" * 40)
@@ -403,27 +400,32 @@ def info() -> None:
     typer.echo("  consent           — Manage user consent")
     typer.echo("  status            — Show current settings")
     typer.echo("  info              — Show this screen")
-    typer.echo("  rank-contributions — Rank a contributor's impact within a Git project. python -m src.main rank-contributions <file_path> --name <contributor_name> OR --email <contributor_email> \n")
-    typer.echo("  rank-projects      — Show all analyzed projects for a contributor, ranked by contribution score. python -m src.main rank-projects <contributor_name> OR <contributor_email>  The name/email you use must be consistent when calling rank-projects\n")
-    typer.echo("  browse             — Show all analyzed projects sorted by project name and tiemstamp. ")
-    typer.echo("  delete-output      — Show all analyzed projects sorted by project name and timestamp, then user can delete specific analyzed timestamp. ") 
-   
+    typer.echo(
+        "  rank-contributions — Rank a contributor's impact within a Git project. python -m src.main rank-contributions <file_path> --name <contributor_name> OR --email <contributor_email> \n"
+    )
+    typer.echo(
+        "  rank-projects      — Show all analyzed projects for a contributor, ranked by contribution score. python -m src.main rank-projects <contributor_name> OR <contributor_email>  The name/email you use must be consistent when calling rank-projects\n"
+    )
+    typer.echo(
+        "  browse             — Show all analyzed projects sorted by project name and tiemstamp. "
+    )
+    typer.echo(
+        "  delete-output      — Show all analyzed projects sorted by project name and timestamp, then user can delete specific analyzed timestamp. "
+    )
 
 
 @app.command("summarize")
 def summarize(
     sort_by: SortCriteria = typer.Option(
-        "comprehensive", "--sort", "-s", 
-        help="Sort criteria: complexity, contributions, skills, lines_of_code, file_count, recent, comprehensive"
+        "comprehensive",
+        "--sort",
+        "-s",
+        help="Sort criteria: complexity, contributions, skills, lines_of_code, file_count, recent, comprehensive",
     ),
     limit: int = typer.Option(10, "--limit", "-l", help="Number of projects to show"),
 ):
     """Show top ranked projects with detailed analysis."""
     print_project_rankings(sort_by, limit)
-
-
-
-
 
 
 @app.command(
@@ -506,6 +508,8 @@ def rank_projects_from_log_cli(
             f"   Score: {score:.2f} | Commits: {commits} | "
             f"Lines changed: +{added}/-{deleted} (total {total_lines}) | Files touched: {files}\n"
         )
+
+
 @app.command("skill-timeline")
 def skill_timeline(project_path: str):
     """
@@ -540,13 +544,16 @@ def skill_timeline(project_path: str):
     typer.echo("\n📌 Skill Timeline (Chronological)\n")
     for date in sorted(timeline.keys()):
         typer.echo(f"📅 {date}")
-        for skill, count in sorted(timeline[date].items(), key=lambda x: x[1], reverse=True):
+        for skill, count in sorted(
+            timeline[date].items(), key=lambda x: x[1], reverse=True
+        ):
             typer.echo(f"   - {skill} ({count})")
         typer.echo("")  # newline per date
 
+
 @app.command("menu", help="Interactive menu to access common features")
 def menu() -> None:
-    # Check consent; if missing -> prompt user to consent 
+    # Check consent; if missing -> prompt user to consent
     if not config_manager.has_consent():
         typer.secho(
             "Consent is required to use the interactive menu.",
@@ -558,10 +565,14 @@ def menu() -> None:
         else:
             typer.secho("Consent not granted. Exiting menu.\n")
             return
-    
-    while True: 
-        typer.secho(" \n Digital Artifact Mining - Interactive Menu \n", fg=typer.colors.CYAN, bold=True)
-        typer.echo ("="*40)
+
+    while True:
+        typer.secho(
+            " \n Digital Artifact Mining - Interactive Menu \n",
+            fg=typer.colors.CYAN,
+            bold=True,
+        )
+        typer.echo("=" * 40)
         typer.echo(" [1] Analyze a project")
         typer.echo(" [2] Summarize top ranked projects")
         typer.echo(" [3] Browse previous outputs")
@@ -573,25 +584,29 @@ def menu() -> None:
         typer.echo(" [9] Info (list commands)")
         typer.echo(" [q] Quit")
         typer.echo("")
-        
-        choice = (typer.prompt('Enter choice (1–9 or "q" to quit)', default="q").strip().lower())
+
+        choice = (
+            typer.prompt('Enter choice (1–9 or "q" to quit)', default="q")
+            .strip()
+            .lower()
+        )
 
         if choice in ("q"):
             typer.secho("Exiting menu.", fg=typer.colors.CYAN)
             break
 
         elif choice == "1":
-                path_str = typer.prompt("Enter path to project directory or ZIP file")
-                include_files = typer.confirm(
+            path_str = typer.prompt("Enter path to project directory or ZIP file")
+            include_files = typer.confirm(
                 "Include full file list (metadata.json)?", default=True
             )
 
-                path = Path(path_str).expanduser()
+            path = Path(path_str).expanduser()
 
-                try:
-                    analyze_project_cli(path=path, include_files=include_files)
-                except SystemExit:
-                    pass
+            try:
+                analyze_project_cli(path=path, include_files=include_files)
+            except SystemExit:
+                pass
 
         elif choice == "2":
             sort_str = typer.prompt(
@@ -611,15 +626,19 @@ def menu() -> None:
                 summarize(sort_by=sort_str, limit=limit)
             except SystemExit:
                 pass
-                
+
         elif choice == "3":
-            raw = typer.confirm("Show raw JSON (instead of pretty view)?", default=False)
+            raw = typer.confirm(
+                "Show raw JSON (instead of pretty view)?", default=False
+            )
             try:
                 browse(out=None, raw=raw)
             except SystemExit:
                 pass
-        
-        elif choice == "4": # Using name and email will yield different outputs because name for example Jaiden/jaidenlo@gmail.com is tied together but Slimosaurus is linked to the noreply email alias
+
+        elif (
+            choice == "4"
+        ):  # Using name and email will yield different outputs because name for example Jaiden/jaidenlo@gmail.com is tied together but Slimosaurus is linked to the noreply email alias
             project_str = typer.prompt(
                 "Path to project directory containing a .git folder"
             )
@@ -642,9 +661,7 @@ def menu() -> None:
         elif choice == "5":
             identifier = typer.prompt("Contributor identifier (name or email)")
             use_email = typer.confirm("Is this an email address?", default=True)
-            top_n_str = typer.prompt(
-                "Show top N projects (blank = all)", default=""
-            )
+            top_n_str = typer.prompt("Show top N projects (blank = all)", default="")
             top_n = None
             if top_n_str.strip():
                 try:
@@ -666,7 +683,6 @@ def menu() -> None:
             except SystemExit:
                 pass
 
-        
         elif choice == "6":
             project_str = typer.prompt(
                 "Path to project directory (or folder name under ./outputs)"
@@ -677,16 +693,14 @@ def menu() -> None:
                 pass
 
         elif choice == "7":
-            out_str = typer.prompt(
-                "Outputs directory (blank = ./outputs)", default=""
-            )
+            out_str = typer.prompt("Outputs directory (blank = ./outputs)", default="")
             out = Path(out_str).expanduser() if out_str else None
             try:
                 delete_output(out=out)
             except SystemExit:
                 pass
 
-        elif choice == "8": 
+        elif choice == "8":
             typer.echo()
             status()
             typer.echo()
@@ -703,15 +717,13 @@ def menu() -> None:
         elif choice == "9":
             info()
 
-
         else:
             typer.secho(
                 "Invalid choice. Please pick 1–9 or q.",
                 fg=typer.colors.RED,
             )
 
+
 if __name__ == "__main__":
     print("Running in virtual env:", check_virtual_env())
     app()
-
-
