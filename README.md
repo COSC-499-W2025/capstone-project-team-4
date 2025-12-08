@@ -2,11 +2,11 @@
 
 # 🎓 Capstone Project Team 4
 
-### GitHub Repository Code Analyzer & Resume Builder
+### Project Analyzer & Resume Builder
 
 [![Open in Visual Studio Code](https://classroom.github.com/assets/open-in-vscode-2e0aaae1b6195c2367325f4f02e2d04e9abb55f0b24a779b69b11b9e10269abc.svg)](https://classroom.github.com/online_ide?assignment_repo_id=20510500&assignment_repo_type=AssignmentRepo)
 
-*A powerful CLI tool for analyzing GitHub repositories and generating professional resume items from your code contributions*
+_A tool for analyzing GitHub repositories and generating professional resume items from your code contributions_
 
 ---
 
@@ -14,24 +14,24 @@
 
 ## 👥 Team Members
 
-| Name | Student ID | GitHub |
-|------|------------|--------|
-| Jaiden Lo | 93978203 | [@jaiden](https://github.com/jaiden) |
-| Takumi Choi | 37325289 | [@takumi](https://github.com/takumi) |
-| Anilov Laxina | 36694933 | [@anilov](https://github.com/anilov) |
-| Kussh Satija | 80384878 | [@kussh](https://github.com/kussh) |
-| Kiichiro Suganuma | 19743749 | [@kiichiro](https://github.com/kiichiro) |
-| Aliff Razak | 58423609 | [@aliff](https://github.com/aliff) |
+| Name              | Student ID | GitHub                                                             |
+| ----------------- | ---------- | ------------------------------------------------------------------ |
+| Jaiden Lo         | 93978203   | [@JaidenLo](https://github.com/JaidenLo)                           |
+| Takumi Choi       | 37325289   | [@TakersJP](https://github.com/TakersJP)                           |
+| Anilov Laxina     | 36694933   | [@AnLaxina](https://github.com/AnLaxina)                           |
+| Kussh Satija      | 80384878   | [@kusshsatija](https://github.com/kusshsatija)                     |
+| Kiichiro Suganuma | 19743749   | [@Kiichiro-suganuma0209](https://github.com/Kiichiro-suganuma0209) |
+| Aliff Razak       | 58423609   | [@aliffrazak02](https://github.com/aliffrazak02)                   |
 
 ## 📋 Project Overview
 
-This project provides an intelligent code analysis system that scans GitHub repositories, extracts meaningful insights about programming languages, frameworks, code complexity, and individual contributions. It generates structured resume-worthy items that highlight technical skills and project involvement.
+This project provides a project analysis system that scans GitHub repositories or project zip file, extracts meaningful insights about programming languages, frameworks, code complexity, and individual contributions. It generates structured resume-worthy items that highlight technical skills and project involvement.
 
 ### Key Features
 
 - 🔍 **Comprehensive Code Analysis** - Analyzes multiple programming languages and frameworks
 - 📊 **Contribution Tracking** - Identifies individual contributions and code patterns
-- 🛠️ **Framework Detection** - Automatically detects frameworks and technologies used
+- 🛠️ **Language and Framework Detection** - Automatically detects languages, frameworks and technologies used
 - 📝 **Resume Generation** - Creates professional resume items from code contributions
 - 🔐 **Privacy-Focused** - Processes data locally with user consent mechanisms
 - 🐳 **Docker Support** - Easy deployment with containerization
@@ -42,55 +42,62 @@ This project provides an intelligent code analysis system that scans GitHub repo
 
 ![System Architecture](docs/design/SystemArchitectureDiagram.png)
 
-*Figure 1: Overall System Architecture*
+_Figure 1: Overall System Architecture_
 
 ![Data Flow Diagram](docs/design/dfd-level-1-revised.png)
 
-*Figure 2: Data Flow Diagram (Level 1)*
+_Figure 2: Data Flow Diagram (Level 1)_
 
 ![Analysis Pipeline](docs/design/Analysis%20Pipeline.png)
 
-*Figure 3: Analysis Pipeline Flow*
+_Figure 3: Analysis Pipeline Flow_
 
 </div>
 
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Python 3.11.0
 - Git
 - Docker (optional)
 
 ### Setup
+
 1. **Fork and clone the repository**
+
    ```bash
    git clone https://github.com/your-username/capstone-project-team-4.git
    cd capstone-project-team-4
    ```
 
 2. **Create a virtual environment**
+
    ```bash
    python -m venv .venv
-   source .venv/bin/activate  
+   source .venv/bin/activate
    # On Windows: .venv\Scripts\activate
    ```
 
 3. **Install dependencies**
+
    ```bash
    pip install -r requirements.txt
    ```
 
 4. **Choose your development method:**
+
 - [Local Development](#local-development) - Direct Python setup
 - [Docker Development](#docker-development) - Containerized environment (recommended)
 
 ### Local Development
+
 ```bash
 # Run the main CLI
 python -m src.main --help
 
 # Run commands
-python -m src.main [OPTIONS] COMMAND [ARGS]...                    
+python -m src.main [OPTIONS] COMMAND [ARGS]...
 
 # Run tests
 pytest
@@ -107,6 +114,7 @@ open htmlcov/index.html
 ```
 
 ### Docker Development
+
 ```bash
 # Build and start service
 docker compose up --build -d
@@ -115,7 +123,7 @@ docker compose up --build -d
 docker compose exec app python -m src.main --help
 
 # Run commands
-docker compose exec app python -m src.main [OPTIONS] COMMAND [ARGS]...  
+docker compose exec app python -m src.main [OPTIONS] COMMAND [ARGS]...
 
 # Run tests
 docker compose exec app pytest
@@ -129,22 +137,25 @@ docker compose down
 
 ## 🎯 Core Capabilities
 
-### Language Analysis
-- Detects and analyzes code in **15+ programming languages**
-- Measures code complexity and quality metrics
-- Identifies language-specific patterns and best practices
+### Code Analysis
 
-### Framework Detection
-- Automatically identifies web frameworks (React, Vue, Angular, Django, Flask, etc.)
-- Detects testing frameworks (Jest, Pytest, JUnit, etc.)
-- Recognizes build tools and package managers
+- Measures code cyclomatic complexity and quality metrics
+
+### Language and Framework Detection
+
+- Detects programming languages and lines of code
+- Automatically identifies web frameworks
+- Detects testing frameworks
 
 ### Skill Extraction
+
 - Maps code patterns to technical skills
+- Maps language, frameworks and library to high-level skills
 - Generates skill proficiency assessments
 - Creates resume-ready skill descriptions
 
 ### Contribution Analysis
+
 - Tracks individual developer contributions
 - Analyzes commit patterns and code ownership
 - Generates contribution rankings and statistics
@@ -152,6 +163,7 @@ docker compose down
 ## 📖 Documentation
 
 ### 📚 Core Documentation
+
 - [📘 CLI Documentation](docs/design/CLI%20Documentation.md) - Complete command reference and usage guide
 - [🤝 Contributing Guidelines](.github/CONTRIBUTING.md) - How to contribute to the project
 - [📜 Team Contract](docs/contract/CapstoneTeamContract.pdf) - Team agreements and responsibilities
@@ -159,63 +171,42 @@ docker compose down
 - [🏛️ System Architecture](docs/SYSTEM_ARCHITECTURE.md) - Detailed architecture documentation
 
 ### 📋 Project Planning
+
 - [💡 Project Proposal](docs/plan/COSC%20499-Team-4-Project-Proposal.md) - Initial project scope and vision
-- [📅 Meeting Minutes](docs/minutes/) - Team meeting notes and decisions
 - [📝 Individual Logs](docs/logs/) - Weekly individual progress logs
 - [👥 Team Logs](docs/logs/Team/) - Weekly team progress logs
 
 ### 🔬 Technical Documentation
+
 - [🔄 Alternative Skill Extraction Pipeline](docs/skill_extraction_alternative_pipeline.md)
 - [🗺️ Skill Mapping](docs/skill_mapping.md)
 
 ## 🛠️ Technology Stack
 
 ### Backend
+
 - **Python 3.11.0** - Core application language
 - **PyTest** - Testing framework
-- **Click** - CLI framework
 
 ### DevOps
+
 - **Docker & Docker Compose** - Containerization
 - **Git & GitHub** - Version control and CI/CD
 - **GitHub Actions** - Automated testing and deployment
 
 ### Data Processing
-- **JSON/CSV** - Data serialization formats
+
+- **JSON** - Data serialization formats
 - **YAML** - Configuration management
 
-## 📊 Project Statistics
+### Database
 
-```bash
-# View project complexity metrics
-python -m src.main analyze [REPOSITORY_PATH]
-
-# Generate contribution reports
-python -m src.main report --output-dir ./reports
-
-# Extract resume items
-python -m src.main resume [REPOSITORY_PATH]
-```
-
-## 🧪 Testing
-
-Our project maintains high code quality with comprehensive testing:
-
-```bash
-# Run all tests
-pytest
-
-# Run with coverage report
-pytest --cov=src --cov-report=html
-
-# View detailed coverage
-# Windows: start htmlcov/index.html
-# Mac/Linux: open htmlcov/index.html
-```
+- **SQLite** - Data management
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guidelines](.github/CONTRIBUTING.md) for details on:
+Please see our [Contributing Guidelines](.github/CONTRIBUTING.md) for details on:
+
 - Code style and standards
 - Pull request process
 - Issue reporting
@@ -237,7 +228,6 @@ This project is part of COSC 499 Capstone course at the University of British Co
 
 **Built with ❤️ by Team 4**
 
-*COSC 499 - Capstone Project 2025*
+_COSC 499 - Capstone Project 2025_
 
 </div>
-
