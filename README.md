@@ -75,3 +75,7 @@ docker compose down
 
 ## 📖 Documentation
 - [Contributing Guidelines](.github/CONTRIBUTING.md)
+- ## Revised Diagram Links
+- [Revised DFD Level 1](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/diagrams/docs/design/dfd-level-1-revised.png)
+- [Revised System Architecture](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/diagrams/docs/design/system-architecture-revised.png)
+- [New WBS Table](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/diagrams/docs/design/WBS)
