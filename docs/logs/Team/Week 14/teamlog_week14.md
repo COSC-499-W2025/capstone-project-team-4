@@ -2,7 +2,7 @@
 
 ## Milestone recapped
 
-This week, we presented Milestone 1 and refactored the project by adding new features inspired by other groups’ work. We also worked on the demo video and updated the diagrams and README.
+This week, we presented Milestone 1 and refactored the project by adding new features inspired by other groups’ work. We also worked on the demo video and updated the diagrams, CLI and README.
 
 ## Burnup chart
 <img width="1088" height="559" alt="Screenshot 2025-12-07 at 19 01 23" src="https://github.com/user-attachments/assets/cd83164f-fe10-4408-afde-6ea8b77b1238" />
@@ -17,6 +17,8 @@ After seeing other groups’ presentations, we decided to implement a menu butto
 
 We completed/closed the following:
 https://github.com/COSC-499-W2025/capstone-project-team-4/pull/122
+https://github.com/COSC-499-W2025/capstone-project-team-4/pull/123
+https://github.com/COSC-499-W2025/capstone-project-team-4/pull/126
 
 ## Test Reports
 
