@@ -43,7 +43,7 @@ This project provides a project analysis system that scans GitHub repositories o
 
 _Figure 1: Overall System Architecture_
 
-![Data Flow Diagram](docs/design/dfd-level-1-revised.png)
+![Data Flow Diagram](docs/design/DFD-new.png)
 
 _Figure 2: Data Flow Diagram (Level 1)_
 
