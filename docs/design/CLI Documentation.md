@@ -1,32 +1,73 @@
 # CLI Documentation
 
-## Mining Digital Work Artifacts CLI
+# Mining Digital Work Artifacts — CLI Documentation
 
-A comprehensive command-line tool for analyzing GitHub repositories, extracting metadata, tracking contributions, and generating resume-worthy insights from code projects.
-
-### Available Commands
-
-| Command              | Description                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------------- |
-| `analyze-project`    | **Main command** - Full project analysis with metadata, complexity, skills, and resume generation |
-| `browse`             | Interactively browse analyzed project outputs                                                     |
-| `delete-output`      | Delete specific project analysis outputs                                                          |
-| `status`             | Print current consent and configuration settings                                                  |
-| `consent`            | Manage user consent and external processing permissions                                           |
-| `info`               | Show CLI information and available commands                                                       |
-| `summarize`          | Display top-ranked projects with detailed analysis                                                |
-| `rank-contributions` | Rank a contributor's impact within a Git project                                                  |
-| `rank-projects`      | Show all analyzed projects for a contributor, ranked by contribution score                        |
-| `skill-timeline`     | Display chronological timeline of skills used in a project                                        |
-| `aggregate-outputs`  | Generate dashboard summary of all analyzed projects                                               |
+A command-line tool for analyzing software projects, extracting metadata, measuring code complexity, ranking contributions, identifying skills, and generating resume-ready artifacts.
 
 ---
 
-## Command Details
 
-### 1. Analyze Project (Main Command)
+# Available Commands
 
-**Usage:** `python -m src.main analyze-project [OPTIONS] PATH`
+| Command               | Description                                                                                       |
+|----------------------|---------------------------------------------------------------------------------------------------|
+| **`menu`**           | Interactive menu for all features (recommended for most users)                                     |
+| **`analyze-project`**| Full project analysis: metadata, complexity, skills, contributors, resume                          |
+| **`browse`**         | Browse previously generated outputs                                                                |
+| **`delete-output`**  | Delete specific project analysis outputs                                                           |
+| **`status`**         | Show current consent & configuration                                                               |
+| **`consent`**        | Manage user consent and external-processing permissions                                            |
+| **`info`**           | Show list of commands                                                                              |
+| **`summarize`**      | Show top-ranked projects from the internal database                                                |
+| **`rank-contributions`** | Rank contributor’s impact inside a Git project                                                 |
+| **`rank-projects`**  | Rank projects for a contributor from logged history                                                |
+| **`skill-timeline`** | Show chronological timeline of skills for a project                                                |
+
+---
+
+# 1. Interactive Menu (Recommended)
+
+### Usage
+```python -m src.main menu```
+
+
+### Description
+A user-friendly interface to access all major features:
+
+- Analyze a project  
+- Summarize projects  
+- Browse outputs  
+- Rank contributions  
+- Rank projects  
+- Skill timeline  
+- Delete outputs  
+- Consent management  
+- Info screen  
+
+If consent has **not been granted**, the menu will **prompt the user to grant it** before continuing.
+
+### Menu options expanded
+```
+[1] Analyze a Project: Will prompt user to insert project directory or zip path and ask if you want a full file list (metadata.json) 
+[2] Summarize top ranked projects: Will prompt user to seelct one of the sorting methods for projects ie complexity, contributions, skills etc. Default is comprehensive. The user can also select how many projects to display (0-N)
+[3] Browse previous outputs: Will prompt user whether to show raw json instead or pretty view. Pretty view will have the user type a project number [1-N] before showing the timestamps of each output. The user can select it to view more
+[4] Rank Contributions within a project: Will prompt the user to insert a path to a project with a .git folder. The user must insert their email or name, the user must use that same email/name to retrieve their results for ranking later.
+[5] Rank projects for a contributor (from log): Will prompt user to input username or email (use the one you used for [4]) to retrieve a list of projects and your contributions within those projects.
+[6] Show skill timeline for latest analysis: Will prompt user to input path directory for latest analysis or folder name. This will return a skill timeline of the analysis
+[7] Delete a generated output: Will prompt the user to select a output directory with blank being the default ./outputs dir. The user can select the project with 1-9 and delete a specific timestamp
+[8] Show status / manage consent: will show the consent json output and ask the user if they would like to change consent settings, the user is then asked if they grant consent and if not, will be asked if they want to revoke consent. External services is also asked.
+[9] Info: Shows a list of commands in its raw CLI form that can be ran outside of the menu, running python -m src.main --help also gives a command list. 
+```
+
+Menu layout example:
+
+<img width="485" height="325" alt="image" src="https://github.com/user-attachments/assets/92074338-a7b0-42fd-a1c5-f070240023c8" />
+
+
+
+# 2. Analyze Project (Main Command)
+
+**Usage:** `python -m src.main analyze-project [OPTIONS] PATH` 
 
 **Description:** Comprehensive project analysis that generates multiple JSON outputs including metadata, code complexity, contributor analysis, skill extraction, and resume items. This is the primary command for full project analysis.
 
@@ -67,22 +108,27 @@ The command creates a timestamped directory with the following JSON files:
 
 **Sample Output:**
 
-```
-🎉 Reports generated → ./outputs/my-project/2025-12-07_14-30-45
-```
+<img width="1629" height="199" alt="image" src="https://github.com/user-attachments/assets/090be34c-2802-4897-8bbe-c529f79f76f7" />
 
 ---
 
-### 2. Browse Analyzed Projects
+# 3. Browse Analyzed Projects
 
 **Usage:** `python -m src.main browse [OPTIONS]`
 
-**Description:** Interactive menu to browse previously analyzed project outputs. Navigate through projects, timestamps, and view JSON files with pretty formatting.
 
-**Options:**
+### Description
+Interactive viewer:
 
-- `--out, -o PATH` - Outputs directory (default: ./outputs)
-- `--raw` - Show raw JSON instead of pretty-printed view
+1. Select a project  
+2. Select timestamp  
+3. Select output file  
+4. View pretty JSON or raw JSON  
+
+### Options
+- `--raw` (show raw JSON)
+- `--out PATH` (set outputs folder)
+
 
 **Examples:**
 
@@ -106,15 +152,17 @@ python -m src.main browse --raw
 
 ---
 
-### 3. Delete Project Outputs
+# 4. Delete Project Outputs
 
 **Usage:** `python -m src.main delete-output [OPTIONS]`
 
-**Description:** Interactively select and delete specific project analysis outputs. Useful for cleaning up old or unwanted analysis results.
 
-**Options:**
+### Description
+Selects a project -> timestamp -> confirms deletion.  
+Deletes only analysis output, **never the original project files**.
 
-- `--out, -o PATH` - Outputs directory (default: ./outputs)
+### Options
+- `--out PATH`
 
 **Examples:**
 
@@ -134,11 +182,21 @@ python -m src.main delete-output --out /custom/outputs
 
 ---
 
-### 4. Status Check
+# 5. Status Check
 
 **Usage:** `python -m src.main status`
 
-**Description:** Display current configuration settings including consent status and external API permissions.
+### Description
+Shows:
+
+```json
+{
+  "consent_granted": true,
+  "external_allowed": false,
+  "external_last_notice_version": 1
+}
+
+```
 
 **Example:**
 
@@ -158,18 +216,19 @@ python -m src.main status
 
 ---
 
-### 5. Consent Management
+# 6. Consent Management
 
 **Usage:** `python -m src.main consent [OPTIONS]`
 
 **Description:** Manage user consent for data processing and external API usage. Required before running analysis commands.
 
-**Options:**
+### Options
+- `--grant`
+- `--revoke`
+- `--external`
+- `--no-external`
 
-- `--grant` - Grant consent to process files
-- `--revoke` - Revoke consent
-- `--external` - Allow use of external APIs/services
-- `--no-external` - Disallow use of external APIs/services
+Each change automatically increments `external_last_notice_version`.
 
 **Examples:**
 
@@ -182,6 +241,9 @@ python -m src.main consent --revoke
 
 # Allow external API usage
 python -m src.main consent --external
+
+# Revoke external API usage
+python -m src.main consent --no-external
 
 # Combine options
 python -m src.main consent --grant --external
@@ -199,31 +261,27 @@ Current configuration:
 
 ---
 
-### 6. Application Information
+# 7. Info
 
-**Usage:** `python -m src.main info`
+### Usage
+```python -m src.main info```
 
-**Description:** Display CLI information and a complete list of available commands with descriptions.
+### Description
+Displays help text and all available commands.
 
-**Example:**
 
-```bash
-python -m src.main info
-```
 
----
-
-### 7. Summarize Projects
+# 8. Summarize Projects
 
 **Usage:** `python -m src.main summarize [OPTIONS]`
 
-**Description:** Display top-ranked analyzed projects with detailed metrics and insights.
+**Description:** Shows top projects from the internal database with analysis details.
 
-**Options:**
 
-- `--sort, -s` - Sort criteria: `complexity`, `contributions`, `skills`, `lines_of_code`, `file_count`, `recent`, `comprehensive` (default: comprehensive)
-- `--limit, -l` - Number of projects to show (default: 10)
-
+### Options
+- `--sort` = complexity, contributions, skills, lines_of_code, file_count, recent, comprehensive  
+- `--limit`
+- 
 **Examples:**
 
 ```bash
@@ -242,11 +300,31 @@ python -m src.main summarize --sort recent
 
 ---
 
-### 8. Rank Contributions
+# 9. Rank Contributions
 
-**Usage:** `python -m src.main rank-contributions [OPTIONS] PROJECT`
+**Usage:** 
+`python -m src.main rank-contributions <PROJECT> --name <name>`
+or 
+`python -m src.main rank-contributions <PROJECT> --email <email>`
 
-**Description:** Analyze and rank a specific contributor's impact within a Git project based on commits, lines changed, and files touched.
+**Description:** 
+Analyze and rank a specific contributor's impact within a Git project based on commits, lines changed, and files touched. **The username or email you used must be consistent as you will need to use it again for [10] Rank Projects.**
+This command must be ran before running [Rank Projects]
+
+Calculates a contributor score per project using:
+* commits
+* lines added/deleted
+* files touched
+
+Formula for contribution store is 
+```
+contribution_score =
+    (commits * weight_commits)
+    + (total_lines_changed * weight_lines_changed)
+    + (files_touched * weight_files_touched)
+```
+
+Also logs the result to `contributions.json`.
 
 **Arguments:**
 
@@ -282,11 +360,13 @@ Contribution Score: 87.5
 
 ---
 
-### 9. Rank Projects
+### 10. Rank Projects
 
-**Usage:** `python -m src.main rank-projects [OPTIONS]`
-
-**Description:** Display all analyzed projects for a contributor, ranked by contribution score based on the saved contribution log.
+**Usage:** 
+`python -m src.main rank-projects --name <NAME>`
+or 
+`python -m src.main rank-projects --email <EMAIL>`
+**Description:** Display all analyzed projects for a contributor, ranked by contribution score based on the saved contribution log. **Must use same username/email as one used in [Rank Contributions]**
 
 **Options:**
 
@@ -321,11 +401,13 @@ Projects ranked by contribution score:
 
 ---
 
-### 10. Skill Timeline
+### 11. Skill Timeline
 
 **Usage:** `python -m src.main skill-timeline PROJECT_PATH`
 
-**Description:** Display a chronological timeline of skills exercised in the most recent analysis of a project.
+### Description
+Shows chronological skill usage from the most recent project analysis.  
+Uses database-backed skill tracking
 
 **Arguments:**
 
@@ -359,58 +441,8 @@ python -m src.main skill-timeline my-project
 
 ---
 
-### 11. Aggregate Outputs
 
-**Usage:** `python -m src.main aggregate-outputs [OPTIONS] [OUTPUTS]`
-
-**Description:** Generate a comprehensive dashboard summary of all analyzed projects with statistics and insights.
-
-**Arguments:**
-
-- `OUTPUTS` - Path to outputs directory (default: ./outputs)
-
-**Options:**
-
-- `--json` - Output in JSON format instead of Markdown
-- `--out, -o PATH` - Save output to file instead of printing to console
-
-**Examples:**
-
-```bash
-# Generate markdown summary
-python -m src.main aggregate-outputs
-
-# Generate JSON summary
-python -m src.main aggregate-outputs --json
-
-# Save to file
-python -m src.main aggregate-outputs --out dashboard.md
-
-# Aggregate custom outputs directory
-python -m src.main aggregate-outputs /custom/outputs --out report.md
-```
-
-**Output:** Provides aggregated statistics including:
-
-- Total projects analyzed
-- Programming languages used across all projects
-- Frameworks and technologies detected
-- Total lines of code analyzed
-- Top contributors across projects
-
----
-
-## Global Options
-
-All commands support these global options:
-
-- `--help` - Show help for the specific command
-- `--install-completion` - Install shell completion
-- `--show-completion` - Show shell completion script
-
----
-
-## Database & Storage
+# Database & Storage
 
 ### SQLite Database
 
@@ -577,6 +609,46 @@ mkdir outputs
 
 ## Examples Workflow
 
+### Running Menu Workflow
+```bash
+# 1. Activate environment
+.\.venv\Scripts\activate
+
+# 2. Run Menu
+python -m src.main menu
+
+# 3. Consent
+prompt with :
+Consent is required to use the interactive menu.
+Grant consent now? [Y/n]:
+Type y
+
+# 4. Run Menu again
+python -m src.main menu
+
+# 5. Choose option: [1-9] or [q] to quit
+========================================
+ [1] Analyze a project
+ [2] Summarize top ranked projects
+ [3] Browse previous outputs
+ [4] Rank contributions within a project
+ [5] Rank projects for a contributor (from log)
+ [6] Show skill timeline for latest analysis
+ [7] Delete a generated output
+ [8] Show status / manage consent
+ [9] Info (list commands)
+ [q] Quit
+
+
+
+```
+
+
+### Complete Analysis Workflow
+
+```bash
+## Examples Workflow
+
 ### Complete Analysis Workflow
 
 ```bash
@@ -597,6 +669,29 @@ python -m src.main rank-projects --name "Your Name"
 
 # 6. Generate summary dashboard
 python -m src.main aggregate-outputs --out dashboard.md
+```
+
+### Quick Analysis
+
+```bash
+# One-command full analysis
+python -m src.main analyze-project my-project.zip
+```
+
+### Contributor Portfolio
+
+```bash
+# Analyze multiple projects
+python -m src.main analyze-project project1/
+python -m src.main analyze-project project2/
+python -m src.main analyze-project project3/
+
+# Rank contributions across all analyzed projects
+python -m src.main rank-projects --name "Your Name"
+
+# Show top contribution-heavy projects
+python -m src.main summarize --sort contributions --limit 5
+
 ```
 
 ### Quick Analysis
