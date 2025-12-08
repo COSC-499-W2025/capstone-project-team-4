@@ -1,0 +1,243 @@
+[
+    {
+        "skill": "Object-Oriented Programming (OOP)",
+        "identifiers": [
+            "\\bclass\\b",
+            "\\bconstructor\\b",
+            "\\bthis\\b",
+            "\\bsuper\\b",
+            "\\bextends\\b",
+            "\\bstatic\\b",
+            "\\bnew\\s+[A-Za-z_]\\w*",
+            "\\bprototype\\b",
+            "\\bObject\\.create\\b",
+            "\\bObject\\.assign\\b"
+        ]
+    },
+    {
+        "skill": "Asynchronous Programming",
+        "identifiers": [
+            "\\basync\\b",
+            "\\bawait\\b",
+            "\\bPromise\\b",
+            "\\bthen\\b",
+            "\\bcatch\\b",
+            "\\bsetTimeout\\b",
+            "\\bsetInterval\\b",
+            "\\bclearTimeout\\b",
+            "import\\s+.*from\\s+['\"]events['\"]",
+            "\\bEventEmitter\\b"
+        ]
+    },
+    {
+        "skill": "Node.js Backend",
+        "identifiers": [
+            "require\\(",
+            "module\\.exports",
+            "exports\\.",
+            "import\\s+.*from\\s+['\"]fs['\"]",
+            "import\\s+.*from\\s+['\"]path['\"]",
+            "import\\s+.*from\\s+['\"]http['\"]",
+            "import\\s+.*from\\s+['\"]os['\"]",
+            "\\bprocess\\.env\\b",
+            "\\b__dirname\\b",
+            "\\bBuffer\\b"
+        ]
+    },
+    {
+        "skill": "Express.js",
+        "identifiers": [
+            "import\\s+express",
+            "require\\(['\"]express['\"]\\)",
+            "\\bexpress\\(\\)",
+            "\\bapp\\.get\\b",
+            "\\bapp\\.post\\b",
+            "\\bapp\\.use\\b",
+            "\\bRouter\\b",
+            "\\bnext\\b",
+            "\\breq\\b",
+            "\\bres\\b"
+        ]
+    },
+    {
+        "skill": "React.js",
+        "identifiers": [
+            "from\\s+['\"]react['\"]",
+            "\\buseState\\b",
+            "\\buseEffect\\b",
+            "\\buseMemo\\b",
+            "\\buseCallback\\b",
+            "\\buseRef\\b",
+            "\\buseContext\\b",
+            "\\buseReducer\\b",
+            "\\bcreateContext\\b",
+            "<[A-Z][A-Za-z0-9]*",
+            "\\bReact\\.Component\\b",
+            "\\bReactDOM\\.render\\b"
+        ]
+    },
+    {
+        "skill": "Next.js",
+        "identifiers": [
+            "from\\s+['\"]next['\"]",
+            "\\bgetServerSideProps\\b",
+            "\\bgetStaticProps\\b",
+            "\\bgetStaticPaths\\b",
+            "\\bHead\\b",
+            "\\bImage\\b"
+        ]
+    },
+    {
+        "skill": "Vue.js",
+        "identifiers": [
+            "from\\s+['\"]vue['\"]",
+            "\\bcreateApp\\b",
+            "\\bref\\b",
+            "\\breaction\\b",
+            "\\bonMounted\\b",
+            "\\bcomputed\\b",
+            "\\bwatch\\b",
+            "<template>",
+            "<script>"
+        ]
+    },
+    {
+        "skill": "Functional Programming (FP)",
+        "identifiers": [
+            "\\bmap\\b",
+            "\\breduce\\b",
+            "\\bfilter\\b",
+            "\\bsort\\b",
+            "\\bforEach\\b",
+            "\\bflatMap\\b",
+            "\\bevery\\b",
+            "\\bsome\\b",
+            "\\blambda\\b",
+            "\\bcompose\\b",
+            "import\\s+.*from\\s+['\"]ramda['\"]"
+        ]
+    },
+    {
+        "skill": "Data Structures",
+        "identifiers": [
+            "\\bArray\\b",
+            "\\bSet\\b",
+            "\\bMap\\b",
+            "\\bWeakSet\\b",
+            "\\bWeakMap\\b",
+            "\\bObject\\b",
+            "\\bJSON\\.parse\\b",
+            "\\bJSON\\.stringify\\b"
+        ]
+    },
+    {
+        "skill": "Browser & DOM Manipulation",
+        "identifiers": [
+            "\\bdocument\\.getElementById\\b",
+            "\\bdocument\\.querySelector\\b",
+            "\\bdocument\\.querySelectorAll\\b",
+            "\\baddEventListener\\b",
+            "\\bwindow\\.addEventListener\\b",
+            "\\bdocument\\.createElement\\b",
+            "\\bnavigator\\.geolocation\\b",
+            "\\blocalStorage\\b",
+            "\\bsessionStorage\\b"
+        ]
+    },
+    {
+        "skill": "Frontend API Usage (Web APIs)",
+        "identifiers": [
+            "\\bfetch\\b",
+            "\\bXMLHttpRequest\\b",
+            "\\bResponse\\b",
+            "\\bRequest\\b",
+            "\\bHeaders\\b",
+            "\\bFormData\\b",
+            "\\bURLSearchParams\\b"
+        ]
+    },
+    {
+        "skill": "TypeScript",
+        "identifiers": [
+            ":\\s*[A-Za-z_][A-Za-z0-9_]*", 
+            "\\binterface\\b",
+            "\\btype\\b",
+            "\\benum\\b",
+            "\\bpublic\\b",
+            "\\bprivate\\b",
+            "\\breadonly\\b",
+            "\\bimplements\\b",
+            "\\bextends\\b"
+        ]
+    },
+    {
+        "skill": "Testing & TDD (Jest, Mocha, Cypress)",
+        "identifiers": [
+            "import\\s+.*from\\s+['\"]jest['\"]",
+            "describe\\(",
+            "test\\(",
+            "it\\(",
+            "expect\\(",
+            "beforeEach\\(",
+            "afterEach\\(",
+            "cy\\.",
+            "import\\s+.*from\\s+['\"]mocha['\"]"
+        ]
+    },
+    {
+        "skill": "Security & Authentication",
+        "identifiers": [
+            "import\\s+.*from\\s+['\"]bcrypt['\"]",
+            "import\\s+.*from\\s+['\"]jsonwebtoken['\"]",
+            "\\bjwt\\b",
+            "\\bcrypto\\b",
+            "import\\s+.*from\\s+['\"]helmet['\"]",
+            "\\bCORS\\b"
+        ]
+    },
+    {
+        "skill": "Build Tools & Tooling",
+        "identifiers": [
+            "webpack\\.config\\.js",
+            "vite\\.config\\.js",
+            "rollup\\.config\\.js",
+            "gulpfile\\.js",
+            "gruntfile\\.js",
+            "package\\.json",
+            "\\bnpm\\b",
+            "\\byarn\\b",
+            "\\bpnpm\\b"
+        ]
+    },
+    {
+        "skill": "CI/CD & Deployment",
+        "identifiers": [
+            "\\.github/workflows",
+            "Dockerfile",
+            "docker-compose\\.yml",
+            "Jenkinsfile",
+            "\\bvercel\\b",
+            "\\bnetlify\\b"
+        ]
+    },
+    {
+        "skill": "CLI / Utility Scripting",
+        "identifiers": [
+            "#!/usr/bin/env node",
+            "process\\.argv",
+            "\\bconsole\\.log\\b",
+            "\\bconsole\\.error\\b",
+            "\\breadline\\b"
+        ]
+    },
+    {
+        "skill": "Performance & Memory",
+        "identifiers": [
+            "\\bperformance\\.now\\b",
+            "\\brequestAnimationFrame\\b",
+            "\\bWeakMap\\b",
+            "\\bWeakSet\\b",
+            "\\bprofiler\\b"
+        ]
+    }
+]

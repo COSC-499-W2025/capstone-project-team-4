@@ -1,0 +1,139 @@
+[
+    {
+        "skill": "Core JSON Structure",
+        "identifiers": [
+            "^\\{",
+            "^\\[",
+            "\\}$",
+            "\\]$",
+            "\\btrue\\b",
+            "\\bfalse\\b",
+            "\\bnull\\b",
+            "\"[A-Za-z0-9_-]+\":"
+        ]
+    },
+    {
+        "skill": "JSON Data Types",
+        "identifiers": [
+            "\"[A-Za-z0-9_-]+\":\\s*\"",
+            "\"[A-Za-z0-9_-]+\":\\s*\\d",
+            "\"[A-Za-z0-9_-]+\":\\s*\\{",
+            "\"[A-Za-z0-9_-]+\":\\s*\\["
+        ]
+    },
+    {
+        "skill": "Package Managers & Tooling Configs",
+        "identifiers": [
+            "package\\.json",
+            "tsconfig\\.json",
+            "jsconfig\\.json",
+            "composer\\.json",
+            "pipfile\\.json",
+            "pyproject\\.json",
+            "Cargo\\.toml\\.json",
+            "go\\.mod\\.json"
+        ]
+    },
+    {
+        "skill": "Frontend Build Tools (JS Ecosystem)",
+        "identifiers": [
+            "babel\\.config\\.json",
+            "webpack\\.config\\.json",
+            "rollup\\.config\\.json",
+            "vite\\.config\\.json"
+        ]
+    },
+    {
+        "skill": "Linting & Formatting Tools",
+        "identifiers": [
+            "eslint\\.json",
+            "prettier\\.json",
+            "stylelint\\.json",
+            "editorconfig\\.json"
+        ]
+    },
+    {
+        "skill": "Testing Framework Configs",
+        "identifiers": [
+            "jest\\.config\\.json",
+            "mocha\\.config\\.json",
+            "vitest\\.config\\.json",
+            "pytest\\.json"
+        ]
+    },
+    {
+        "skill": "Cloud Provider JSON Formats",
+        "identifiers": [
+            "aws-lambda",
+            "aws-cloudformation",
+            "gcp-service-account",
+            "azure-deployment",
+            "\"cloudRun\"",
+            "\"iamPolicy\""
+        ]
+    },
+    {
+        "skill": "OpenAPI / Swagger Specification",
+        "identifiers": [
+            "\"openapi\"",
+            "\"swagger\"",
+            "\"paths\"",
+            "\"components\"",
+            "\"schemas\"",
+            "\"responses\""
+        ]
+    },
+    {
+        "skill": "Kubernetes Manifests (JSON)",
+        "identifiers": [
+            "\"apiVersion\"",
+            "\"kind\"",
+            "\"metadata\"",
+            "\"spec\"",
+            "\"containers\"",
+            "\"image\""
+        ]
+    },
+    {
+        "skill": "Security & Credentials Indicators",
+        "identifiers": [
+            "\"token\"",
+            "\"secret\"",
+            "\"apiKey\"",
+            "\"access_key\"",
+            "\"private_key\"",
+            "\"client_id\"",
+            "\"client_secret\""
+        ]
+    },
+    {
+        "skill": "Infrastructure as Code (IaC) JSON",
+        "identifiers": [
+            "\"terraform\"",
+            "\"resource\"",
+            "\"module\"",
+            "\"provider\""
+        ]
+    },
+    {
+        "skill": "Logging & Monitoring Config JSON",
+        "identifiers": [
+            "\"logging\"",
+            "\"metrics\"",
+            "\"telemetry\"",
+            "\"tracing\"",
+            "\"logLevel\""
+        ]
+    },
+    {
+        "skill": "JSONC / JSON5 (Extended JSON)",
+        "identifiers": [
+            "//",
+            "/\\*",
+            "\"//\"",
+            "\"/*\"",
+            "\"+infinity\"",
+            "\"-infinity\""
+        ]
+    }
+]

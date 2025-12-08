@@ -1,0 +1,20 @@
+## This helps with adding the third party libraries for the project setup
+
+typer              # for CLI commands
+pandas             # for metrics & CSVs
+gitpython          # to analyze Git repos
+pyyaml>=6.0.2      # for YAML configuration files
+# file type detection
+python-magic; sys_platform != "win32" # THIS WORKS ON UNIX OS's (Mac/Linux) but NOT ON WINDOWS!!
+python-magic-bin; sys_platform == "win32" # This works on Windows!! The conditions are there to install based on operating system...
+requests           # for GitHub API
+pytest             # testing framework
+pytest-cov         # for test coverage reports
+tqdm               # progress bars
+sqlite-utils       # optional helper for DB
+pyyaml>=6.0.2      # YAML loader for frameworks.yml
+dotenv
+nltk
+tree-sitter==0.21.0
+tree-sitter-languages==1.7.0
+#flake8             # for linting and code style checks
