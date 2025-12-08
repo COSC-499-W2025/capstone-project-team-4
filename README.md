@@ -7,7 +7,7 @@
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.9+
+- Python 3.11.0
 - Git
 - Docker (optional)
 
@@ -79,3 +79,11 @@ docker compose down
 
 ## 📖 Documentation
 - [Contributing Guidelines](.github/CONTRIBUTING.md)
+- [CLI Documentation](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/docs/update_to_diagram/docs/design/CLI%20Documentation.md)
+- [Team Contract](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/docs/update_to_diagram/docs/contract/CapstoneTeamContract.pdf)
+- ## Revised Diagram Links
+- [Revised DFD Level 1](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/docs/update_to_diagram/docs/design/dfd-level-1-revised.png)
+- [Final System Architecture](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/docs/update_to_diagram/docs/design/SystemArchitectureDiagram.png)
+- [Analysis Pipeline](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/docs/update_to_diagram/docs/design/Analysis%20Pipeline.png)
+- [New WBS Table](https://github.com/COSC-499-W2025/capstone-project-team-4/blob/docs/update_to_diagram/docs/design/WBS.txt)
+
