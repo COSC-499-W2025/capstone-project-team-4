@@ -171,7 +171,7 @@ docker compose down
 
 - [💡 Project Proposal](docs/plan/COSC%20499-Team-4-Project-Proposal.md) - Initial project scope and vision
 - [🚩 Milestones](docs/plan/milestone.md) - Project milestone checklist
-- [🎬 Video Walkthrough](https://drive.google.com/file/d/18rIzsXLCf58sRGnUSyRkWv0K37G4VQZB/view?usp=sharing) - Video walkthrough of features (milestone 1 only)
+- [🎬 Video Walkthrough](https://drive.google.com/file/d/1TPrGsPx4YZjotcAfZ3IeY_N2DZDhcE03/view?usp=sharing) - Video walkthrough of features (milestone 1 only)
 - [📝 Individual Logs](docs/logs/) - Weekly individual progress logs
 - [👥 Team Logs](docs/logs/Team/) - Weekly team progress logs
 
