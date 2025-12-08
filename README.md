@@ -53,15 +53,13 @@ _Figure 3: Analysis Pipeline Flow_
 
 </div>
 
-## 🚀 Quick Start
+## 🚀 Setup
 
 ### Prerequisites
 
 - Python 3.11.0
 - Git
 - Docker (optional)
-
-### Setup
 
 1. **Fork and clone the repository**
 
