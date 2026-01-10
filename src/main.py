@@ -61,6 +61,109 @@ init_db()
 def check_virtual_env():
     return sys.prefix != sys.base_prefix
 
+# ============================================================================
+# RESUME BUILDER STAGE 1: USER PROFILE
+# ============================================================================
+
+def _prompt_required(label: str) -> str:
+    """
+    Prompt for a required field (must not be empty).
+    """
+    while True:
+        value = typer.prompt(label).strip()
+        if value:
+            return value
+        typer.secho("This field is required. Please enter a value.", fg=typer.colors.RED)
+
+
+def _prompt_optional(label: str, default: str = "") -> str:
+    """
+    Prompt for an optional field (may be left blank).
+    """
+    return typer.prompt(label, default=default).strip()
+
+
+def _build_user_profile_dict() -> dict:
+    """
+    Interactive collection of user profile data for Stage 1.
+    """
+    typer.secho("\n=== Stage 1: User Profile Setup ===\n", fg=typer.colors.CYAN, bold=True)
+    typer.echo(
+        "Please enter the information to be stored in user_profile.json.\n"
+        "Press ENTER to leave optional fields blank.\n"
+    )
+
+    name = _prompt_required("Full name")
+    title = _prompt_required("Professional title (e.g., 'Software Engineer | Data-Driven Developer')")
+    location = _prompt_required("Location (City, Region, Country)")
+    email = _prompt_required("Email")
+    phone = _prompt_optional("Phone number (with country code)")
+
+    typer.echo("\n--- Online Presence (optional) ---")
+    github = _prompt_optional("GitHub URL", default="")
+    linkedin = _prompt_optional("LinkedIn URL", default="")
+    portfolio = _prompt_optional("Portfolio/Personal site URL", default="")
+
+    typer.echo("\n--- Summary ---")
+    typer.echo("Write a 2–4 sentence professional summary or objective.")
+    typer.echo("Tip: You can refine it later in the canvas/templating stages.\n")
+    summary = _prompt_required("Summary")
+
+    links: dict = {}
+    if github:
+        links["github"] = github
+    if linkedin:
+        links["linkedin"] = linkedin
+    if portfolio:
+        links["portfolio"] = portfolio
+
+    profile = {
+        "name": name,
+        "title": title,
+        "location": location,
+        "email": email,
+        "phone": phone,
+        "links": links,
+        "summary": summary,
+    }
+    return profile
+
+
+@app.command(
+    "user-profile",
+    help="Interactively create or update user_profile.json for the resume pipeline (Stage 1).",
+)
+def user_profile_command(
+    output: Path = typer.Option(
+        Path("outputs/user_profile.json"),
+        "--output",
+        "-o",
+        help="Path to write user_profile.json (default: ./outputs/user_profile.json).",
+    ),
+    overwrite: bool = typer.Option(
+        False,
+        "--overwrite",
+        help="Overwrite an existing user_profile.json if it exists.",
+    ),
+) -> None:
+    """
+    Stage 1: Collect user profile info and write user_profile.json.
+    """
+    out_path = output.expanduser().resolve()
+
+    if out_path.exists() and not overwrite:
+        typer.secho(f"⚠ user_profile.json already exists at: {out_path}", fg=typer.colors.YELLOW)
+        if not typer.confirm("Overwrite this file?", default=False):
+            typer.secho("Aborting user profile creation.", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+
+    profile = _build_user_profile_dict()
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(profile, indent=2) + "\n", encoding="utf-8")
+
+    typer.secho(f"\n✅ User profile written to: {out_path}", fg=typer.colors.GREEN)
+    typer.echo("You can now use this file as input for the resume-related stages.\n")
 
 # ============================================================================
 # MAIN COMMAND — ANALYZE PROJECT
@@ -227,10 +330,6 @@ def analyze_project_cli(
 
     typer.secho(f"🎉 Reports generated → {project_dir}", fg=typer.colors.GREEN)
 
-
-# ============================================================================
-# OTHER COMMANDS (unchanged)
-# ============================================================================
 @app.command("browse")
 def browse(
     out: Optional[Path] = typer.Option(None, "--out", "-o", help="Outputs directory"),
@@ -396,10 +495,11 @@ def info() -> None:
     typer.echo("=" * 40)
     typer.echo("Commands available:\n")
     typer.echo(" run command: python -m src.main <command> [options]\n")
-    typer.echo("  analyze-project   — Full analysis & separated JSON files")
-    typer.echo("  consent           — Manage user consent")
-    typer.echo("  status            — Show current settings")
-    typer.echo("  info              — Show this screen")
+    typer.echo("  analyze-project    — Full analysis & separated JSON files")
+    typer.echo("  user-profile       — Create or update user_profile.json (Stage 1 of resume pipeline)")
+    typer.echo("  consent            — Manage user consent")
+    typer.echo("  status             — Show current settings")
+    typer.echo("  info               — Show this screen")
     typer.echo(
         "  rank-contributions — Rank a contributor's impact within a Git project. python -m src.main rank-contributions <file_path> --name <contributor_name> OR --email <contributor_email> \n"
     )
