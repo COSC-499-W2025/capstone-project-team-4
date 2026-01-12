@@ -34,5 +34,8 @@ RUN git config --global --add safe.directory /app && \
 # Added this line to ensure src is recognized as a module
 ENV PYTHONPATH="/app"
 
-# Run your app
-CMD ["python", "src/main.py"]
+# Expose port
+EXPOSE 8000
+
+# Run FastAPI with uvicorn
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

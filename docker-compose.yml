@@ -2,11 +2,18 @@ services:
   app:
     platform: linux/amd64
     build: .
-    container_name: capstone-container
-    command: sleep infinity
+    container_name: project-analyzer-api
     ports:
       - "8000:8000"
     volumes:
       - .:/app
+      - ./data:/app/data
     environment:
       - PYTHONPATH=/app
+      - DATABASE_URL=sqlite:///./data/workmine.db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

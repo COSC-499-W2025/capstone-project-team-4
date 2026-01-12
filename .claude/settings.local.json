@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(dir \"C:\\\\Users\\\\aliff\\\\Desktop\\\\Local Repo\\\\capstone-project-team-4\")",
+      "Bash(findstr:*)",
+      "Bash(curl:*)"
+    ]
+  }
+}

@@ -75,6 +75,7 @@ venv.bak/
 # Windows
 Thumbs.db
 desktop.ini
+.claude
 
 # Logs
 *.log
