@@ -1,6 +1,6 @@
 """Skill ORM models."""
 
-from datetime import date
+from datetime import date as date_type
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Date, ForeignKey, Integer, String, UniqueConstraint
@@ -79,7 +79,7 @@ class ProjectSkillTimeline(Base):
         Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
     )
     skill: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    date: Mapped[date_type] = mapped_column(Date, nullable=False, index=True)
     count: Mapped[int] = mapped_column(Integer, default=0)
 
     # Relationships
