@@ -22,6 +22,8 @@ class ContributorSchema(BaseModel):
     id: int
     name: Optional[str] = None
     email: Optional[str] = None
+    github_username: Optional[str] = None
+    github_email: Optional[str] = None
     commits: int = 0
     percent: float = 0.0
     total_lines_added: int = 0

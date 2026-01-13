@@ -22,6 +22,8 @@ class Contributor(Base):
     )
     name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
     email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+    github_username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+    github_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     commits: Mapped[int] = mapped_column(Integer, default=0)
     percent: Mapped[float] = mapped_column(Float, default=0.0)
     total_lines_added: Mapped[int] = mapped_column(Integer, default=0)

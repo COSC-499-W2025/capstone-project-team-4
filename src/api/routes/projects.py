@@ -101,6 +101,8 @@ async def get_project_contributors(
             id=c.id,
             name=c.name,
             email=c.email,
+            github_username=c.github_username,
+            github_email=c.github_email,
             commits=c.commits,
             percent=c.percent,
             total_lines_added=c.total_lines_added,

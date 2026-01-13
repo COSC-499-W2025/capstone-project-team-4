@@ -4,9 +4,10 @@ import logging
 import zipfile
 import tempfile
 import shutil
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
@@ -19,16 +20,21 @@ from src.repositories.complexity_repository import ComplexityRepository
 from src.repositories.skill_repository import SkillRepository
 from src.repositories.resume_repository import ResumeRepository
 
-# Core analyzers - using existing modules
-from src.core.metadata_parser import parse_metadata
-from src.core.project_analyzer import (
-    analyze_contributors as git_analyze_contributors,
+# Core analyzers
+from src.core.extractors.metadata import parse_metadata
+from src.core.analyzers.contributor import analyze_contributors as git_analyze_contributors
+from src.core.analyzers.project_stats import (
     analyze_project,
     project_analysis_to_dict,
     calculate_project_stats,
 )
-from src.core.resume_skill_extractor import analyze_project_skills
-from src.core.resume_item_generator import generate_resume_item
+from src.core.extractors.skill import analyze_project_skills
+from src.core.generators.resume import generate_resume_item
+from src.core.utils.file_walker import (
+    collect_all_file_info,
+    file_info_to_metadata_dict,
+    FileInfo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -187,6 +193,10 @@ class AnalysisService:
         """
         Run the full analysis pipeline on a project.
 
+        This optimized pipeline:
+        1. Collects all file info in a SINGLE pass (avoiding redundant walks)
+        2. Runs Git, Complexity, and Skill analysis in PARALLEL
+
         Args:
             project_path: Path to the project directory
             project_name: Name of the project
@@ -199,70 +209,86 @@ class AnalysisService:
         logger.info(f"Starting analysis for {project_name} at {project_path}")
 
         try:
-            # Step 1: Parse metadata
-            logger.info("Step 1: Parsing metadata")
-            df, project_root = parse_metadata(str(project_path))
-            file_list = df.to_dict(orient="records")
+            # Step 0: Single-pass file collection (OPTIMIZATION)
+            logger.info("Step 0: Collecting file info (single pass)")
+            file_info_list = collect_all_file_info(project_path, show_progress=True)
+            file_paths = [f.path for f in file_info_list]
+            logger.info(f"Step 0 complete: Collected info for {len(file_info_list)} files")
 
-            # Calculate project stats
-            project_stats = calculate_project_stats(project_root, file_list)
+            # Step 1: Convert file info to metadata format
+            logger.info("Step 1: Building metadata from collected files")
+            project_root = str(Path(project_path).resolve())
+            file_list = [file_info_to_metadata_dict(f) for f in file_info_list]
+            logger.info(f"Step 1 complete: {len(file_list)} files")
 
             # Step 2: Create project entry
             logger.info("Step 2: Creating project entry")
             project = self.project_repo.create_project(
                 name=project_name,
-                root_path=str(project_root),
+                root_path=project_root,
                 source_type=source_type,
                 source_url=source_url,
             )
             project_id = project.id
+            logger.info(f"Step 2 complete: Project ID {project_id}")
 
-            # Step 3: Analyze contributors from git history
-            logger.info("Step 3: Analyzing contributors")
+            # Steps 3-5: PARALLEL ANALYSIS (OPTIMIZATION)
+            # Run Git, Complexity, and Skills analysis concurrently
+            logger.info("Steps 3-5: Running parallel analysis (Git, Complexity, Skills)")
+
+            # Default values in case of errors
             contributors = []
-            try:
-                contributors = git_analyze_contributors(project_root)
-            except Exception as e:
-                logger.warning(f"Git analysis failed: {e}")
-
-            # Step 4: Analyze code complexity
-            logger.info("Step 4: Analyzing code complexity")
             complexity_dict = {"functions": []}
-            try:
-                complexity_dict = project_analysis_to_dict(analyze_project(project_path))
-            except Exception as e:
-                logger.warning(f"Complexity analysis failed: {e}")
-
-            # Step 5: Extract skills
-            logger.info("Step 5: Extracting skills")
             skill_report = {"languages": [], "frameworks": [], "skills": [], "skill_categories": {}}
-            try:
-                skill_report = analyze_project_skills(project_root)
-            except Exception as e:
-                logger.warning(f"Skill extraction failed: {e}")
+
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                # Submit all tasks
+                futures = {
+                    executor.submit(git_analyze_contributors, project_root): "contributors",
+                    executor.submit(
+                        lambda: project_analysis_to_dict(analyze_project(project_path, file_paths))
+                    ): "complexity",
+                    executor.submit(analyze_project_skills, project_root): "skills",
+                }
+
+                # Collect results as they complete
+                for future in as_completed(futures):
+                    task_name = futures[future]
+                    try:
+                        result = future.result()
+                        if task_name == "contributors":
+                            contributors = result
+                            logger.info(f"Git analysis complete: Found {len(contributors)} contributors")
+                        elif task_name == "complexity":
+                            complexity_dict = result
+                            logger.info(f"Complexity analysis complete: Found {len(complexity_dict.get('functions', []))} functions")
+                        elif task_name == "skills":
+                            skill_report = result
+                            logger.info(f"Skill extraction complete: Found {len(skill_report.get('frameworks', []))} frameworks")
+                    except Exception as e:
+                        logger.warning(f"{task_name} analysis failed: {e}")
+
+            logger.info("Steps 3-5 complete: Parallel analysis finished")
+
+            # Step 6: Calculate project stats (uses contributors from parallel analysis)
+            logger.info("Step 6: Calculating project stats")
+            project_stats = calculate_project_stats(project_root, file_list, contributors)
+            logger.info("Step 6 complete")
 
             languages = sorted(set(skill_report.get("languages", [])))
             frameworks = sorted(set(skill_report.get("frameworks", [])))
 
-            # Step 6: Save files to database
-            logger.info("Step 6: Saving files to database")
+            # Step 7: Save to database
+            logger.info("Step 7: Saving to database")
             self._save_files(project_id, file_list)
-
-            # Step 7: Save complexity to database
-            logger.info("Step 7: Saving complexity to database")
             self._save_complexity(project_id, complexity_dict.get("functions", []))
-
-            # Step 8: Save contributors to database
-            logger.info("Step 8: Saving contributors to database")
             if contributors:
                 self._save_contributors(project_id, contributors)
-
-            # Step 9: Save skills to database
-            logger.info("Step 9: Saving skills to database")
             self._save_skills(project_id, skill_report.get("skill_categories", {}))
+            logger.info("Step 7 complete: Database saves finished")
 
-            # Step 10: Generate and save resume item
-            logger.info("Step 10: Generating resume item")
+            # Step 8: Generate and save resume item
+            logger.info("Step 8: Generating resume item")
             resume_item = generate_resume_item(
                 project_name=project_name,
                 contributors=contributors,
@@ -337,6 +363,9 @@ class AnalysisService:
 
     def _save_contributors(self, project_id: int, contributors: list) -> None:
         """Save contributor data to database."""
+        # Delete old contributors for this project
+        self.contributor_repo.delete_by_project_id(project_id)
+        
         contributors_data = []
         for c in contributors:
             files_modified = []
@@ -350,6 +379,8 @@ class AnalysisService:
                 "project_id": project_id,
                 "name": c.get("name"),
                 "email": c.get("email"),
+                "github_username": c.get("github_username"),
+                "github_email": c.get("github_email"),
                 "commits": c.get("commits", 0),
                 "percent": c.get("percent", 0.0),
                 "total_lines_added": c.get("total_lines_added", 0),

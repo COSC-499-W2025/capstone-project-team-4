@@ -49,6 +49,8 @@ class ContributorRepository(BaseRepository[Contributor]):
         project_id: int,
         name: Optional[str] = None,
         email: Optional[str] = None,
+        github_username: Optional[str] = None,
+        github_email: Optional[str] = None,
         commits: int = 0,
         percent: float = 0.0,
         total_lines_added: int = 0,
@@ -59,6 +61,8 @@ class ContributorRepository(BaseRepository[Contributor]):
             project_id=project_id,
             name=name,
             email=email,
+            github_username=github_username,
+            github_email=github_email,
             commits=commits,
             percent=percent,
             total_lines_added=total_lines_added,
@@ -91,6 +95,8 @@ class ContributorRepository(BaseRepository[Contributor]):
                 project_id=data["project_id"],
                 name=data.get("name"),
                 email=data.get("email"),
+                github_username=data.get("github_username"),
+                github_email=data.get("github_email"),
                 commits=data.get("commits", 0),
                 percent=data.get("percent", 0.0),
                 total_lines_added=data.get("total_lines_added", 0),
@@ -111,6 +117,27 @@ class ContributorRepository(BaseRepository[Contributor]):
                     )
 
         return created
+
+    def delete_by_project_id(self, project_id: int) -> int:
+        """Delete all contributors for a project."""
+        # Delete contributor files first
+        stmt_files = select(ContributorFile).where(
+            ContributorFile.contributor_id.in_(
+                select(Contributor.id).where(Contributor.project_id == project_id)
+            )
+        )
+        for file_obj in self.db.scalars(stmt_files):
+            self.db.delete(file_obj)
+        
+        # Delete contributors
+        stmt = select(Contributor).where(Contributor.project_id == project_id)
+        count = 0
+        for contributor in self.db.scalars(stmt):
+            self.db.delete(contributor)
+            count += 1
+        
+        self.db.commit()
+        return count
 
     def count_by_project(self, project_id: int) -> int:
         """Count contributors in a project."""

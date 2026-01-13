@@ -17,7 +17,7 @@ from src.repositories.skill_repository import SkillRepository
 from src.repositories.file_repository import FileRepository
 
 # Import resume generator
-from src.core.resume_item_generator import generate_resume_item
+from src.core.generators.resume import generate_resume_item
 
 logger = logging.getLogger(__name__)
 
