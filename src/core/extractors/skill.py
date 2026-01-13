@@ -249,6 +249,254 @@ FRAMEWORK_SKILLS: Dict[str, List[str]] = {
 # File extension to skills mapping
 # =============================================================================
 
+# =============================================================================
+# Library to skills mapping
+# =============================================================================
+
+LIBRARY_SKILLS: Dict[str, List[str]] = {
+    # HTTP Clients
+    "axios": ["HTTP Client", "RESTful APIs", "Async Programming"],
+    "fetch": ["HTTP Client", "RESTful APIs"],
+    "httpx": ["HTTP Client", "RESTful APIs", "Async Programming"],
+    "requests": ["HTTP Client", "RESTful APIs"],
+    "aiohttp": ["HTTP Client", "Async Programming"],
+    "got": ["HTTP Client", "RESTful APIs"],
+    "superagent": ["HTTP Client", "RESTful APIs"],
+
+    # Utility Libraries
+    "lodash": ["Utility Libraries", "Functional Programming"],
+    "underscore": ["Utility Libraries", "Functional Programming"],
+    "ramda": ["Functional Programming"],
+    "date-fns": ["Date/Time Manipulation"],
+    "moment": ["Date/Time Manipulation"],
+    "dayjs": ["Date/Time Manipulation"],
+    "uuid": ["Unique ID Generation"],
+
+    # Data Processing
+    "pandas": ["Data Analysis", "Data Manipulation", "Data Processing"],
+    "numpy": ["Numerical Computing", "Scientific Computing", "Data Processing"],
+    "scipy": ["Scientific Computing", "Statistical Analysis"],
+    "polars": ["Data Analysis", "Data Processing"],
+    "dask": ["Distributed Computing", "Big Data Processing"],
+    "vaex": ["Big Data Processing", "Data Analysis"],
+
+    # Validation
+    "zod": ["Schema Validation", "Type Safety"],
+    "yup": ["Schema Validation", "Form Validation"],
+    "joi": ["Schema Validation", "API Validation"],
+    "pydantic": ["Data Validation", "Type Safety"],
+    "cerberus": ["Data Validation"],
+    "marshmallow": ["Data Serialization", "Schema Validation"],
+
+    # Authentication
+    "passport": ["Authentication", "OAuth"],
+    "jsonwebtoken": ["JWT Authentication", "Security"],
+    "bcrypt": ["Password Hashing", "Security"],
+    "argon2": ["Password Hashing", "Security"],
+    "pyjwt": ["JWT Authentication", "Security"],
+
+    # Logging
+    "winston": ["Logging", "Application Monitoring"],
+    "pino": ["Logging", "Application Monitoring"],
+    "bunyan": ["Logging"],
+    "loguru": ["Logging", "Application Monitoring"],
+
+    # Database Clients
+    "pg": ["PostgreSQL", "Database Management"],
+    "mysql2": ["MySQL", "Database Management"],
+    "redis": ["Redis", "Caching", "In-Memory Database"],
+    "mongodb": ["MongoDB", "NoSQL"],
+    "psycopg2": ["PostgreSQL", "Database Management"],
+    "pymongo": ["MongoDB", "NoSQL"],
+    "asyncpg": ["PostgreSQL", "Async Programming", "Database Management"],
+
+    # Message Queues
+    "amqplib": ["Message Queues", "RabbitMQ"],
+    "bull": ["Job Queues", "Background Processing"],
+    "celery": ["Task Queue Management", "Background Processing"],
+    "rq": ["Job Queues", "Background Processing"],
+    "kafka-python": ["Apache Kafka", "Event Streaming"],
+
+    # Image Processing
+    "sharp": ["Image Processing", "Image Optimization"],
+    "jimp": ["Image Processing"],
+    "pillow": ["Image Processing", "Computer Vision"],
+    "opencv-python": ["Computer Vision", "Image Processing"],
+
+    # File Processing
+    "multer": ["File Upload Handling"],
+    "formidable": ["File Upload Handling"],
+    "python-magic": ["File Type Detection"],
+
+    # PDF Processing
+    "pdfkit": ["PDF Generation"],
+    "puppeteer": ["Browser Automation", "PDF Generation", "Web Scraping"],
+    "reportlab": ["PDF Generation"],
+    "pypdf2": ["PDF Processing"],
+
+    # Email
+    "nodemailer": ["Email Integration", "SMTP"],
+    "sendgrid": ["Email Integration", "Email API"],
+
+    # WebSockets
+    "socket.io": ["Real-Time Communication", "WebSockets"],
+    "ws": ["WebSockets", "Real-Time Communication"],
+    "websockets": ["WebSockets", "Real-Time Communication"],
+
+    # CLI
+    "commander": ["CLI Development"],
+    "yargs": ["CLI Development"],
+    "inquirer": ["CLI Development", "Interactive CLI"],
+    "click": ["CLI Development"],
+    "typer": ["CLI Development"],
+
+    # ML/AI Libraries
+    "transformers": ["Natural Language Processing", "Machine Learning"],
+    "huggingface": ["Natural Language Processing", "Machine Learning"],
+    "openai": ["AI Integration", "GPT API"],
+    "langchain": ["LLM Applications", "AI Integration"],
+    "spacy": ["Natural Language Processing"],
+    "nltk": ["Natural Language Processing"],
+    "gensim": ["Natural Language Processing", "Topic Modeling"],
+
+    # Web Scraping
+    "cheerio": ["Web Scraping", "HTML Parsing"],
+    "beautifulsoup4": ["Web Scraping", "HTML Parsing"],
+    "scrapy": ["Web Scraping", "Data Extraction"],
+    "selenium": ["Browser Automation", "Web Scraping"],
+
+    # Visualization
+    "chart.js": ["Data Visualization", "Charts"],
+    "d3": ["Data Visualization", "Interactive Charts"],
+    "plotly": ["Data Visualization", "Interactive Charts"],
+    "matplotlib": ["Data Visualization", "Charts"],
+    "seaborn": ["Data Visualization", "Statistical Graphics"],
+    "bokeh": ["Data Visualization", "Interactive Charts"],
+    "altair": ["Data Visualization", "Declarative Charts"],
+
+    # Cloud SDKs
+    "aws-sdk": ["AWS", "Cloud Infrastructure"],
+    "boto3": ["AWS", "Cloud Infrastructure"],
+    "@google-cloud": ["Google Cloud", "Cloud Infrastructure"],
+    "google-cloud": ["Google Cloud", "Cloud Infrastructure"],
+    "@azure": ["Azure", "Cloud Infrastructure"],
+    "azure": ["Azure", "Cloud Infrastructure"],
+
+    # Monitoring
+    "prometheus-client": ["Monitoring", "Metrics"],
+    "prom-client": ["Monitoring", "Metrics"],
+    "sentry": ["Error Tracking", "Application Monitoring"],
+    "@sentry/node": ["Error Tracking", "Application Monitoring"],
+    "newrelic": ["Application Performance Monitoring"],
+    "datadog": ["Application Performance Monitoring", "Monitoring"],
+}
+
+
+# =============================================================================
+# Tool to skills mapping
+# =============================================================================
+
+TOOL_SKILLS: Dict[str, List[str]] = {
+    # Build Tools
+    "Webpack": ["Build Optimization", "Module Bundling"],
+    "Vite": ["Modern Build Tools", "Fast Development"],
+    "Rollup": ["Module Bundling", "Library Packaging"],
+    "esbuild": ["Fast Build Tools", "TypeScript Compilation"],
+    "Parcel": ["Zero-Config Bundling"],
+    "Turbopack": ["Fast Build Tools"],
+
+    # CI/CD
+    "GitHub Actions": ["CI/CD", "DevOps", "Automation"],
+    "GitLab CI": ["CI/CD", "DevOps"],
+    "Jenkins": ["CI/CD", "Build Automation"],
+    "CircleCI": ["CI/CD", "DevOps"],
+    "Travis CI": ["CI/CD"],
+    "Azure DevOps": ["CI/CD", "DevOps"],
+
+    # Containerization
+    "Docker": ["Containerization", "DevOps"],
+    "Docker Compose": ["Container Orchestration", "Multi-Container Applications"],
+    "Kubernetes": ["Container Orchestration", "Cloud-Native"],
+    "Helm": ["Kubernetes Package Management"],
+    "Podman": ["Containerization"],
+
+    # Infrastructure as Code
+    "Terraform": ["Infrastructure as Code", "Cloud Infrastructure"],
+    "Pulumi": ["Infrastructure as Code"],
+    "AWS CDK": ["Infrastructure as Code", "AWS"],
+    "Ansible": ["Configuration Management", "DevOps"],
+    "CloudFormation": ["Infrastructure as Code", "AWS"],
+
+    # Testing
+    "Jest": ["Unit Testing", "Test-Driven Development"],
+    "Vitest": ["Unit Testing", "Fast Testing"],
+    "Pytest": ["Unit Testing", "Test-Driven Development"],
+    "JUnit": ["Unit Testing", "Java Testing"],
+    "Mocha": ["Unit Testing"],
+    "Cypress": ["End-to-End Testing", "Test Automation"],
+    "Playwright": ["End-to-End Testing", "Cross-Browser Testing"],
+    "Selenium": ["Browser Automation", "Test Automation"],
+    "Testing Library": ["Component Testing", "User-Centric Testing"],
+
+    # Linting/Formatting
+    "ESLint": ["Code Quality", "JavaScript Linting"],
+    "Prettier": ["Code Formatting", "Code Quality"],
+    "Black": ["Code Formatting", "Python"],
+    "Ruff": ["Python Linting", "Code Quality"],
+    "Flake8": ["Python Linting"],
+    "Pylint": ["Python Linting", "Code Analysis"],
+    "Mypy": ["Type Checking", "Python"],
+    "TypeScript": ["Type Safety", "Static Typing"],
+    "Biome": ["Code Quality", "Fast Linting"],
+
+    # Package Managers
+    "npm": ["Package Management", "Node.js"],
+    "Yarn": ["Package Management", "Node.js"],
+    "pnpm": ["Package Management", "Efficient Dependencies"],
+    "Poetry": ["Dependency Management", "Python"],
+    "pip": ["Package Management", "Python"],
+    "Cargo": ["Package Management", "Rust"],
+
+    # Documentation
+    "Storybook": ["Component Documentation", "UI Development"],
+    "Swagger": ["API Documentation", "OpenAPI"],
+    "Sphinx": ["Documentation Generation", "Python Documentation"],
+    "JSDoc": ["JavaScript Documentation"],
+    "TypeDoc": ["TypeScript Documentation"],
+
+    # Deployment Platforms
+    "Vercel": ["Serverless Deployment", "Frontend Hosting"],
+    "Netlify": ["Static Site Hosting", "JAMstack"],
+    "Heroku": ["PaaS Deployment", "Cloud Hosting"],
+    "Railway": ["Cloud Deployment"],
+    "Fly.io": ["Edge Deployment", "Container Hosting"],
+
+    # Monorepo Tools
+    "Lerna": ["Monorepo Management"],
+    "Nx": ["Monorepo Management", "Build System"],
+    "Turborepo": ["Monorepo Management", "Build Caching"],
+    "Rush": ["Monorepo Management"],
+
+    # Version Control
+    "Git": ["Version Control", "Collaboration"],
+    "Git Flow": ["Branching Strategy"],
+    "Husky": ["Git Hooks", "Pre-commit Automation"],
+    "Commitlint": ["Commit Standards"],
+
+    # Database Tools
+    "Prisma": ["ORM", "Database Schema Management"],
+    "Alembic": ["Database Migrations", "Schema Management"],
+    "Flyway": ["Database Migrations"],
+    "Liquibase": ["Database Change Management"],
+
+    # API Development
+    "Postman": ["API Testing", "API Development"],
+    "Insomnia": ["API Testing"],
+    "GraphQL Playground": ["GraphQL Development"],
+    "Apollo Studio": ["GraphQL Development", "API Monitoring"],
+}
+
+
 FILE_TYPE_SKILLS: Dict[str, List[str]] = {
     # Design Files - Adobe Creative Suite
     ".psd": ["Adobe Photoshop", "Photo Editing", "Graphic Design", "Digital Art"],
@@ -539,6 +787,144 @@ def extract_skills_from_frameworks(frameworks: List[str]) -> Set[str]:
     return skills
 
 
+def extract_skills_from_libraries(libraries: List[Dict[str, Any]]) -> Set[str]:
+    """
+    Extract skills from detected libraries.
+
+    Args:
+        libraries: List of detected libraries (dicts with name, ecosystem, etc.)
+
+    Returns:
+        Set of skills derived from the libraries
+    """
+    skills = set()
+
+    for lib in libraries:
+        lib_name = lib.get("name", "").lower()
+
+        # Check direct mapping
+        if lib_name in LIBRARY_SKILLS:
+            skills.update(LIBRARY_SKILLS[lib_name])
+
+        # Check partial matches for scoped packages
+        for known_lib, lib_skills in LIBRARY_SKILLS.items():
+            if known_lib.lower() in lib_name or lib_name in known_lib.lower():
+                skills.update(lib_skills)
+
+    # Infer composite skills from library combinations
+    lib_names = {lib.get("name", "").lower() for lib in libraries}
+
+    # Data Science stack
+    data_libs = {"pandas", "numpy", "scipy", "matplotlib", "seaborn"}
+    if len(lib_names & data_libs) >= 3:
+        skills.add("Data Science")
+
+    # ML stack
+    ml_libs = {"tensorflow", "pytorch", "torch", "keras", "scikit-learn", "sklearn", "transformers"}
+    if len(lib_names & ml_libs) >= 2:
+        skills.add("Machine Learning Engineering")
+
+    # Web scraping stack
+    scraping_libs = {"beautifulsoup4", "scrapy", "selenium", "puppeteer", "cheerio"}
+    if len(lib_names & scraping_libs) >= 2:
+        skills.add("Web Scraping & Data Extraction")
+
+    # API development stack
+    api_libs = {"axios", "requests", "httpx", "aiohttp", "got"}
+    if len(lib_names & api_libs) >= 1:
+        skills.add("API Integration")
+
+    # Authentication stack
+    auth_libs = {"passport", "jsonwebtoken", "bcrypt", "argon2", "pyjwt"}
+    if len(lib_names & auth_libs) >= 2:
+        skills.add("Authentication & Security")
+
+    # Database stack
+    db_libs = {"pg", "mysql2", "mongodb", "pymongo", "psycopg2", "asyncpg", "redis"}
+    if len(lib_names & db_libs) >= 1:
+        skills.add("Database Integration")
+
+    # Cloud SDK stack
+    cloud_libs = {"boto3", "aws-sdk", "google-cloud", "@google-cloud", "azure"}
+    if len(lib_names & cloud_libs) >= 1:
+        skills.add("Cloud Services Integration")
+
+    return skills
+
+
+def extract_skills_from_tools(tools: List[Dict[str, Any]]) -> Set[str]:
+    """
+    Extract skills from detected tools.
+
+    Args:
+        tools: List of detected tools (dicts with name, category, etc.)
+
+    Returns:
+        Set of skills derived from the tools
+    """
+    skills = set()
+
+    for tool in tools:
+        tool_name = tool.get("name", "")
+        category = tool.get("category", "")
+
+        # Check direct mapping
+        if tool_name in TOOL_SKILLS:
+            skills.update(TOOL_SKILLS[tool_name])
+
+        # Category-based skills
+        if category == "cicd":
+            skills.add("CI/CD Pipeline Configuration")
+        elif category == "container":
+            skills.add("Containerization")
+        elif category == "infrastructure":
+            skills.add("Infrastructure as Code")
+        elif category == "testing":
+            skills.add("Test Automation")
+        elif category == "linting":
+            skills.add("Code Quality & Standards")
+
+    # Infer composite skills from tool combinations
+    tool_names = {tool.get("name", "") for tool in tools}
+    tool_categories = {tool.get("category", "") for tool in tools}
+
+    # DevOps stack
+    devops_tools = {"Docker", "Kubernetes", "GitHub Actions", "GitLab CI", "Jenkins", "Terraform", "Ansible"}
+    if len(tool_names & devops_tools) >= 3:
+        skills.add("DevOps & Infrastructure")
+
+    # Full CI/CD setup
+    if "cicd" in tool_categories and "container" in tool_categories:
+        skills.add("CI/CD Pipeline Management")
+
+    # Testing expertise
+    testing_tools = {"Jest", "Pytest", "Cypress", "Playwright", "Vitest", "JUnit"}
+    if len(tool_names & testing_tools) >= 2:
+        skills.add("Comprehensive Testing Strategy")
+
+    # Code quality
+    quality_tools = {"ESLint", "Prettier", "Black", "Ruff", "Mypy", "TypeScript"}
+    if len(tool_names & quality_tools) >= 2:
+        skills.add("Code Quality Automation")
+
+    # Modern frontend tooling
+    frontend_tools = {"Vite", "Webpack", "esbuild", "Turbopack", "Rollup"}
+    if len(tool_names & frontend_tools) >= 1:
+        skills.add("Modern Build Systems")
+
+    # Documentation tools
+    doc_tools = {"Storybook", "Swagger", "Sphinx", "JSDoc", "TypeDoc"}
+    if len(tool_names & doc_tools) >= 1:
+        skills.add("Technical Documentation")
+
+    # Monorepo management
+    monorepo_tools = {"Lerna", "Nx", "Turborepo", "Rush"}
+    if len(tool_names & monorepo_tools) >= 1:
+        skills.add("Monorepo Architecture")
+
+    return skills
+
+
 def extract_skills_from_files(root_dir: Union[str, Path]) -> Set[str]:
     """
     Extract skills from file types in a project.
@@ -610,13 +996,23 @@ def extract_skills_from_files(root_dir: Union[str, Path]) -> Set[str]:
     return skills
 
 
-def _infer_contextual_skills(languages: List[str], frameworks: List[str]) -> Set[str]:
+def _infer_contextual_skills(
+    languages: List[str],
+    frameworks: List[str],
+    libraries: Optional[List[Dict[str, Any]]] = None,
+    tools: Optional[List[Dict[str, Any]]] = None,
+) -> Set[str]:
     """
-    Infer contextual skills based on language + framework combinations.
+    Infer contextual skills based on language + framework + library + tool combinations.
+
+    This enhanced version considers all four detection signals to provide
+    richer skill inference based on multi-signal agreement.
 
     Args:
         languages: List of detected languages
         frameworks: List of detected frameworks
+        libraries: Optional list of detected libraries
+        tools: Optional list of detected tools
 
     Returns:
         Set of inferred contextual skills
@@ -625,6 +1021,20 @@ def _infer_contextual_skills(languages: List[str], frameworks: List[str]) -> Set
     lang_set = set(languages)
     framework_set = set(frameworks)
 
+    # Extract library and tool names for easier checking
+    lib_names = set()
+    if libraries:
+        lib_names = {lib.get("name", "").lower() for lib in libraries}
+
+    tool_names = set()
+    tool_categories = set()
+    if tools:
+        tool_names = {tool.get("name", "") for tool in tools}
+        tool_categories = {tool.get("category", "") for tool in tools}
+
+    # =========================================================================
+    # Backend vs Frontend Detection
+    # =========================================================================
     backend_langs = {"Python", "Java", "C#", "Go", "Rust", "PHP", "Ruby", "Kotlin", "Scala", "Elixir", "Erlang"}
     backend_frameworks = {
         "Django", "Flask", "FastAPI", "Express", "Koa", "Fastify", "Hapi",
@@ -638,7 +1048,7 @@ def _infer_contextual_skills(languages: List[str], frameworks: List[str]) -> Set
         "Next.js", "Nuxt.js", "Gatsby", "Remix", "Astro", "SvelteKit"
     }
 
-    has_backend = bool(lang_set & backend_langs)
+    has_backend = bool(lang_set & backend_langs) or bool(framework_set & backend_frameworks)
     has_modern_frontend = (lang_set & frontend_langs) and (framework_set & frontend_frameworks)
     has_traditional_frontend = ("HTML" in lang_set) or ("CSS" in lang_set)
     has_frontend = has_modern_frontend or has_traditional_frontend
@@ -653,6 +1063,9 @@ def _infer_contextual_skills(languages: List[str], frameworks: List[str]) -> Set
         elif has_traditional_frontend and not has_backend:
             skills.add("Frontend Development")
 
+    # =========================================================================
+    # Mobile Development
+    # =========================================================================
     mobile_frameworks = {"React Native", "Expo", "Ionic", "NativeScript", "Flutter"}
 
     if "Swift" in lang_set:
@@ -664,23 +1077,119 @@ def _infer_contextual_skills(languages: List[str], frameworks: List[str]) -> Set
     if (lang_set & frontend_langs) and (framework_set & mobile_frameworks):
         skills.add("Mobile Development")
 
+    # =========================================================================
+    # Data Science & ML (enhanced with library detection)
+    # =========================================================================
     if "Python" in lang_set:
         data_frameworks = {"Pandas", "NumPy", "Scikit-learn", "Jupyter Notebook"}
-        if framework_set & data_frameworks:
+        data_libs = {"pandas", "numpy", "scipy", "matplotlib", "seaborn", "polars"}
+
+        if (framework_set & data_frameworks) or len(lib_names & data_libs) >= 2:
             skills.add("Data Science")
 
     if "R" in lang_set:
         skills.add("Data Science")
 
     ml_frameworks = {"TensorFlow", "PyTorch", "Keras", "Scikit-learn"}
-    if framework_set & ml_frameworks:
+    ml_libs = {"tensorflow", "pytorch", "torch", "keras", "scikit-learn", "sklearn", "transformers", "huggingface"}
+
+    if (framework_set & ml_frameworks) or len(lib_names & ml_libs) >= 2:
         skills.add("Machine Learning")
 
-    has_containers = "Docker" in framework_set
+    # NLP specialization
+    nlp_libs = {"transformers", "spacy", "nltk", "gensim", "huggingface"}
+    if len(lib_names & nlp_libs) >= 2:
+        skills.add("Natural Language Processing")
+
+    # =========================================================================
+    # DevOps & Infrastructure (enhanced with tool detection)
+    # =========================================================================
+    has_containers = "Docker" in framework_set or "Docker" in tool_names
     has_scripting = lang_set & {"Shell", "PowerShell", "Batch"}
+    has_cicd = "cicd" in tool_categories
+    has_k8s = "Kubernetes" in tool_names or "kubernetes" in lib_names
 
     if has_containers and has_scripting:
         skills.add("DevOps")
+
+    if has_containers and has_cicd:
+        skills.add("DevOps")
+        skills.add("CI/CD Pipeline Management")
+
+    if has_k8s:
+        skills.add("Container Orchestration")
+        skills.add("Cloud-Native Development")
+
+    # Infrastructure as Code
+    iac_tools = {"Terraform", "Pulumi", "AWS CDK", "Ansible", "CloudFormation"}
+    if tool_names & iac_tools:
+        skills.add("Infrastructure as Code")
+
+    # =========================================================================
+    # Modern Frontend Development (enhanced)
+    # =========================================================================
+    modern_build_tools = {"Vite", "Webpack", "esbuild", "Turbopack"}
+    testing_tools = {"Jest", "Vitest", "Cypress", "Playwright"}
+    ui_frameworks = {"React", "Vue", "Angular", "Svelte", "Next.js"}
+
+    if (framework_set & ui_frameworks) and (tool_names & modern_build_tools) and (tool_names & testing_tools):
+        skills.add("Modern Frontend Development")
+
+    # =========================================================================
+    # Full-Stack Web Development (enhanced with DB detection)
+    # =========================================================================
+    db_libs = {"pg", "mysql2", "mongodb", "pymongo", "psycopg2", "asyncpg", "prisma", "sequelize", "typeorm"}
+    has_db = len(lib_names & db_libs) >= 1
+
+    if has_backend and has_frontend and has_db:
+        skills.add("Full-Stack Web Development")
+
+    # =========================================================================
+    # API Development
+    # =========================================================================
+    api_frameworks = {"FastAPI", "Express", "Flask", "Django", "NestJS"}
+    api_tools = {"Swagger", "Postman", "Insomnia"}
+    graphql_indicators = {"graphql", "apollo", "@apollo/client", "apollo-server"}
+
+    if (framework_set & api_frameworks) and (tool_names & api_tools):
+        skills.add("API Design & Development")
+
+    if lib_names & graphql_indicators or "GraphQL" in framework_set:
+        skills.add("GraphQL Development")
+
+    # =========================================================================
+    # Real-Time Applications
+    # =========================================================================
+    realtime_libs = {"socket.io", "ws", "websockets", "pusher"}
+    if lib_names & realtime_libs:
+        skills.add("Real-Time Applications")
+
+    # =========================================================================
+    # Microservices Architecture
+    # =========================================================================
+    microservice_indicators = {
+        "has_docker": has_containers,
+        "has_k8s": has_k8s,
+        "has_message_queue": bool(lib_names & {"amqplib", "bull", "celery", "kafka-python"}),
+        "has_api_gateway": bool(lib_names & {"express-gateway", "kong"}),
+    }
+    if sum(microservice_indicators.values()) >= 3:
+        skills.add("Microservices Architecture")
+
+    # =========================================================================
+    # Security-focused Development
+    # =========================================================================
+    security_libs = {"bcrypt", "argon2", "jsonwebtoken", "pyjwt", "passport", "helmet"}
+    if len(lib_names & security_libs) >= 2:
+        skills.add("Security-Focused Development")
+
+    # =========================================================================
+    # Performance Optimization
+    # =========================================================================
+    perf_libs = {"redis", "memcached", "sharp", "imagemin"}
+    perf_tools = {"Webpack", "Vite", "esbuild"}
+    if (lib_names & perf_libs) and (tool_names & perf_tools):
+        skills.add("Performance Optimization")
 
     return skills
 
@@ -689,6 +1198,8 @@ def extract_resume_skills(
     root_dir: Union[str, Path],
     languages: Optional[List[str]] = None,
     frameworks: Optional[List[str]] = None,
+    libraries: Optional[List[Dict[str, Any]]] = None,
+    tools: Optional[List[Dict[str, Any]]] = None,
     include_code_patterns: bool = False,
 ) -> List[str]:
     """
@@ -698,6 +1209,8 @@ def extract_resume_skills(
         root_dir: Path to the project directory
         languages: Optional pre-detected list of languages
         frameworks: Optional pre-detected list of frameworks
+        libraries: Optional pre-detected list of libraries
+        tools: Optional pre-detected list of tools
         include_code_patterns: If True, also run regex-based code pattern analysis
 
     Returns:
@@ -730,7 +1243,15 @@ def extract_resume_skills(
     all_skills.update(extract_skills_from_languages(languages))
     all_skills.update(extract_skills_from_frameworks(frameworks))
     all_skills.update(extract_skills_from_files(root_path))
-    all_skills.update(_infer_contextual_skills(languages, frameworks))
+
+    # Extract skills from libraries and tools if provided
+    if libraries:
+        all_skills.update(extract_skills_from_libraries(libraries))
+    if tools:
+        all_skills.update(extract_skills_from_tools(tools))
+
+    # Use enhanced contextual inference with libraries and tools
+    all_skills.update(_infer_contextual_skills(languages, frameworks, libraries, tools))
 
     return sorted(list(all_skills))
 
@@ -784,17 +1305,22 @@ def get_skill_categories() -> Dict[str, List[str]]:
 
 def analyze_project_skills(
     root_dir: Union[str, Path],
+    libraries: Optional[List[Dict[str, Any]]] = None,
+    tools: Optional[List[Dict[str, Any]]] = None,
     include_code_patterns: bool = False,
 ) -> Dict[str, Any]:
     """
-    Comprehensive project skill analysis.
+    Comprehensive project skill analysis with source tracking.
 
     Args:
         root_dir: Path to the project directory
+        libraries: Optional pre-detected list of libraries
+        tools: Optional pre-detected list of tools
         include_code_patterns: If True, also run regex-based code pattern analysis
 
     Returns:
-        Dictionary containing languages, frameworks, skills, and skill categories
+        Dictionary containing languages, frameworks, skills, skill categories,
+        and skill_sources mapping each skill to its detection source
     """
     root_path = Path(root_dir)
 
@@ -823,14 +1349,54 @@ def analyze_project_skills(
         logger.warning("Framework rules file not found at %s", rules_path)
         frameworks = []
 
-    # Extract all skills
-    skills = extract_resume_skills(root_path, languages, frameworks, include_code_patterns)
+    # Extract skills from each source separately for tracking
+    skill_sources: Dict[str, str] = {}  # Maps skill name -> source
+
+    # Skills from languages
+    lang_skills = extract_skills_from_languages(languages)
+    for skill in lang_skills:
+        skill_sources[skill] = "language"
+
+    # Skills from frameworks
+    fw_skills = extract_skills_from_frameworks(frameworks)
+    for skill in fw_skills:
+        if skill not in skill_sources:  # Don't overwrite if already set
+            skill_sources[skill] = "framework"
+
+    # Skills from file types
+    file_skills = extract_skills_from_files(root_path)
+    for skill in file_skills:
+        if skill not in skill_sources:
+            skill_sources[skill] = "file_type"
+
+    # Skills from libraries
+    if libraries:
+        lib_skills = extract_skills_from_libraries(libraries)
+        for skill in lib_skills:
+            if skill not in skill_sources:
+                skill_sources[skill] = "library"
+
+    # Skills from tools
+    if tools:
+        tool_skills = extract_skills_from_tools(tools)
+        for skill in tool_skills:
+            if skill not in skill_sources:
+                skill_sources[skill] = "tool"
+
+    # Contextual skills (inferred from combinations)
+    contextual_skills = _infer_contextual_skills(languages, frameworks, libraries, tools)
+    for skill in contextual_skills:
+        if skill not in skill_sources:
+            skill_sources[skill] = "contextual"
+
+    # All unique skills
+    all_skills = sorted(skill_sources.keys())
 
     # Categorize skills
     categories = get_skill_categories()
     categorized_skills: Dict[str, List[str]] = {}
 
-    for skill in skills:
+    for skill in all_skills:
         placed = False
         for category, category_skills in categories.items():
             if skill in category_skills:
@@ -848,8 +1414,9 @@ def analyze_project_skills(
     return {
         "languages": languages,
         "frameworks": frameworks,
-        "skills": skills,
+        "skills": all_skills,
         "skill_categories": categorized_skills,
-        "total_skills": len(skills),
+        "skill_sources": skill_sources,  # New: maps skill -> source
+        "total_skills": len(all_skills),
         "project_path": str(root_path.resolve()),
     }

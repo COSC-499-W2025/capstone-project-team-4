@@ -3,11 +3,17 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 
 from src.models.database import get_db
-from src.models.schemas.skill import ProjectSkillsResponse, SkillTimelineResponse
+from src.models.schemas.skill import (
+    ProjectSkillsResponse,
+    SkillTimelineResponse,
+    SkillSourceResponse,
+    SkillsBySourceResponse,
+    CrossValidationResponse,
+)
 from src.services.skill_service import SkillService
 from src.services.project_service import ProjectService
 from src.api.exceptions import ProjectNotFoundError
@@ -15,6 +21,9 @@ from src.api.exceptions import ProjectNotFoundError
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/projects/{project_id}/skills", tags=["skills"])
+
+# Valid source types for skill filtering
+VALID_SOURCES = {"language", "framework", "library", "tool", "contextual", "file_type"}
 
 
 @router.get("", response_model=ProjectSkillsResponse)
@@ -75,3 +84,86 @@ async def get_skill_categories(
 
     service = SkillService(db)
     return service.get_skill_categories(project_id)
+
+
+@router.get("/sources", response_model=SkillSourceResponse)
+async def get_skill_sources(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Get skills grouped by their detection source.
+
+    Returns skills categorized by how they were detected:
+    - from_languages: Skills derived from programming languages
+    - from_frameworks: Skills derived from frameworks
+    - from_libraries: Skills derived from library dependencies
+    - from_tools: Skills derived from development tools
+    - contextual: Skills inferred from multi-signal combinations
+    - from_file_types: Skills derived from file types
+
+    This endpoint is useful for understanding where each skill
+    comes from in the complementary detection system.
+    """
+    project_service = ProjectService(db)
+    if not project_service.project_exists(project_id):
+        raise ProjectNotFoundError(project_id)
+
+    service = SkillService(db)
+    return service.get_skill_sources(project_id)
+
+
+@router.get("/by-source/{source}", response_model=SkillsBySourceResponse)
+async def get_skills_by_source(
+    project_id: int,
+    source: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Get skills filtered by a specific source type.
+
+    **Valid source types:**
+    - `language`: Skills from detected programming languages
+    - `framework`: Skills from detected frameworks
+    - `library`: Skills from detected library dependencies
+    - `tool`: Skills from detected development tools
+    - `contextual`: Skills inferred from multi-signal combinations
+    - `file_type`: Skills from detected file types
+    """
+    if source not in VALID_SOURCES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid source type. Must be one of: {', '.join(VALID_SOURCES)}"
+        )
+
+    project_service = ProjectService(db)
+    if not project_service.project_exists(project_id):
+        raise ProjectNotFoundError(project_id)
+
+    service = SkillService(db)
+    return service.get_skills_by_source(project_id, source)
+
+
+@router.get("/cross-validation", response_model=CrossValidationResponse)
+async def get_cross_validation_results(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Get cross-validation results for the project.
+
+    Returns metadata about how the complementary detection system
+    validated and enhanced framework detections:
+    - summary: Statistics about cross-validation results
+    - enhanced_frameworks: Frameworks with boosted confidence scores
+    - gap_filled_frameworks: Frameworks detected via library/tool signals
+
+    This endpoint is useful for understanding the detection confidence
+    and seeing which frameworks were enhanced by multi-signal agreement.
+    """
+    project_service = ProjectService(db)
+    if not project_service.project_exists(project_id):
+        raise ProjectNotFoundError(project_id)
+
+    service = SkillService(db)
+    return service.get_cross_validation_results(project_id)

@@ -1,6 +1,6 @@
 """Pydantic schemas for skills."""
 
-from typing import Dict, List
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -13,6 +13,18 @@ class SkillSchema(BaseModel):
     name: str
     category: str
     frequency: int = 1
+    # Source tracking fields for complementary detection system
+    source: Optional[str] = None
+    source_id: Optional[int] = None
+    cross_validation_boost: Optional[float] = None
+
+
+class SkillWithRelations(SkillSchema):
+    """Schema for skill with related entities."""
+
+    related_libraries: List[str] = []
+    related_tools: List[str] = []
+    related_frameworks: List[str] = []
 
 
 class SkillCategory(BaseModel):
@@ -21,6 +33,28 @@ class SkillCategory(BaseModel):
     category: str
     skills: List[SkillSchema]
     total_count: int
+
+
+class SkillSourceBreakdown(BaseModel):
+    """Breakdown of skills by source type."""
+
+    from_languages: List[SkillSchema] = []
+    from_frameworks: List[SkillSchema] = []
+    from_libraries: List[SkillSchema] = []
+    from_tools: List[SkillSchema] = []
+    contextual: List[SkillSchema] = []
+    from_file_types: List[SkillSchema] = []
+
+
+class CrossValidationSummary(BaseModel):
+    """Summary of cross-validation results."""
+
+    total_frameworks: int = 0
+    original_frameworks: int = 0
+    gap_filled_frameworks: int = 0
+    frameworks_boosted: int = 0
+    frameworks_penalized: int = 0
+    validation_sources_used: Dict[str, int] = {}
 
 
 class ProjectSkillsResponse(BaseModel):
@@ -33,6 +67,26 @@ class ProjectSkillsResponse(BaseModel):
     skills_by_category: Dict[str, List[SkillSchema]] = {}
     total_skills: int = 0
     total_categories: int = 0
+    # New fields for complementary detection system
+    skill_sources: Optional[SkillSourceBreakdown] = None
+    cross_validation_summary: Optional[CrossValidationSummary] = None
+
+
+class SkillSourceResponse(BaseModel):
+    """Response for skill sources endpoint."""
+
+    project_id: int
+    breakdown: SkillSourceBreakdown
+    source_counts: Dict[str, int] = {}
+
+
+class SkillsBySourceResponse(BaseModel):
+    """Response for skills filtered by source."""
+
+    project_id: int
+    source: str
+    skills: List[SkillSchema]
+    total: int
 
 
 class SkillTimelineEntry(BaseModel):
@@ -48,3 +102,12 @@ class SkillTimelineResponse(BaseModel):
 
     project_id: int
     timeline: List[SkillTimelineEntry]
+
+
+class CrossValidationResponse(BaseModel):
+    """Response for cross-validation endpoint."""
+
+    project_id: int
+    summary: CrossValidationSummary
+    enhanced_frameworks: List[Dict[str, Any]] = []
+    gap_filled_frameworks: List[Dict[str, Any]] = []

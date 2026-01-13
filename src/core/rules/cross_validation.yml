@@ -1,0 +1,372 @@
+# Cross-Validation Rules for Complementary Detection System
+# Version 1.0.0
+#
+# This file defines rules for cross-validating detections between
+# languages, frameworks, libraries, and tools.
+
+rules_version: "1.0.0"
+
+settings:
+  # Boost amount when multiple signals agree
+  multi_signal_boost: 0.15
+
+  # Minimum confidence for gap-filled frameworks
+  gap_fill_base_confidence: 0.6
+
+  # Penalty when framework detected but no supporting library/tool
+  no_support_penalty: 0.1
+
+  # Minimum required sources for high confidence
+  high_confidence_sources: 3
+
+# Library to Framework Mappings
+# Maps library names to expected frameworks
+library_framework_mappings:
+  # React ecosystem
+  react:
+    framework: "React"
+    confidence_boost: 0.2
+  react-dom:
+    framework: "React"
+    confidence_boost: 0.15
+  react-router:
+    framework: "React"
+    confidence_boost: 0.1
+  react-router-dom:
+    framework: "React"
+    confidence_boost: 0.1
+
+  # Next.js
+  next:
+    framework: "Next.js"
+    confidence_boost: 0.25
+  "@next/font":
+    framework: "Next.js"
+    confidence_boost: 0.1
+
+  # Vue ecosystem
+  vue:
+    framework: "Vue"
+    confidence_boost: 0.2
+  vue-router:
+    framework: "Vue"
+    confidence_boost: 0.1
+  pinia:
+    framework: "Vue"
+    confidence_boost: 0.1
+
+  # Nuxt.js
+  nuxt:
+    framework: "Nuxt.js"
+    confidence_boost: 0.25
+
+  # Angular
+  "@angular/core":
+    framework: "Angular"
+    confidence_boost: 0.25
+  "@angular/common":
+    framework: "Angular"
+    confidence_boost: 0.1
+
+  # Svelte
+  svelte:
+    framework: "Svelte"
+    confidence_boost: 0.2
+  "@sveltejs/kit":
+    framework: "SvelteKit"
+    confidence_boost: 0.25
+
+  # Python frameworks
+  django:
+    framework: "Django"
+    confidence_boost: 0.25
+  flask:
+    framework: "Flask"
+    confidence_boost: 0.25
+  fastapi:
+    framework: "FastAPI"
+    confidence_boost: 0.25
+  starlette:
+    framework: "FastAPI"
+    confidence_boost: 0.15
+
+  # Node.js frameworks
+  express:
+    framework: "Express"
+    confidence_boost: 0.25
+  fastify:
+    framework: "Fastify"
+    confidence_boost: 0.25
+  "@nestjs/core":
+    framework: "NestJS"
+    confidence_boost: 0.25
+
+  # ML/AI
+  tensorflow:
+    framework: "TensorFlow"
+    confidence_boost: 0.25
+  torch:
+    framework: "PyTorch"
+    confidence_boost: 0.25
+  keras:
+    framework: "Keras"
+    confidence_boost: 0.25
+  scikit-learn:
+    framework: "Scikit-learn"
+    confidence_boost: 0.25
+
+  # Testing
+  jest:
+    framework: "Jest"
+    confidence_boost: 0.2
+  vitest:
+    framework: "Vitest"
+    confidence_boost: 0.2
+  pytest:
+    framework: "Pytest"
+    confidence_boost: 0.2
+  cypress:
+    framework: "Cypress"
+    confidence_boost: 0.2
+  playwright:
+    framework: "Playwright"
+    confidence_boost: 0.2
+
+# Tool to Framework Mappings
+# Maps tool config files to frameworks
+tool_framework_mappings:
+  "next.config.js":
+    framework: "Next.js"
+    confidence_boost: 0.2
+  "next.config.mjs":
+    framework: "Next.js"
+    confidence_boost: 0.2
+  "next.config.ts":
+    framework: "Next.js"
+    confidence_boost: 0.2
+
+  "nuxt.config.js":
+    framework: "Nuxt.js"
+    confidence_boost: 0.2
+  "nuxt.config.ts":
+    framework: "Nuxt.js"
+    confidence_boost: 0.2
+
+  "angular.json":
+    framework: "Angular"
+    confidence_boost: 0.2
+
+  "svelte.config.js":
+    framework: "SvelteKit"
+    confidence_boost: 0.2
+  "svelte.config.ts":
+    framework: "SvelteKit"
+    confidence_boost: 0.2
+
+  "vite.config.js":
+    framework: "Vite"
+    confidence_boost: 0.15
+  "vite.config.ts":
+    framework: "Vite"
+    confidence_boost: 0.15
+
+  "nest-cli.json":
+    framework: "NestJS"
+    confidence_boost: 0.2
+
+  "tailwind.config.js":
+    framework: "Tailwind CSS"
+    confidence_boost: 0.15
+  "tailwind.config.ts":
+    framework: "Tailwind CSS"
+    confidence_boost: 0.15
+
+  "jest.config.js":
+    framework: "Jest"
+    confidence_boost: 0.15
+  "jest.config.ts":
+    framework: "Jest"
+    confidence_boost: 0.15
+
+  "vitest.config.ts":
+    framework: "Vitest"
+    confidence_boost: 0.15
+
+  "pytest.ini":
+    framework: "Pytest"
+    confidence_boost: 0.15
+  "conftest.py":
+    framework: "Pytest"
+    confidence_boost: 0.1
+
+  "cypress.config.js":
+    framework: "Cypress"
+    confidence_boost: 0.15
+  "cypress.config.ts":
+    framework: "Cypress"
+    confidence_boost: 0.15
+
+  "playwright.config.ts":
+    framework: "Playwright"
+    confidence_boost: 0.15
+
+# Language to Framework Priority
+# Which frameworks to prioritize based on detected languages
+language_framework_priority:
+  TypeScript:
+    - React
+    - Vue
+    - Angular
+    - Svelte
+    - Next.js
+    - NestJS
+    - Express
+    - Fastify
+    - Vite
+    - Jest
+    - Vitest
+
+  JavaScript:
+    - React
+    - Vue
+    - Angular
+    - Svelte
+    - Next.js
+    - Express
+    - Fastify
+    - Webpack
+    - Jest
+    - Mocha
+
+  Python:
+    - Django
+    - Flask
+    - FastAPI
+    - Pytest
+    - TensorFlow
+    - PyTorch
+    - Keras
+    - Scikit-learn
+    - Pandas
+    - NumPy
+    - SQLAlchemy
+
+  Java:
+    - Spring Boot
+    - Spring
+    - JUnit
+    - Hibernate
+    - Maven
+    - Gradle
+
+  Kotlin:
+    - Spring Boot
+    - Ktor
+    - Gradle
+
+  Ruby:
+    - Rails
+    - Sinatra
+    - RSpec
+
+  PHP:
+    - Laravel
+    - Symfony
+    - PHPUnit
+
+  Go:
+    - Gin
+    - Echo
+    - Fiber
+    - GORM
+
+  Rust:
+    - Actix
+    - Rocket
+    - Axum
+    - Tokio
+
+  "C#":
+    - ASP.NET Core
+    - Entity Framework
+    - xUnit
+    - NUnit
+
+  Swift:
+    - SwiftUI
+    - UIKit
+
+  Dart:
+    - Flutter
+
+# Multi-Signal Boost Rules
+# Additional boosts when multiple signals agree
+multi_signal_rules:
+  # Modern React app
+  - name: "Modern React Application"
+    conditions:
+      languages: ["TypeScript", "JavaScript"]
+      frameworks: ["React"]
+      libraries: ["react", "react-dom"]
+      tools: ["Vite", "Jest"]
+    boost: 0.3
+    inferred_skill: "Modern Frontend Development"
+
+  # Full-Stack Next.js
+  - name: "Full-Stack Next.js"
+    conditions:
+      languages: ["TypeScript"]
+      frameworks: ["Next.js"]
+      libraries: ["next", "prisma"]
+      tools: ["Vercel"]
+    boost: 0.35
+    inferred_skill: "Full-Stack Development"
+
+  # Python Data Science Stack
+  - name: "Data Science Stack"
+    conditions:
+      languages: ["Python"]
+      libraries: ["pandas", "numpy", "matplotlib"]
+    boost: 0.25
+    inferred_skill: "Data Science"
+
+  # Python ML Stack
+  - name: "Machine Learning Stack"
+    conditions:
+      languages: ["Python"]
+      frameworks: ["TensorFlow", "PyTorch"]
+      libraries: ["tensorflow", "torch", "keras"]
+    boost: 0.3
+    inferred_skill: "Machine Learning Engineering"
+
+  # DevOps Stack
+  - name: "DevOps Stack"
+    conditions:
+      tools: ["Docker", "GitHub Actions", "Kubernetes"]
+    boost: 0.35
+    inferred_skill: "DevOps & Infrastructure"
+
+  # Enterprise Java
+  - name: "Enterprise Java Stack"
+    conditions:
+      languages: ["Java"]
+      frameworks: ["Spring Boot"]
+      tools: ["Maven", "JUnit"]
+    boost: 0.25
+    inferred_skill: "Enterprise Java Development"
+
+# Gap-Filling Rules
+# When to create gap-filled framework entries
+gap_fill_rules:
+  # If library found but framework not detected
+  library_implies_framework:
+    enabled: true
+    min_confidence: 0.6
+
+  # If tool config found but framework not detected
+  tool_implies_framework:
+    enabled: true
+    min_confidence: 0.55
+
+  # Require language match for gap fill
+  require_language_match: false

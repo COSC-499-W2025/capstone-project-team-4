@@ -3,7 +3,7 @@
 from datetime import date as date_type
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Date, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Date, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.database import Base
@@ -38,6 +38,14 @@ class ProjectSkill(Base):
     category: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     frequency: Mapped[int] = mapped_column(Integer, default=1)
 
+    # Source tracking columns for complementary detection system
+    # Values: "language", "framework", "library", "tool", "contextual", "file_type"
+    source: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
+    # Links to library_id, tool_id, or framework_id depending on source
+    source_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # Stores confidence boost from cross-validation
+    cross_validation_boost: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+
     # Relationships
     project: Mapped["Project"] = relationship("Project", back_populates="skills")
 
@@ -46,7 +54,7 @@ class ProjectSkill(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<ProjectSkill(id={self.id}, skill='{self.skill}')>"
+        return f"<ProjectSkill(id={self.id}, skill='{self.skill}', source='{self.source}')>"
 
 
 class ProjectSkillSummary(Base):

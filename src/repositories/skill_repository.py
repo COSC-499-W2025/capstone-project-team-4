@@ -84,7 +84,14 @@ class SkillRepository(BaseRepository[ProjectSkill]):
         return self.create(project_skill)
 
     def create_skills_bulk(self, skills_data: List[dict]) -> List[ProjectSkill]:
-        """Create multiple skills efficiently."""
+        """
+        Create multiple skills efficiently.
+
+        Supports source tracking columns:
+        - source: "language", "framework", "library", "tool", "contextual", "file_type"
+        - source_id: ID of the related entity
+        - cross_validation_boost: Confidence boost from cross-validation
+        """
         # Group by project_id, skill, category to handle duplicates
         skill_map = {}
         for data in skills_data:
@@ -97,6 +104,9 @@ class SkillRepository(BaseRepository[ProjectSkill]):
                     "skill": data["skill"],
                     "category": data["category"],
                     "frequency": data.get("frequency", 1),
+                    "source": data.get("source"),
+                    "source_id": data.get("source_id"),
+                    "cross_validation_boost": data.get("cross_validation_boost"),
                 }
 
         skills = []
@@ -106,6 +116,9 @@ class SkillRepository(BaseRepository[ProjectSkill]):
                 skill=data["skill"],
                 category=data["category"],
                 frequency=data["frequency"],
+                source=data.get("source"),
+                source_id=data.get("source_id"),
+                cross_validation_boost=data.get("cross_validation_boost"),
             )
             skills.append(skill)
         return self.create_many(skills)
@@ -157,3 +170,88 @@ class SkillRepository(BaseRepository[ProjectSkill]):
             stmt = stmt.where(ProjectSkillTimeline.skill == skill)
         stmt = stmt.order_by(ProjectSkillTimeline.date)
         return list(self.db.scalars(stmt).all())
+
+    # Source-based skill queries for complementary detection system
+    def get_skills_by_source(self, project_id: int, source: str) -> List[ProjectSkill]:
+        """
+        Get skills filtered by source type.
+
+        Args:
+            project_id: Project ID
+            source: Source type (language, framework, library, tool, contextual, file_type)
+
+        Returns:
+            List of ProjectSkill objects filtered by source
+        """
+        stmt = (
+            select(ProjectSkill)
+            .where(ProjectSkill.project_id == project_id)
+            .where(ProjectSkill.source == source)
+            .order_by(ProjectSkill.frequency.desc())
+        )
+        return list(self.db.scalars(stmt).all())
+
+    def get_skills_with_sources(self, project_id: int) -> List[ProjectSkill]:
+        """
+        Get all skills with source information.
+
+        Args:
+            project_id: Project ID
+
+        Returns:
+            List of ProjectSkill objects with source information
+        """
+        stmt = (
+            select(ProjectSkill)
+            .where(ProjectSkill.project_id == project_id)
+            .order_by(ProjectSkill.source, ProjectSkill.category, ProjectSkill.frequency.desc())
+        )
+        return list(self.db.scalars(stmt).all())
+
+    def get_skill_source_breakdown(self, project_id: int) -> Dict[str, List[ProjectSkill]]:
+        """
+        Group skills by source type.
+
+        Args:
+            project_id: Project ID
+
+        Returns:
+            Dictionary mapping source types to lists of skills
+        """
+        skills = self.get_skills_with_sources(project_id)
+        breakdown: Dict[str, List[ProjectSkill]] = {
+            "language": [],
+            "framework": [],
+            "library": [],
+            "tool": [],
+            "contextual": [],
+            "file_type": [],
+            "unknown": [],
+        }
+
+        for skill in skills:
+            source = skill.source or "unknown"
+            if source in breakdown:
+                breakdown[source].append(skill)
+            else:
+                breakdown["unknown"].append(skill)
+
+        return breakdown
+
+    def count_by_source(self, project_id: int) -> Dict[str, int]:
+        """
+        Count skills by source type for a project.
+
+        Args:
+            project_id: Project ID
+
+        Returns:
+            Dictionary mapping source types to counts
+        """
+        stmt = (
+            select(ProjectSkill.source, func.count(ProjectSkill.id))
+            .where(ProjectSkill.project_id == project_id)
+            .group_by(ProjectSkill.source)
+        )
+        results = self.db.execute(stmt).all()
+        return {source or "unknown": count for source, count in results}

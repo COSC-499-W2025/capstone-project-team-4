@@ -1,15 +1,20 @@
 """Skill service for skill operations."""
 
 import logging
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
 from src.models.schemas.skill import (
+    CrossValidationResponse,
+    CrossValidationSummary,
     ProjectSkillsResponse,
     SkillSchema,
-    SkillTimelineResponse,
+    SkillSourceBreakdown,
+    SkillSourceResponse,
+    SkillsBySourceResponse,
     SkillTimelineEntry,
+    SkillTimelineResponse,
 )
 from src.repositories.project_repository import ProjectRepository
 from src.repositories.skill_repository import SkillRepository
@@ -108,3 +113,117 @@ class SkillService:
     def get_skill_categories(self, project_id: int) -> list:
         """Get all skill categories for a project."""
         return self.skill_repo.get_categories(project_id)
+
+    def get_skill_sources(self, project_id: int) -> SkillSourceResponse:
+        """
+        Get skills grouped by their detection source.
+
+        Args:
+            project_id: ID of the project
+
+        Returns:
+            SkillSourceResponse with skills grouped by source
+        """
+        breakdown = self.skill_repo.get_skill_source_breakdown(project_id)
+        source_counts = self.skill_repo.count_by_source(project_id)
+
+        def _to_schemas(skills) -> List[SkillSchema]:
+            return [
+                SkillSchema(
+                    name=s.skill,
+                    category=s.category,
+                    frequency=s.frequency,
+                    source=s.source,
+                    source_id=s.source_id,
+                    cross_validation_boost=s.cross_validation_boost,
+                )
+                for s in skills
+            ]
+
+        return SkillSourceResponse(
+            project_id=project_id,
+            breakdown=SkillSourceBreakdown(
+                from_languages=_to_schemas(breakdown.get("language", [])),
+                from_frameworks=_to_schemas(breakdown.get("framework", [])),
+                from_libraries=_to_schemas(breakdown.get("library", [])),
+                from_tools=_to_schemas(breakdown.get("tool", [])),
+                contextual=_to_schemas(breakdown.get("contextual", [])),
+                from_file_types=_to_schemas(breakdown.get("file_type", [])),
+            ),
+            source_counts=source_counts,
+        )
+
+    def get_skills_by_source(
+        self,
+        project_id: int,
+        source: str,
+    ) -> SkillsBySourceResponse:
+        """
+        Get skills filtered by a specific source type.
+
+        Args:
+            project_id: ID of the project
+            source: Source type to filter by
+
+        Returns:
+            SkillsBySourceResponse with filtered skills
+        """
+        skills = self.skill_repo.get_skills_by_source(project_id, source)
+
+        skill_schemas = [
+            SkillSchema(
+                name=s.skill,
+                category=s.category,
+                frequency=s.frequency,
+                source=s.source,
+                source_id=s.source_id,
+                cross_validation_boost=s.cross_validation_boost,
+            )
+            for s in skills
+        ]
+
+        return SkillsBySourceResponse(
+            project_id=project_id,
+            source=source,
+            skills=skill_schemas,
+            total=len(skill_schemas),
+        )
+
+    def get_cross_validation_results(
+        self,
+        project_id: int,
+    ) -> CrossValidationResponse:
+        """
+        Get cross-validation results for a project.
+
+        Args:
+            project_id: ID of the project
+
+        Returns:
+            CrossValidationResponse with validation metadata
+        """
+        # Get source counts for the summary
+        source_counts = self.skill_repo.count_by_source(project_id)
+
+        # Build summary
+        summary = CrossValidationSummary(
+            total_frameworks=0,  # Would need framework repo to get this
+            original_frameworks=0,
+            gap_filled_frameworks=0,
+            frameworks_boosted=0,
+            frameworks_penalized=0,
+            validation_sources_used={
+                "library": source_counts.get("library", 0),
+                "tool": source_counts.get("tool", 0),
+                "language": source_counts.get("language", 0),
+            },
+        )
+
+        # For now, return empty lists for frameworks
+        # These would be populated from framework repository with cross-validation data
+        return CrossValidationResponse(
+            project_id=project_id,
+            summary=summary,
+            enhanced_frameworks=[],
+            gap_filled_frameworks=[],
+        )

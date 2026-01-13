@@ -21,6 +21,7 @@ from src.repositories.skill_repository import SkillRepository
 from src.repositories.resume_repository import ResumeRepository
 from src.repositories.library_repository import LibraryRepository
 from src.repositories.tool_repository import ToolRepository
+from src.repositories.framework_repository import FrameworkRepository
 
 # Core analyzers
 from src.core.extractors.metadata import parse_metadata
@@ -31,6 +32,7 @@ from src.core.analyzers.project_stats import (
     calculate_project_stats,
 )
 from src.core.extractors.skill import analyze_project_skills
+from src.core.validators.cross_validator import CrossValidator
 from src.core.extractors.library import detect_libraries_recursive
 from src.core.extractors.tool import detect_tools_recursive
 from src.core.generators.resume import generate_resume_item
@@ -57,6 +59,7 @@ class AnalysisService:
         self.resume_repo = ResumeRepository(db)
         self.library_repo = LibraryRepository(db)
         self.tool_repo = ToolRepository(db)
+        self.framework_repo = FrameworkRepository(db)
 
     def analyze_from_zip(
         self,
@@ -239,24 +242,23 @@ class AnalysisService:
             logger.info(f"Step 2 complete: Project ID {project_id}")
 
             # Steps 3-5: PARALLEL ANALYSIS (OPTIMIZATION)
-            # Run Git, Complexity, Skills, Libraries, and Tools analysis concurrently
-            logger.info("Steps 3-5: Running parallel analysis (Git, Complexity, Skills, Libraries, Tools)")
+            # Run Git, Complexity, Libraries, and Tools analysis concurrently
+            # Skills analysis runs AFTER libraries/tools to use them as context
+            logger.info("Steps 3-5: Running parallel analysis (Git, Complexity, Libraries, Tools)")
 
             # Default values in case of errors
             contributors = []
             complexity_dict = {"functions": []}
-            skill_report = {"languages": [], "frameworks": [], "skills": [], "skill_categories": {}}
             library_report = {"libraries": [], "by_ecosystem": {}, "total_count": 0}
             tool_report = {"tools": [], "by_category": {}, "total_count": 0}
 
-            with ThreadPoolExecutor(max_workers=5) as executor:
-                # Submit all tasks
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                # Submit all tasks (skills excluded - runs after with library/tool context)
                 futures = {
                     executor.submit(git_analyze_contributors, project_root): "contributors",
                     executor.submit(
                         lambda: project_analysis_to_dict(analyze_project(project_path, file_paths))
                     ): "complexity",
-                    executor.submit(analyze_project_skills, project_root): "skills",
                     executor.submit(detect_libraries_recursive, project_path): "libraries",
                     executor.submit(detect_tools_recursive, project_path): "tools",
                 }
@@ -272,9 +274,6 @@ class AnalysisService:
                         elif task_name == "complexity":
                             complexity_dict = result
                             logger.info(f"Complexity analysis complete: Found {len(complexity_dict.get('functions', []))} functions")
-                        elif task_name == "skills":
-                            skill_report = result
-                            logger.info(f"Skill extraction complete: Found {len(skill_report.get('frameworks', []))} frameworks")
                         elif task_name == "libraries":
                             library_report = result
                             logger.info(f"Library detection complete: Found {library_report.get('total_count', 0)} libraries")
@@ -286,13 +285,47 @@ class AnalysisService:
 
             logger.info("Steps 3-5 complete: Parallel analysis finished")
 
+            # Step 5.5: Extract skills with library/tool context
+            logger.info("Step 5.5: Extracting skills with library/tool context")
+            skill_report = analyze_project_skills(
+                project_root,
+                libraries=library_report.get("libraries", []),
+                tools=tool_report.get("tools", [])
+            )
+            logger.info("Step 5.5 complete: Found %d skills", skill_report.get("total_skills", 0))
+
+            # Step 5.6: Cross-validate detections
+            logger.info("Step 5.6: Cross-validating detections")
+            raw_languages = skill_report.get("languages", [])
+            raw_frameworks_list = []
+            for fw in skill_report.get("frameworks", []):
+                raw_frameworks_list.append({"name": fw, "confidence": 1.0})
+
+            validator = CrossValidator(
+                languages=raw_languages,
+                frameworks=raw_frameworks_list,
+                libraries=library_report.get("libraries", []),
+                tools=tool_report.get("tools", [])
+            )
+            enhanced_results = validator.get_enhanced_results()
+            validation_summary = enhanced_results.validation_summary
+            logger.info(
+                "Step 5.6 complete: Cross-validation found %d boosted, %d gap-filled frameworks",
+                validation_summary.get("frameworks_boosted", 0),
+                validation_summary.get("gap_filled_frameworks", 0)
+            )
+
+            # Merge enhanced frameworks with gap-filled ones
+            all_enhanced_frameworks = enhanced_results.get_all_frameworks()
+
             # Step 6: Calculate project stats (uses contributors from parallel analysis)
             logger.info("Step 6: Calculating project stats")
             project_stats = calculate_project_stats(project_root, file_list, contributors)
             logger.info("Step 6 complete")
 
             languages = sorted(set(skill_report.get("languages", [])))
-            frameworks = sorted(set(skill_report.get("frameworks", [])))
+            # Use enhanced frameworks from cross-validation
+            frameworks = sorted(set(fw.get("name", "") for fw in all_enhanced_frameworks if fw.get("name")))
 
             # Step 7: Save to database
             logger.info("Step 7: Saving to database")
@@ -300,7 +333,12 @@ class AnalysisService:
             self._save_complexity(project_id, complexity_dict.get("functions", []))
             if contributors:
                 self._save_contributors(project_id, contributors)
-            self._save_skills(project_id, skill_report.get("skill_categories", {}))
+            self._save_skills(
+                project_id,
+                skill_report.get("skill_categories", {}),
+                skill_sources=skill_report.get("skill_sources", {}),
+            )
+            self._save_frameworks(project_id, all_enhanced_frameworks)
             self._save_libraries(project_id, library_report.get("libraries", []))
             self._save_tools(project_id, tool_report.get("tools", []))
             logger.info("Step 7 complete: Database saves finished")
@@ -411,9 +449,23 @@ class AnalysisService:
         if contributors_data:
             self.contributor_repo.create_contributors_bulk(contributors_data)
 
-    def _save_skills(self, project_id: int, skill_categories: dict) -> None:
-        """Save skills to database."""
+    def _save_skills(
+        self,
+        project_id: int,
+        skill_categories: dict,
+        skill_sources: Optional[dict] = None,
+    ) -> None:
+        """
+        Save skills to database with source tracking.
+
+        Args:
+            project_id: Project ID
+            skill_categories: Dict mapping category -> list of skill names
+            skill_sources: Optional dict mapping skill name -> source type
+        """
+        skill_sources = skill_sources or {}
         skills_data = []
+
         for category, skills in skill_categories.items():
             for skill in skills:
                 skills_data.append({
@@ -421,6 +473,7 @@ class AnalysisService:
                     "skill": skill,
                     "category": category,
                     "frequency": 1,
+                    "source": skill_sources.get(skill),
                 })
 
         if skills_data:
@@ -433,6 +486,12 @@ class AnalysisService:
             title=resume_item.get("title", ""),
             highlights=resume_item.get("highlights", []),
         )
+
+    def _save_frameworks(self, project_id: int, frameworks: list) -> None:
+        """Save detected frameworks to database."""
+        if frameworks:
+            self.framework_repo.create_frameworks_bulk(frameworks, project_id)
+            logger.info(f"Saved {len(frameworks)} frameworks for project {project_id}")
 
     def _save_libraries(self, project_id: int, libraries: list) -> None:
         """Save detected libraries to database."""
