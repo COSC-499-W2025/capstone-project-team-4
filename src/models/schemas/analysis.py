@@ -50,6 +50,8 @@ class AnalysisResult(BaseModel):
     source_url: Optional[str] = None
     languages: List[str] = []
     frameworks: List[str] = []
+    tools_and_technologies: List[str] = []
+    contextual_skills: List[str] = []
     file_count: int = 0
     contributor_count: int = 0
     skill_count: int = 0

@@ -326,6 +326,13 @@ class AnalysisService:
             languages = sorted(set(skill_report.get("languages", [])))
             # Use enhanced frameworks from cross-validation
             frameworks = sorted(set(fw.get("name", "") for fw in all_enhanced_frameworks if fw.get("name")))
+            libraries = sorted({lib.get("name", "").strip() for lib in library_report.get("libraries", []) if lib.get("name")})
+            tools_and_technologies = sorted({tool.get("name", "").strip() for tool in tool_report.get("tools", []) if tool.get("name")})
+            contextual_skills = sorted([
+                skill
+                for skill, source in skill_report.get("skill_sources", {}).items()
+                if source == "contextual"
+            ])
 
             # Step 7: Save to database
             logger.info("Step 7: Saving to database")
@@ -367,6 +374,9 @@ class AnalysisService:
                 source_url=source_url,
                 languages=languages,
                 frameworks=frameworks,
+                libraries=libraries,
+                tools_and_technologies=tools_and_technologies,
+                contextual_skills=contextual_skills,
                 file_count=len(file_list),
                 contributor_count=len(contributors),
                 skill_count=self.skill_repo.count_by_project(project_id),
@@ -514,6 +524,11 @@ class AnalysisService:
         languages = self.project_repo.get_languages(project_id)
         frameworks = self.project_repo.get_frameworks(project_id)
         complexity_summary = self.complexity_repo.get_summary(project_id)
+        tools_and_technologies = self.tool_repo.get_tool_names(project_id)
+        contextual_skills = sorted([
+            skill_obj.skill
+            for skill_obj in self.skill_repo.get_skills_by_source(project_id, "contextual")
+        ])
 
         return AnalysisResult(
             project_id=project_id,
@@ -523,6 +538,8 @@ class AnalysisService:
             source_url=project.source_url,
             languages=languages,
             frameworks=frameworks,
+            tools_and_technologies=tools_and_technologies,
+            contextual_skills=contextual_skills,
             file_count=self.file_repo.count_by_project(project_id),
             contributor_count=self.contributor_repo.count_by_project(project_id),
             skill_count=self.skill_repo.count_by_project(project_id),
