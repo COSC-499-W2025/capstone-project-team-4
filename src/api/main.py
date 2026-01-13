@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.config.settings import settings
 from src.models.database import init_db
-from src.api.routes import analysis, projects, skills, resume
+from src.api.routes import analysis, projects, skills, resume, libraries, tools
 
 # Configure logging
 logging.basicConfig(
@@ -43,6 +43,8 @@ app = FastAPI(
 
     * **Project Analysis** - Analyze projects from ZIP uploads or GitHub URLs
     * **Language Detection** - Detect programming languages and frameworks
+    * **Library Detection** - Extract dependencies from package managers (npm, pip, cargo, etc.)
+    * **Tool Detection** - Detect build tools, CI/CD, containerization, and more
     * **Code Complexity** - Calculate cyclomatic complexity metrics
     * **Skill Extraction** - Extract technical skills from code patterns
     * **Resume Generation** - Generate professional resume bullet points
@@ -53,6 +55,8 @@ app = FastAPI(
     * `/api/projects/analyze/github` - Analyze GitHub repository
     * `/api/projects` - List and manage analyzed projects
     * `/api/projects/{id}/skills` - Get extracted skills
+    * `/api/projects/{id}/libraries` - Get detected libraries
+    * `/api/projects/{id}/tools` - Get detected tools and technologies
     * `/api/projects/{id}/complexity` - Get complexity metrics
     * `/api/projects/{id}/resume` - Get/regenerate resume items
     """,
@@ -75,6 +79,8 @@ app.include_router(analysis.router, prefix=settings.api_prefix)
 app.include_router(projects.router, prefix=settings.api_prefix)
 app.include_router(skills.router, prefix=settings.api_prefix)
 app.include_router(resume.router, prefix=settings.api_prefix)
+app.include_router(libraries.router, prefix=settings.api_prefix)
+app.include_router(tools.router, prefix=settings.api_prefix)
 
 
 @app.get("/")

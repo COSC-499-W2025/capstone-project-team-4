@@ -53,6 +53,8 @@ class AnalysisResult(BaseModel):
     file_count: int = 0
     contributor_count: int = 0
     skill_count: int = 0
+    library_count: int = 0
+    tool_count: int = 0
     total_lines_of_code: int = 0
     complexity_summary: Optional[ComplexitySummary] = None
     created_at: datetime

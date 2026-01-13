@@ -19,6 +19,8 @@ from src.repositories.contributor_repository import ContributorRepository
 from src.repositories.complexity_repository import ComplexityRepository
 from src.repositories.skill_repository import SkillRepository
 from src.repositories.resume_repository import ResumeRepository
+from src.repositories.library_repository import LibraryRepository
+from src.repositories.tool_repository import ToolRepository
 
 # Core analyzers
 from src.core.extractors.metadata import parse_metadata
@@ -29,6 +31,8 @@ from src.core.analyzers.project_stats import (
     calculate_project_stats,
 )
 from src.core.extractors.skill import analyze_project_skills
+from src.core.extractors.library import detect_libraries_recursive
+from src.core.extractors.tool import detect_tools_recursive
 from src.core.generators.resume import generate_resume_item
 from src.core.utils.file_walker import (
     collect_all_file_info,
@@ -51,6 +55,8 @@ class AnalysisService:
         self.complexity_repo = ComplexityRepository(db)
         self.skill_repo = SkillRepository(db)
         self.resume_repo = ResumeRepository(db)
+        self.library_repo = LibraryRepository(db)
+        self.tool_repo = ToolRepository(db)
 
     def analyze_from_zip(
         self,
@@ -233,15 +239,17 @@ class AnalysisService:
             logger.info(f"Step 2 complete: Project ID {project_id}")
 
             # Steps 3-5: PARALLEL ANALYSIS (OPTIMIZATION)
-            # Run Git, Complexity, and Skills analysis concurrently
-            logger.info("Steps 3-5: Running parallel analysis (Git, Complexity, Skills)")
+            # Run Git, Complexity, Skills, Libraries, and Tools analysis concurrently
+            logger.info("Steps 3-5: Running parallel analysis (Git, Complexity, Skills, Libraries, Tools)")
 
             # Default values in case of errors
             contributors = []
             complexity_dict = {"functions": []}
             skill_report = {"languages": [], "frameworks": [], "skills": [], "skill_categories": {}}
+            library_report = {"libraries": [], "by_ecosystem": {}, "total_count": 0}
+            tool_report = {"tools": [], "by_category": {}, "total_count": 0}
 
-            with ThreadPoolExecutor(max_workers=3) as executor:
+            with ThreadPoolExecutor(max_workers=5) as executor:
                 # Submit all tasks
                 futures = {
                     executor.submit(git_analyze_contributors, project_root): "contributors",
@@ -249,6 +257,8 @@ class AnalysisService:
                         lambda: project_analysis_to_dict(analyze_project(project_path, file_paths))
                     ): "complexity",
                     executor.submit(analyze_project_skills, project_root): "skills",
+                    executor.submit(detect_libraries_recursive, project_path): "libraries",
+                    executor.submit(detect_tools_recursive, project_path): "tools",
                 }
 
                 # Collect results as they complete
@@ -265,6 +275,12 @@ class AnalysisService:
                         elif task_name == "skills":
                             skill_report = result
                             logger.info(f"Skill extraction complete: Found {len(skill_report.get('frameworks', []))} frameworks")
+                        elif task_name == "libraries":
+                            library_report = result
+                            logger.info(f"Library detection complete: Found {library_report.get('total_count', 0)} libraries")
+                        elif task_name == "tools":
+                            tool_report = result
+                            logger.info(f"Tool detection complete: Found {tool_report.get('total_count', 0)} tools")
                     except Exception as e:
                         logger.warning(f"{task_name} analysis failed: {e}")
 
@@ -285,6 +301,8 @@ class AnalysisService:
             if contributors:
                 self._save_contributors(project_id, contributors)
             self._save_skills(project_id, skill_report.get("skill_categories", {}))
+            self._save_libraries(project_id, library_report.get("libraries", []))
+            self._save_tools(project_id, tool_report.get("tools", []))
             logger.info("Step 7 complete: Database saves finished")
 
             # Step 8: Generate and save resume item
@@ -314,6 +332,8 @@ class AnalysisService:
                 file_count=len(file_list),
                 contributor_count=len(contributors),
                 skill_count=self.skill_repo.count_by_project(project_id),
+                library_count=self.library_repo.count_by_project(project_id),
+                tool_count=self.tool_repo.count_by_project(project_id),
                 total_lines_of_code=project_stats.get("total_lines", 0),
                 complexity_summary=ComplexitySummary(
                     total_functions=complexity_summary.get("total_functions", 0),
@@ -414,6 +434,18 @@ class AnalysisService:
             highlights=resume_item.get("highlights", []),
         )
 
+    def _save_libraries(self, project_id: int, libraries: list) -> None:
+        """Save detected libraries to database."""
+        if libraries:
+            self.library_repo.create_libraries_bulk(libraries, project_id)
+            logger.info(f"Saved {len(libraries)} libraries for project {project_id}")
+
+    def _save_tools(self, project_id: int, tools: list) -> None:
+        """Save detected tools to database."""
+        if tools:
+            self.tool_repo.create_tools_bulk(tools, project_id)
+            logger.info(f"Saved {len(tools)} tools for project {project_id}")
+
     def get_analysis_result(self, project_id: int) -> Optional[AnalysisResult]:
         """Get analysis result for a project."""
         project = self.project_repo.get(project_id)
@@ -435,6 +467,8 @@ class AnalysisService:
             file_count=self.file_repo.count_by_project(project_id),
             contributor_count=self.contributor_repo.count_by_project(project_id),
             skill_count=self.skill_repo.count_by_project(project_id),
+            library_count=self.library_repo.count_by_project(project_id),
+            tool_count=self.tool_repo.count_by_project(project_id),
             total_lines_of_code=self.project_repo.get_total_lines_of_code(project_id),
             complexity_summary=ComplexitySummary(
                 total_functions=complexity_summary.get("total_functions", 0),

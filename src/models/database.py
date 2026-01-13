@@ -68,7 +68,8 @@ def init_db() -> None:
     from src.models.orm import (
         Project, File, Language, Contributor, ContributorFile,
         Complexity, Skill, ProjectSkill, ProjectSkillSummary,
-        ProjectSkillTimeline, ResumeItem, Framework, ProjectFramework, Config
+        ProjectSkillTimeline, ResumeItem, Framework, ProjectFramework,
+        Library, ProjectLibrary, Tool, ProjectTool, Config
     )
     Base.metadata.create_all(bind=engine)
 

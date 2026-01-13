@@ -33,6 +33,8 @@ class ProjectSummary(ProjectBase):
     framework_count: int = 0
     contributor_count: int = 0
     skill_count: int = 0
+    library_count: int = 0
+    tool_count: int = 0
 
 
 class ProjectDetail(ProjectSummary):
@@ -43,6 +45,8 @@ class ProjectDetail(ProjectSummary):
     updated_at: datetime
     languages: List[str] = []
     frameworks: List[str] = []
+    libraries: List[str] = []
+    tools: List[str] = []
     total_lines_of_code: int = 0
     avg_complexity: float = 0.0
     max_complexity: int = 0

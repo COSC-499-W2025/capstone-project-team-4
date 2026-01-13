@@ -6,6 +6,8 @@ from src.models.orm.complexity import Complexity
 from src.models.orm.skill import Skill, ProjectSkill, ProjectSkillSummary, ProjectSkillTimeline
 from src.models.orm.resume import ResumeItem
 from src.models.orm.framework import Framework, ProjectFramework
+from src.models.orm.library import Library, ProjectLibrary
+from src.models.orm.tool import Tool, ProjectTool
 from src.models.orm.config import Config
 
 __all__ = [
@@ -22,5 +24,9 @@ __all__ = [
     "ResumeItem",
     "Framework",
     "ProjectFramework",
+    "Library",
+    "ProjectLibrary",
+    "Tool",
+    "ProjectTool",
     "Config",
 ]
