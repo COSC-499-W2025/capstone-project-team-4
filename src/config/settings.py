@@ -44,6 +44,13 @@ class Settings(BaseSettings):
     github_token: Optional[str] = None
     github_clone_timeout: int = 300  # 5 minutes
 
+    # AI settings
+    openai_api_key: Optional[str] = None
+    ai_resume_generation: bool = True  # Enable/disable AI resume generation
+    ai_model: str = "gpt-4o-mini"  # Default AI model
+    ai_temperature: float = 0.7
+    ai_max_tokens: int = 500
+
     # API settings
     api_prefix: str = "/api"
     cors_origins: list[str] = ["*"]

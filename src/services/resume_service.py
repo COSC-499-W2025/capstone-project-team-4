@@ -9,12 +9,15 @@ from src.models.schemas.resume import (
     ResumeItemSchema,
     ProjectResumeResponse,
 )
+from src.config.settings import settings
 from src.repositories.project_repository import ProjectRepository
 from src.repositories.resume_repository import ResumeRepository
 from src.repositories.contributor_repository import ContributorRepository
 from src.repositories.complexity_repository import ComplexityRepository
 from src.repositories.skill_repository import SkillRepository
 from src.repositories.file_repository import FileRepository
+from src.repositories.library_repository import LibraryRepository
+from src.repositories.tool_repository import ToolRepository
 
 # Import resume generator
 from src.core.generators.resume import generate_resume_item
@@ -34,6 +37,8 @@ class ResumeService:
         self.complexity_repo = ComplexityRepository(db)
         self.skill_repo = SkillRepository(db)
         self.file_repo = FileRepository(db)
+        self.library_repo = LibraryRepository(db)
+        self.tool_repo = ToolRepository(db)
 
     def get_project_resume(self, project_id: int) -> Optional[ProjectResumeResponse]:
         """
@@ -109,6 +114,8 @@ class ResumeService:
         skill_categories = self._get_skill_categories(project_id)
         languages = self.project_repo.get_languages(project_id)
         frameworks = self.project_repo.get_frameworks(project_id)
+        libraries = self.library_repo.get_library_names(project_id)
+        tools = self.tool_repo.get_tool_names(project_id)
         complexity_dict = self._get_complexity_dict(project_id)
 
         # Generate new resume item
@@ -119,7 +126,14 @@ class ResumeService:
             skill_categories=skill_categories,
             languages=languages,
             frameworks=frameworks,
+            libraries=libraries,
+            tools=tools,
             complexity_dict=complexity_dict,
+            use_ai=settings.ai_resume_generation,
+            api_key=settings.openai_api_key,
+            ai_model=settings.ai_model,
+            ai_temperature=settings.ai_temperature,
+            ai_max_tokens=settings.ai_max_tokens,
         )
 
         # Save to database

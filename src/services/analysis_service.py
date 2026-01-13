@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 from sqlalchemy.orm import Session
 
 from src.models.schemas.analysis import AnalysisResult, AnalysisStatus, ComplexitySummary
+from src.config.settings import settings
 from src.repositories.project_repository import ProjectRepository
 from src.repositories.file_repository import FileRepository
 from src.repositories.contributor_repository import ContributorRepository
@@ -359,7 +360,13 @@ class AnalysisService:
                 skill_categories=skill_report.get("skill_categories", {}),
                 languages=languages,
                 frameworks=frameworks,
+                tools=tools_and_technologies,
                 complexity_dict=complexity_dict,
+                use_ai=settings.ai_resume_generation,
+                api_key=settings.openai_api_key,
+                ai_model=settings.ai_model,
+                ai_temperature=settings.ai_temperature,
+                ai_max_tokens=settings.ai_max_tokens,
             )
             self._save_resume_item(project_id, resume_item)
 
