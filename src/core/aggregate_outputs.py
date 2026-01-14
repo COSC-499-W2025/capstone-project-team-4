@@ -205,8 +205,8 @@ def aggregate_outputs(outputs_root: Path) -> List[Dict[str, Any]]:
         earliest["latest_file_modified"] = project_latest
 
         projects.append(earliest)
-    # sort by last_updated descending so newest appear first
-    projects.sort(key=lambda p: p.get("last_updated") or datetime.min, reverse=True)
+    # Sort by project start date (earliest to latest) so oldest projects appear first
+    projects.sort(key=lambda p: p.get("started") or datetime.max)
     return projects
 
 def _serialize_projects(projects: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

@@ -105,7 +105,15 @@ def analyze_project_cli(
         typer.secho("❌ Must provide a directory or ZIP file.", fg="red")
         raise typer.Exit(code=2)
 
-    project_stats = calculate_project_stats(project_root, file_list)
+    try:
+        project_stats = calculate_project_stats(project_root, file_list)
+    except Exception as e:
+        typer.echo(f"⚠️  Warning: Could not calculate project stats (possibly no .git): {e}")
+        project_stats = {
+            "total_files": len(file_list),
+            "total_lines": 0,
+            "languages": {},
+        }
 
     metadata_block = {
         "metadata": project_stats,
@@ -118,7 +126,11 @@ def analyze_project_cli(
     project_id = save_project(project_name, str(project_root), timestamp)
 
     # ------------------------- 3️⃣ Contributors -------------------------
-    contributors = analyze_contributors(project_root)
+    try:
+        contributors = analyze_contributors(project_root)
+    except Exception as e:
+        typer.echo(f"⚠️  Warning: Could not analyze contributors: {e}")
+        contributors = []
 
     # ------------------------- 4️⃣ Code complexity -------------------------
     complexity_dict = project_analysis_to_dict(analyze_project(working_dir))

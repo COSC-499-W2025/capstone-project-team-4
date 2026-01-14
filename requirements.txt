@@ -18,3 +18,9 @@ nltk
 tree-sitter==0.21.0
 tree-sitter-languages==1.7.0
 #flake8             # for linting and code style checks
+
+# Web UI dependencies
+fastapi            # Modern web framework for building APIs with Python 3.7+
+uvicorn            # ASGI server for running FastAPI applications
+jinja2             # Template engine for rendering HTML pages
+python-multipart   # Support for parsing multipart/form-data (file uploads)
