@@ -13,7 +13,7 @@ import os
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Callable, Optional, Set, List
+from typing import Iterator, Callable, Optional, Set, List, Union, Tuple
 
 from src.core.constants import (
     SKIP_DIRECTORIES,
@@ -99,7 +99,7 @@ class UnifiedFileWalker:
 
     def walk(
         self,
-        root_path: str | Path,
+        root_path: Union[str, Path],
         filter_fn: Optional[Callable[[Path], bool]] = None,
     ) -> Iterator[Path]:
         """
@@ -133,8 +133,8 @@ class UnifiedFileWalker:
 
     def walk_with_info(
         self,
-        root_path: str | Path,
-    ) -> Iterator[tuple[Path, str | None]]:
+        root_path: Union[str, Path],
+    ) -> Iterator[Tuple[Path, Optional[str]]]:
         """
         Walk through a directory tree, yielding file paths and skip reasons.
 
@@ -168,7 +168,7 @@ class UnifiedFileWalker:
         skip, _ = self.should_skip_file(file_path)
         return not skip
 
-    def should_skip_file(self, file_path: Path) -> tuple[bool, str]:
+    def should_skip_file(self, file_path: Path) -> Tuple[bool, str]:
         """
         Determine if a file should be skipped and why.
 
@@ -211,7 +211,7 @@ class UnifiedFileWalker:
 
         return False, ""
 
-    def count_files(self, root_path: str | Path) -> int:
+    def count_files(self, root_path: Union[str, Path]) -> int:
         """
         Count the number of files that would be analyzed.
 
@@ -223,7 +223,7 @@ class UnifiedFileWalker:
         """
         return sum(1 for _ in self.walk(root_path))
 
-    def get_filtered_count(self, root_path: str | Path) -> tuple[int, int]:
+    def get_filtered_count(self, root_path: Union[str, Path]) -> Tuple[int, int]:
         """
         Count both analyzable and filtered files.
 
@@ -247,7 +247,7 @@ class UnifiedFileWalker:
 
 # Convenience function for simple use cases
 def walk_source_files(
-    root_path: str | Path,
+    root_path: Union[str, Path],
     skip_dirs: Optional[Set[str]] = None,
 ) -> Iterator[Path]:
     """
@@ -270,7 +270,7 @@ def walk_source_files(
 
 
 def collect_all_file_info(
-    root_path: str | Path,
+    root_path: Union[str, Path],
     show_progress: bool = True,
 ) -> List[FileInfo]:
     """
