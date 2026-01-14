@@ -164,6 +164,18 @@ def parse_metadata(folder_path: str = "", include_filtered: bool = False):
     # Convert folder_path to Path object for easier manipulation
     base_path = Path(folder_path).resolve()
     
+    # Load ZIP start date if available (from uploaded ZIPs)
+    zip_start_date = None
+    zip_start_date_file = base_path / ".zip_started_date.json"
+    if zip_start_date_file.exists():
+        try:
+            with open(zip_start_date_file, 'r') as f:
+                zip_start_data = json.load(f)
+                zip_start_date = zip_start_data.get("timestamp")
+                print(f"[INFO] Loaded ZIP start date: {zip_start_data.get('date_time_str')} (timestamp: {zip_start_date})")
+        except Exception as e:
+            print(f"[WARN] Could not load ZIP start date: {e}")
+    
     # Initialize language analyzer components
     config = LanguageConfig()
     comment_detector = CommentDetector()
@@ -208,8 +220,18 @@ def parse_metadata(folder_path: str = "", include_filtered: bool = False):
             try:
                 file_type = magic.from_file(file_path, mime=True)
                 file_size = os.path.getsize(file_path)
-                created_timestamp = os.path.getctime(file_path)
-                modified_timestamp = os.path.getmtime(file_path)
+                
+                # OLD CODE: File timestamps are extraction time, not original
+                # created_timestamp = os.path.getctime(file_path)
+                # modified_timestamp = os.path.getmtime(file_path)
+                
+                # NEW CODE: Use ZIP start date if available, otherwise use extraction time
+                if zip_start_date is not None:
+                    created_timestamp = zip_start_date
+                    modified_timestamp = zip_start_date
+                else:
+                    created_timestamp = os.path.getctime(file_path)
+                    modified_timestamp = os.path.getmtime(file_path)
 
                 # Use the existing method from FileAnalyzer
                 language = file_analyzer.detect_language_by_extension(file_path)

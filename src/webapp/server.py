@@ -50,36 +50,54 @@ def _list_timestamps(project_dir: Path) -> List[str]:
     return sorted([p.name for p in project_dir.iterdir() if p.is_dir()])
 
 
-def _restore_zip_timestamps(extract_path: Path, zip_path: Path):
-    """
-    Restore original file timestamps from ZIP metadata after extraction.
-    
-    Args:
-        extract_path: Directory where files were extracted
-        zip_path: Path to the source ZIP file
-    """
-    try:
-        with zipfile.ZipFile(zip_path, 'r') as zf:
-            for info in zf.infolist():
-                # Get the date_time tuple (year, month, day, hour, minute, second)
-                date_time = info.date_time
-                # Convert to timestamp
-                dt = datetime(*date_time)
-                timestamp = dt.timestamp()
-                
-                # Get the extracted file path
-                file_path = extract_path / info.filename
-                
-                # Only process files that exist and are not directories
-                if file_path.exists() and not file_path.is_dir():
-                    try:
-                        # Set the file's access and modification times
-                        os.utime(file_path, (timestamp, timestamp))
-                        logger.debug(f"Restored timestamp for {info.filename}: {dt}")
-                    except Exception as e:
-                        logger.warning(f"Could not restore timestamp for {info.filename}: {e}")
-    except Exception as e:
-        logger.warning(f"Could not restore ZIP timestamps: {e}")
+# OLD CODE: No longer needed - metadata is now saved before analysis
+# def _restore_zip_timestamps(extract_path: Path, zip_path: Path):
+#     """
+#     Extract the earliest file timestamp from ZIP and save as project start date.
+#     This ensures metadata_parser can access the original project date.
+#     
+#     Args:
+#         extract_path: Directory where files were extracted
+#         zip_path: Path to the source ZIP file
+#     """
+#     try:
+#         # Get earliest timestamp from files in the ZIP
+#         earliest_timestamp = None
+#         earliest_dt = None
+#         
+#         with zipfile.ZipFile(zip_path, 'r') as zf:
+#             for info in zf.infolist():
+#                 if info.is_dir():
+#                     continue
+#                 # Get the date_time tuple (year, month, day, hour, minute, second)
+#                 date_time = info.date_time
+#                 dt = datetime(*date_time)
+#                 timestamp = dt.timestamp()
+#                 
+#                 if earliest_timestamp is None or timestamp < earliest_timestamp:
+#                     earliest_timestamp = timestamp
+#                     earliest_dt = dt
+#         
+#         # Save the ZIP start date for metadata_parser to use
+#         if earliest_timestamp is not None:
+#             zip_start_date_file = extract_path / ".zip_started_date.json"
+#             start_date_data = {
+#                 "timestamp": earliest_timestamp,
+#                 "date_time": earliest_dt.isoformat(),
+#                 "date_time_str": str(earliest_dt)
+#             }
+#             try:
+#                 with open(zip_start_date_file, 'w') as f:
+#                     json.dump(start_date_data, f, indent=2)
+#                 logger.info(f"Saved ZIP start date ({earliest_dt}) to {zip_start_date_file}")
+#             except Exception as e:
+#                 logger.warning(f"Could not save ZIP start date: {e}")
+#         else:
+#             logger.warning("No files found in ZIP to determine start date")
+#             
+#     except Exception as e:
+#         logger.warning(f"Could not process ZIP timestamps: {e}")
+
 
 
 
@@ -132,6 +150,8 @@ async def analyze(
     tmp_zip_path: Optional[Path] = None
     tmp_dir: Optional[Path] = None
     input_path: Optional[Path] = None
+    tmp_zip_metadata: Optional[Dict[str, Any]] = None
+    extracted_zip_dir: Optional[Path] = None
     
     if file is not None and file.filename:
         logger.info(f"Processing uploaded file: {file.filename}")
@@ -142,7 +162,82 @@ async def analyze(
         with tmp_zip_path.open("wb") as tmp:
             shutil.copyfileobj(file.file, tmp)
         logger.info(f"Uploaded file saved to temp: {tmp_zip_path}")
-        input_path = tmp_zip_path
+        
+        # Extract ZIP metadata BEFORE analysis
+        # IMPORTANT: Files within ZIP archives preserve their original creation timestamps.
+        # metadata_parser.py uses these timestamps to set file timestamps in extracted files.
+        # We must extract and preserve this metadata for later use in metadata_parser.
+        try:
+            earliest_timestamp = None
+            earliest_dt = None
+            with zipfile.ZipFile(tmp_zip_path, 'r') as zf:
+                for info in zf.infolist():
+                    if info.is_dir():
+                        continue
+                    dt = datetime(*info.date_time)
+                    timestamp = dt.timestamp()
+                    if earliest_timestamp is None or timestamp < earliest_timestamp:
+                        earliest_timestamp = timestamp
+                        earliest_dt = dt
+            
+            if earliest_dt:
+                tmp_zip_metadata = {
+                    "timestamp": earliest_timestamp,
+                    "date_time": earliest_dt.isoformat(),
+                    "date_time_str": str(earliest_dt)
+                }
+                logger.info(f"Extracted ZIP metadata: {tmp_zip_metadata}")
+        except Exception as e:
+            logger.warning(f"Could not extract ZIP metadata: {e}")
+        
+        # Extract ZIP to a persistent directory so metadata_parser can read .zip_started_date.json
+        # IMPORTANT: analyze_project_cli() uses TemporaryDirectory internally,
+        # which deletes .zip_started_date.json after analysis completes.
+        # Therefore, we must pre-extract the ZIP and create the metadata file before analysis.
+        try:
+            extracted_zip_dir = Path(tempfile.mkdtemp())
+            logger.info(f"Extracting ZIP to {extracted_zip_dir}")
+            with zipfile.ZipFile(tmp_zip_path, 'r') as zf:
+                zf.extractall(extracted_zip_dir)
+            
+            # Find the actual project directory (first non-hidden directory)
+            # ZIPs typically contain a project-name/ subdirectory.
+            # We exclude __MACOSX/ as it's automatically generated by macOS.
+            # NOTE: Finding this project directory ensures the output folder is named
+            # after the actual project (e.g., capstone-project-team-4) instead of
+            # a temporary directory name (e.g., tmpee2r7fm7).
+            subdirs = [d for d in extracted_zip_dir.iterdir() if d.is_dir() and not d.name.startswith('.') and d.name != "__MACOSX"]
+            
+            if subdirs:
+                # Use the first subdirectory as the project directory
+                project_dir = subdirs[0]
+                logger.info(f"Found project directory in ZIP: {project_dir.name}")
+                
+                # Save ZIP metadata file in the project directory (before analysis)
+                # metadata_parser.py reads .zip_started_date.json during analysis
+                # and applies the original ZIP creation timestamp to all files.
+                if tmp_zip_metadata:
+                    zip_start_date_file = project_dir / ".zip_started_date.json"
+                    with open(zip_start_date_file, 'w') as f:
+                        json.dump(tmp_zip_metadata, f, indent=2)
+                    logger.info(f"Pre-created .zip_started_date.json in {project_dir}")
+                
+                # Use the project directory as input path
+                # This ensures the project name is correctly set to "capstone-project-team-4"
+                # instead of a temporary directory name.
+                input_path = project_dir
+            else:
+                # Fallback: use extracted directory if no subdirs found
+                logger.warning("No subdirectories found in ZIP, using extracted directory")
+                if tmp_zip_metadata:
+                    zip_start_date_file = extracted_zip_dir / ".zip_started_date.json"
+                    with open(zip_start_date_file, 'w') as f:
+                        json.dump(tmp_zip_metadata, f, indent=2)
+                input_path = extracted_zip_dir
+                
+        except Exception as e:
+            logger.error(f"Could not extract ZIP: {e}")
+            return JSONResponse({"error": f"Failed to extract ZIP: {e}"}, status_code=400)
             
     elif path_text:
         input_path = Path(path_text).expanduser().resolve()
@@ -160,22 +255,31 @@ async def analyze(
         return JSONResponse({"error": f"Path not found: {input_path}"}, status_code=400)
 
     # Run CLI function, then discover latest timestamp dir for feedback
+    original_cwd = Path.cwd()
     try:
         logger.info(f"Starting analysis on {input_path}")
-        analyze_project_cli(path=input_path, include_files=include_files, out=out)
+        analyze_project_cli(path=input_path, include_files=include_files)
         logger.info(f"Analysis completed successfully")
         
-        # If this was a ZIP file, restore timestamps in the output directory
-        if tmp_zip_path and tmp_zip_path.exists():
-            project_name = input_path.stem if input_path else "project"
+        # If this was a ZIP file, save the metadata file to the output directory
+        if tmp_zip_path and tmp_zip_path.exists() and tmp_zip_metadata:
+            project_name = extracted_zip_dir.name if extracted_zip_dir else input_path.stem
             project_root = out / project_name
             if project_root.exists():
                 ts_list = _list_timestamps(project_root)
                 if ts_list:
                     latest_ts = ts_list[-1]
                     run_dir = project_root / latest_ts
-                    logger.info(f"Restoring ZIP file timestamps for {project_name}/{latest_ts}")
-                    _restore_zip_timestamps(run_dir, tmp_zip_path)
+                    # Verify and copy ZIP metadata to final output directory
+                    zip_start_date_file = run_dir / ".zip_started_date.json"
+                    if not zip_start_date_file.exists():
+                        try:
+                            with open(zip_start_date_file, 'w') as f:
+                                json.dump(tmp_zip_metadata, f, indent=2)
+                            logger.info(f"Confirmed ZIP start date in {zip_start_date_file}")
+                        except Exception as e:
+                            logger.warning(f"Could not save ZIP start date: {e}")
+                    logger.info(f"ZIP metadata saved for {project_name}/{latest_ts}")
     except SystemExit as e:
         logger.error(f"Analysis failed with SystemExit: {e}")
         if tmp_zip_path and tmp_zip_path.exists():
@@ -190,17 +294,33 @@ async def analyze(
         if tmp_dir:
             shutil.rmtree(tmp_dir, ignore_errors=True)
         return JSONResponse({"error": str(e)}, status_code=500)
-    finally:
-        # Clean up temporary files/directories after analysis
-        if tmp_zip_path and tmp_zip_path.exists():
-            logger.info(f"Cleaning up temp ZIP file: {tmp_zip_path}")
-            tmp_zip_path.unlink(missing_ok=True)
-        if tmp_dir:
-            logger.info(f"Cleaning up temp directory: {tmp_dir}")
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-
+    # Find latest run folder for this project name (BEFORE cleanup)
+    # For extracted ZIPs, input_path is the actual project directory
+    # IMPORTANT: The following logic executes before extracted_zip_dir is deleted.
+    # This ensures the project name is set to the actual name (e.g., capstone-project-team-4)
+    # instead of a temporary directory name (e.g., tmpee2r7fm7).
+    if extracted_zip_dir:
+        # Project name is from the input_path (which is the subdirectory we found)
+        project_name = input_path.name
+        logger.info(f"Using project name from extracted ZIP: {project_name}")
+    else:
+        project_name = input_path.stem if input_path else "project"
+        logger.info(f"Using project name from direct path: {project_name}")
+    
+    # Now cleanup
+    os.chdir(original_cwd)
+    
+    # Clean up temporary files/directories after analysis
+    if tmp_zip_path and tmp_zip_path.exists():
+        logger.info(f"Cleaning up temp ZIP file: {tmp_zip_path}")
+        tmp_zip_path.unlink(missing_ok=True)
+    if tmp_dir:
+        logger.info(f"Cleaning up temp directory: {tmp_dir}")
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+    if extracted_zip_dir and extracted_zip_dir.exists():
+        logger.info(f"Cleaning up extracted ZIP directory: {extracted_zip_dir}")
+        shutil.rmtree(extracted_zip_dir, ignore_errors=True)
     # Find latest run folder for this project name
-    project_name = input_path.stem if input_path else "project"
     project_root = out / project_name
     latest = None
     if project_root.exists():
@@ -243,63 +363,11 @@ async def project_view(request: Request, project_name: str, ts: Optional[str] = 
         return HTMLResponse(f"<h1>Error</h1><p>{str(e)}</p>", status_code=500)
 
 
-# @app.get("/project/{project_name}/{ts}/{filename}")
-# async def view_json(project_name: str, ts: str, filename: str):
-#     try:
-#         logger.info(f"GET /project/{project_name}/{ts}/{filename}")
-#         target = OUTPUTS / project_name / ts / filename
-#         if not target.exists():
-#             logger.warning(f"File not found: {target}")
-#             return JSONResponse({"error": "Not found"}, status_code=404)
-#         try:
-#             data = json.loads(target.read_text(encoding="utf-8"))
-#             logger.info(f"Loaded JSON file: {target}")
-#             return JSONResponse(data)
-#         except Exception as e:
-#             logger.debug(f"Not JSON, returning as plaintext: {e}")
-#             return PlainTextResponse(target.read_text(encoding="utf-8"))
-#     except Exception as e:
-#         logger.error(f"Error viewing file: {e}", exc_info=True)
-#         return JSONResponse({"error": str(e)}, status_code=500)
-
-
-# @app.post("/delete")
-# async def delete_run(project: str = Form(...), ts: str = Form(...)):
-#     try:
-#         logger.info(f"POST /delete - project={project}, ts={ts}")
-#         run_dir = OUTPUTS / project / ts
-#         if not run_dir.exists():
-#             logger.warning(f"Run directory not found: {run_dir}")
-#             return JSONResponse({"error": "Run not found"}, status_code=404)
-#         logger.info(f"Deleting directory: {run_dir}")
-#         shutil.rmtree(run_dir)
-#         logger.info(f"Successfully deleted: {run_dir}")
-#         return RedirectResponse(url=f"/project/{project}", status_code=303)
-#     except Exception as e:
-#         logger.error(f"Error deleting run: {e}", exc_info=True)
-#         return JSONResponse({"error": str(e)}, status_code=500)
-
-
-# @app.get("/aggregate")
-# async def aggregate(json_output: bool = False):
-#     logger.info(f"GET /aggregate - json_output={json_output}")
-#     try:
-#         projects = aggregate_outputs(OUTPUTS)
-#         logger.info(f"Aggregated {len(projects)} projects")
-#         if json_output:
-#             serial = _serialize_projects(projects)
-#             logger.info("Returning JSON format")
-#             return JSONResponse(serial)
-#         content = format_markdown(projects)
-#         logger.info("Returning Markdown format")
-#         return PlainTextResponse(content)
-#     except Exception as e:
-#         logger.error(f"Error aggregating outputs: {e}", exc_info=True)
-#         return JSONResponse({"error": str(e)}, status_code=500)
-
 
 # Health check
 @app.get("/health")
 async def health():
     logger.debug("Health check requested")
     return {"status": "ok"}
+
+
