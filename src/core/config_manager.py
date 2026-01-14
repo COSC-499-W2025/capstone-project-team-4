@@ -116,6 +116,17 @@ def require_external_consent(notice_version: int = 1):
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "../data/config.json")
 
+def bump_notice_version() -> None:
+    cfg = read_cfg()
+    current = cfg.get("external_last_notice_version", 0)
+    try:
+        current_int = int(current)
+    except (TypeError, ValueError):
+        current_int = 0
+    cfg["external_last_notice_version"] = current_int + 1
+    write_cfg(cfg)
+
+
 def save_config(config_dict):
     """Save config to JSON and SQLite"""
     # Ensure the data directory exists
