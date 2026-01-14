@@ -1221,14 +1221,14 @@ def extract_resume_skills(
 
     # Get languages if not provided
     if languages is None:
-        from src.core.analyzers.language import ProjectAnalyzer
+        from src.core.detectors.language import ProjectAnalyzer
         analyzer = ProjectAnalyzer()
         language_stats = analyzer.analyze_project_languages(str(root_path))
         languages = [lang for lang, count in language_stats.items() if lang != "Unknown" and count > 0]
 
     # Get frameworks if not provided
     if frameworks is None:
-        from src.core.extractors.framework import detect_frameworks_recursive
+        from src.core.detectors.framework import detect_frameworks_recursive
         rules_path = Path(__file__).parent.parent / "rules" / "frameworks.yml"
         if rules_path.exists():
             fw_results = detect_frameworks_recursive(root_path, str(rules_path))
@@ -1307,6 +1307,8 @@ def analyze_project_skills(
     root_dir: Union[str, Path],
     libraries: Optional[List[Dict[str, Any]]] = None,
     tools: Optional[List[Dict[str, Any]]] = None,
+    languages: Optional[List[str]] = None,
+    frameworks: Optional[List[str]] = None,
     include_code_patterns: bool = False,
 ) -> Dict[str, Any]:
     """
@@ -1316,6 +1318,8 @@ def analyze_project_skills(
         root_dir: Path to the project directory
         libraries: Optional pre-detected list of libraries
         tools: Optional pre-detected list of tools
+        languages: Optional pre-detected list of languages (skip detection if provided)
+        frameworks: Optional pre-detected list of frameworks (skip detection if provided)
         include_code_patterns: If True, also run regex-based code pattern analysis
 
     Returns:
@@ -1324,30 +1328,32 @@ def analyze_project_skills(
     """
     root_path = Path(root_dir)
 
-    # Extract languages
-    from src.core.analyzers.language import ProjectAnalyzer
-    analyzer = ProjectAnalyzer()
-    language_stats = analyzer.analyze_project_languages(str(root_path))
-    languages = [lang for lang, count in language_stats.items() if lang != "Unknown" and count > 0]
+    # Extract languages (or use provided)
+    if languages is None:
+        from src.core.detectors.language import ProjectAnalyzer
+        analyzer = ProjectAnalyzer()
+        language_stats = analyzer.analyze_project_languages(str(root_path))
+        languages = [lang for lang, count in language_stats.items() if lang != "Unknown" and count > 0]
 
-    # Extract frameworks
-    from src.core.extractors.framework import detect_frameworks_recursive
-    rules_path = Path(__file__).parent.parent / "rules" / "frameworks.yml"
-    if rules_path.exists():
-        fw_results = detect_frameworks_recursive(root_path, str(rules_path))
-        best: Dict[str, float] = {}
-        for folder_frameworks in fw_results.get("frameworks", {}).values():
-            for fw in folder_frameworks:
-                name = (fw.get("name") or "").strip()
-                if not name:
-                    continue
-                conf = fw.get("confidence", 1.0)
-                if name not in best or conf > best[name]:
-                    best[name] = conf
-        frameworks = [name for name, _ in sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))]
-    else:
-        logger.warning("Framework rules file not found at %s", rules_path)
-        frameworks = []
+    # Extract frameworks (or use provided)
+    if frameworks is None:
+        from src.core.detectors.framework import detect_frameworks_recursive
+        rules_path = Path(__file__).parent.parent / "rules" / "frameworks.yml"
+        if rules_path.exists():
+            fw_results = detect_frameworks_recursive(root_path, str(rules_path))
+            best: Dict[str, float] = {}
+            for folder_frameworks in fw_results.get("frameworks", {}).values():
+                for fw in folder_frameworks:
+                    name = (fw.get("name") or "").strip()
+                    if not name:
+                        continue
+                    conf = fw.get("confidence", 1.0)
+                    if name not in best or conf > best[name]:
+                        best[name] = conf
+            frameworks = [name for name, _ in sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))]
+        else:
+            logger.warning("Framework rules file not found at %s", rules_path)
+            frameworks = []
 
     # Extract skills from each source separately for tracking
     skill_sources: Dict[str, str] = {}  # Maps skill name -> source

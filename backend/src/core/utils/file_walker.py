@@ -296,7 +296,7 @@ def collect_all_file_info(
     import mimetypes
     import magic
 
-    from src.core.analyzers.language import (
+    from src.core.detectors.language import (
         LanguageConfig,
         FileAnalyzer,
         CommentDetector,
