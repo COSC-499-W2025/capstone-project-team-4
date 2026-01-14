@@ -1,6 +1,9 @@
 <div align="center">
 
-# 🎓 Capstone Project Team 4
+# 🎓 Capstone Project Team 4 (Miletone 1)
+
+## Note: This is outdated and is used as a preservation for the old `development` branch
+## Date: Jan 14, 2026
 
 ### Project Analyzer & Resume Builder
 
