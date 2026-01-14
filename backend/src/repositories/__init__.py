@@ -5,6 +5,7 @@ from src.repositories.contributor_repository import ContributorRepository
 from src.repositories.complexity_repository import ComplexityRepository
 from src.repositories.skill_repository import SkillRepository
 from src.repositories.resume_repository import ResumeRepository
+from src.repositories.user_profile_repository import UserProfileRepository, WorkExperienceRepository
 
 __all__ = [
     "ProjectRepository",
@@ -13,4 +14,6 @@ __all__ = [
     "ComplexityRepository",
     "SkillRepository",
     "ResumeRepository",
+    "UserProfileRepository",
+    "WorkExperienceRepository",
 ]
