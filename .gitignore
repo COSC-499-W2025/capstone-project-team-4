@@ -76,15 +76,22 @@ venv.bak/
 Thumbs.db
 desktop.ini
 
+# AI files
+.claude
+.cursor
+CLAUDE.md
+
 # Logs
 *.log
 
 # Output files
-src/outputs/
+backend/outputs/
 outputs/
 
 # Temporary files
 *.tmp
+backend/temp/
+tmpclaude-*/
 
 # database files
 *.sqlite3   
@@ -92,4 +99,18 @@ outputs/
 *.db-journal
 
 # User data directory (runtime-generated config and logs)
-src/data/
+backend/data/workmine.db
+backend/data/*.db
+
+# Frontend build files
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/out/
+
+# Backend specific
+backend/.env
+backend/.venv/
+backend/__pycache__/
+backend/src/__pycache__/

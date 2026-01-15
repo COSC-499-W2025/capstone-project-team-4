@@ -1,0 +1,55 @@
+# Project Analyzer API Dependencies
+
+# Web Framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+
+# Database
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+
+# Validation & Settings
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+email-validator>=2.0.0
+
+# Data Processing
+pandas>=2.0.0
+
+# Git Analysis
+gitpython>=3.1.0
+
+# Configuration
+pyyaml>=6.0.2
+
+# File Type Detection
+python-magic; sys_platform != "win32"
+python-magic-bin; sys_platform == "win32"
+
+# HTTP Client
+requests>=2.31.0
+httpx>=0.26.0
+
+# Progress Bars (for analysis)
+tqdm>=4.66.0
+
+# NLP
+nltk>=3.8.0
+
+# Code Complexity Analysis (Tree-sitter)
+# Note: tree-sitter 0.21.x has deprecation warnings but is stable with tree-sitter-languages 1.10.x
+# tree-sitter >= 0.22 has breaking API changes not yet fully supported by tree-sitter-languages
+tree-sitter==0.21.3
+tree-sitter-languages==1.10.2
+
+# Environment
+python-dotenv>=1.0.0
+
+# AI Integration
+openai>=1.12.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.23.0
