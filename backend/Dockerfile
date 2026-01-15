@@ -10,18 +10,17 @@ RUN apt-get update && apt-get install -y \
 # Set working directory inside container
 WORKDIR /app
 
-# Create a virtual environment inside the container
-RUN python -m venv /venv
-
-# Activate the virtual environment
-ENV VIRTUAL_ENV="/venv"
-ENV PATH="/venv/bin:$PATH"
+# Set Python environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="/app"
 
 # Copy only dependency list first (for caching)
 COPY requirements.txt .
 
-# Install dependencies in the virtual environment
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies directly (no venv needed in Docker)
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the project
 COPY . .
@@ -30,9 +29,6 @@ COPY . .
 RUN git config --global --add safe.directory /app && \
     git config --global --add safe.directory '*' && \
     git config --global init.defaultBranch main
-
-# Added this line to ensure src is recognized as a module
-ENV PYTHONPATH="/app"
 
 # Expose port
 EXPOSE 8000
