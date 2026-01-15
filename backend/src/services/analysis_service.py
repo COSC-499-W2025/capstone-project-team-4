@@ -25,17 +25,19 @@ from src.repositories.tool_repository import ToolRepository
 from src.repositories.framework_repository import FrameworkRepository
 
 # Core analyzers
-from src.core.extractors.metadata import parse_metadata
+from src.core.detectors.metadata import parse_metadata
 from src.core.analyzers.contributor import analyze_contributors as git_analyze_contributors
 from src.core.analyzers.project_stats import (
     analyze_project,
     project_analysis_to_dict,
     calculate_project_stats,
 )
-from src.core.extractors.skill import analyze_project_skills
+from src.core.detectors.language import ProjectAnalyzer
+from src.core.detectors.skill import analyze_project_skills
 from src.core.validators.cross_validator import CrossValidator
-from src.core.extractors.library import detect_libraries_recursive
-from src.core.extractors.tool import detect_tools_recursive
+from src.core.detectors.library import detect_libraries_recursive
+from src.core.detectors.tool import detect_tools_recursive
+from src.core.detectors.framework import detect_frameworks_recursive
 from src.core.generators.resume import generate_resume_item
 from src.core.utils.file_walker import (
     collect_all_file_info,
@@ -242,19 +244,18 @@ class AnalysisService:
             project_id = project.id
             logger.info(f"Step 2 complete: Project ID {project_id}")
 
-            # Steps 3-5: PARALLEL ANALYSIS (OPTIMIZATION)
-            # Run Git, Complexity, Libraries, and Tools analysis concurrently
-            # Skills analysis runs AFTER libraries/tools to use them as context
-            logger.info("Steps 3-5: Running parallel analysis (Git, Complexity, Libraries, Tools)")
+            # Steps 3-6: PARALLEL ANALYSIS (Git, Complexity, Languages, Frameworks, Libraries, Tools)
+            logger.info("Steps 3-6: Running parallel analysis")
 
             # Default values in case of errors
             contributors = []
             complexity_dict = {"functions": []}
             library_report = {"libraries": [], "by_ecosystem": {}, "total_count": 0}
             tool_report = {"tools": [], "by_category": {}, "total_count": 0}
+            languages_detected: List[str] = []
+            frameworks_detected: List[dict] = []
 
-            with ThreadPoolExecutor(max_workers=4) as executor:
-                # Submit all tasks (skills excluded - runs after with library/tool context)
+            with ThreadPoolExecutor(max_workers=6) as executor:
                 futures = {
                     executor.submit(git_analyze_contributors, project_root): "contributors",
                     executor.submit(
@@ -262,9 +263,10 @@ class AnalysisService:
                     ): "complexity",
                     executor.submit(detect_libraries_recursive, project_path): "libraries",
                     executor.submit(detect_tools_recursive, project_path): "tools",
+                    executor.submit(lambda: ProjectAnalyzer().analyze_project_languages(project_root)): "languages",
+                    executor.submit(self._detect_frameworks_best, project_path): "frameworks",
                 }
 
-                # Collect results as they complete
                 for future in as_completed(futures):
                     task_name = futures[future]
                     try:
@@ -281,30 +283,36 @@ class AnalysisService:
                         elif task_name == "tools":
                             tool_report = result
                             logger.info(f"Tool detection complete: Found {tool_report.get('total_count', 0)} tools")
+                        elif task_name == "languages":
+                            languages_detected = sorted(
+                                [lang for lang, count in result.items() if lang != "Unknown" and count > 0]
+                            )
+                            logger.info("Language detection complete: Found %d languages", len(languages_detected))
+                        elif task_name == "frameworks":
+                            frameworks_detected = result or []
+                            logger.info("Framework detection complete: Found %d frameworks", len(frameworks_detected))
                     except Exception as e:
                         logger.warning(f"{task_name} analysis failed: {e}")
 
-            logger.info("Steps 3-5 complete: Parallel analysis finished")
+            logger.info("Steps 3-6 complete: Parallel analysis finished")
 
-            # Step 5.5: Extract skills with library/tool context
+            # Step 5.5: Extract skills with pre-detected signals
             logger.info("Step 5.5: Extracting skills with library/tool context")
+            framework_names = [fw.get("name") for fw in frameworks_detected if fw.get("name")]
             skill_report = analyze_project_skills(
                 project_root,
                 libraries=library_report.get("libraries", []),
-                tools=tool_report.get("tools", [])
+                tools=tool_report.get("tools", []),
+                languages=languages_detected,
+                frameworks=framework_names,
             )
             logger.info("Step 5.5 complete: Found %d skills", skill_report.get("total_skills", 0))
 
             # Step 5.6: Cross-validate detections
             logger.info("Step 5.6: Cross-validating detections")
-            raw_languages = skill_report.get("languages", [])
-            raw_frameworks_list = []
-            for fw in skill_report.get("frameworks", []):
-                raw_frameworks_list.append({"name": fw, "confidence": 1.0})
-
             validator = CrossValidator(
-                languages=raw_languages,
-                frameworks=raw_frameworks_list,
+                languages=languages_detected,
+                frameworks=frameworks_detected,
                 libraries=library_report.get("libraries", []),
                 tools=tool_report.get("tools", [])
             )
@@ -324,7 +332,7 @@ class AnalysisService:
             project_stats = calculate_project_stats(project_root, file_list, contributors)
             logger.info("Step 6 complete")
 
-            languages = sorted(set(skill_report.get("languages", [])))
+            languages = sorted(set(languages_detected))
             # Use enhanced frameworks from cross-validation
             frameworks = sorted(set(fw.get("name", "") for fw in all_enhanced_frameworks if fw.get("name")))
             libraries = sorted({lib.get("name", "").strip() for lib in library_report.get("libraries", []) if lib.get("name")})
@@ -398,10 +406,33 @@ class AnalysisService:
                 ),
                 created_at=project.created_at,
             )
-
         except Exception as e:
-            logger.error(f"Analysis failed: {e}")
+            logger.error(f"Analysis failed for {project_name}: {e}")
             raise
+
+    def _detect_frameworks_best(self, project_path: Path) -> List[dict]:
+        """Detect frameworks and return best-confidence unique list."""
+        rules_path = Path(__file__).resolve().parent.parent / "core" / "rules" / "frameworks.yml"
+        if not rules_path.exists():
+            logger.warning("Framework rules file not found at %s", rules_path)
+            return []
+
+        results = detect_frameworks_recursive(project_path, str(rules_path))
+        best: dict = {}
+
+        for folder_frameworks in results.get("frameworks", {}).values():
+            for fw in folder_frameworks:
+                name = (fw.get("name") or "").strip()
+                if not name:
+                    continue
+                conf = float(fw.get("confidence", 1.0))
+                if name not in best or conf > best[name]:
+                    best[name] = conf
+
+        return [
+            {"name": name, "confidence": conf}
+            for name, conf in sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))
+        ]
 
     def _save_files(self, project_id: int, file_list: list) -> None:
         """Save file metadata to database."""

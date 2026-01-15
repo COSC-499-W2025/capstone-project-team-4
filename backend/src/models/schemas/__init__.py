@@ -29,6 +29,16 @@ from src.models.schemas.complexity import (
     ComplexityReport,
     ComplexitySummary,
 )
+from src.models.schemas.user_profile import (
+    UserProfileCreate,
+    UserProfileUpdate,
+    UserProfileSummary,
+    UserProfileDetail,
+    UserProfileList,
+    WorkExperienceCreate,
+    WorkExperienceUpdate,
+    WorkExperienceResponse,
+)
 
 __all__ = [
     "ProjectCreate",
@@ -49,4 +59,12 @@ __all__ = [
     "ComplexitySchema",
     "ComplexityReport",
     "ComplexitySummary",
+    "UserProfileCreate",
+    "UserProfileUpdate",
+    "UserProfileSummary",
+    "UserProfileDetail",
+    "UserProfileList",
+    "WorkExperienceCreate",
+    "WorkExperienceUpdate",
+    "WorkExperienceResponse",
 ]

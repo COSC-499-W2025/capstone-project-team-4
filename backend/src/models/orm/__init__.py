@@ -9,6 +9,8 @@ from src.models.orm.framework import Framework, ProjectFramework
 from src.models.orm.library import Library, ProjectLibrary
 from src.models.orm.tool import Tool, ProjectTool
 from src.models.orm.config import Config
+from src.models.orm.user_profile import UserProfile
+from src.models.orm.work_experience import WorkExperience
 
 __all__ = [
     "Project",
@@ -29,4 +31,6 @@ __all__ = [
     "Tool",
     "ProjectTool",
     "Config",
+    "UserProfile",
+    "WorkExperience",
 ]

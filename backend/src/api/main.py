@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.config.settings import settings
 from src.models.database import init_db
-from src.api.routes import analysis, projects, skills, resume
+from src.api.routes import analysis, projects, skills, resume, user_profiles
 
 # Configure logging
 logging.basicConfig(
@@ -46,6 +46,7 @@ app = FastAPI(
     * **Code Complexity** - Calculate cyclomatic complexity metrics
     * **Skill Extraction** - Extract technical skills from code patterns
     * **Resume Generation** - Generate professional resume bullet points
+    * **User Profiles** - Manage user personal information and work experience
 
     ## API Endpoints
 
@@ -55,6 +56,7 @@ app = FastAPI(
     * `/api/projects/{id}/skills` - Get extracted skills
     * `/api/projects/{id}/complexity` - Get complexity metrics
     * `/api/projects/{id}/resume` - Get/regenerate resume items
+    * `/api/user-profiles` - Manage user profiles and work experiences
     """,
     lifespan=lifespan,
     docs_url="/docs",
@@ -75,6 +77,7 @@ app.include_router(analysis.router, prefix=settings.api_prefix)
 app.include_router(projects.router, prefix=settings.api_prefix)
 app.include_router(skills.router, prefix=settings.api_prefix)
 app.include_router(resume.router, prefix=settings.api_prefix)
+app.include_router(user_profiles.router, prefix=settings.api_prefix)
 
 
 @app.get("/")

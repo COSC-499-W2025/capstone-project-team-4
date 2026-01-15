@@ -44,6 +44,36 @@ class InvalidGitHubURLError(HTTPException):
         )
 
 
+class UserProfileNotFoundError(HTTPException):
+    """Exception raised when a user profile is not found."""
+
+    def __init__(self, profile_id: int):
+        super().__init__(
+            status_code=404,
+            detail=f"User profile with ID {profile_id} not found",
+        )
+
+
+class UserProfileEmailExistsError(HTTPException):
+    """Exception raised when email already exists."""
+
+    def __init__(self, email: str):
+        super().__init__(
+            status_code=409,
+            detail=f"User profile with email {email} already exists",
+        )
+
+
+class WorkExperienceNotFoundError(HTTPException):
+    """Exception raised when a work experience is not found."""
+
+    def __init__(self, experience_id: int):
+        super().__init__(
+            status_code=404,
+            detail=f"Work experience with ID {experience_id} not found",
+        )
+
+
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Generic exception handler for unhandled exceptions."""
     return JSONResponse(

@@ -69,7 +69,8 @@ def init_db() -> None:
         Project, File, Language, Contributor, ContributorFile,
         Complexity, Skill, ProjectSkill, ProjectSkillSummary,
         ProjectSkillTimeline, ResumeItem, Framework, ProjectFramework,
-        Library, ProjectLibrary, Tool, ProjectTool, Config
+        Library, ProjectLibrary, Tool, ProjectTool, Config,
+        UserProfile, WorkExperience
     )
     Base.metadata.create_all(bind=engine)
 
