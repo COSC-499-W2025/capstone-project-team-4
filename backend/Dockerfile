@@ -5,6 +5,7 @@ FROM python:3.11.0-slim
 RUN apt-get update && apt-get install -y \
     libmagic1 \
     git \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory inside container
