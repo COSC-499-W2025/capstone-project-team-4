@@ -108,6 +108,8 @@ frontend/dist/
 frontend/build/
 frontend/.next/
 frontend/out/
+# Don't ignore the lib folder in the frontend. Shadcn won't work
+!frontend/src/lib/
 
 # Backend specific
 backend/.env
