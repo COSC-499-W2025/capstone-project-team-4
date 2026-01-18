@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { File, X, FolderArchive } from "lucide-react";
 
-export default function Dropzone({ title = "Drag and Drop" }) {
+export default function Dropzone({ title = "" }) {
   // 1. We manage the files ourselves now (so we can delete them)
   const [files, setFiles] = useState([]);
 
@@ -15,7 +15,7 @@ export default function Dropzone({ title = "Drag and Drop" }) {
   }, []);
 
   const removeFile = (fileToRemove) => {
-    setFiles(files.filter((f) => f !== fileToRemove));
+    setFiles((prev) => prev.filter((f) => f !== fileToRemove));
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
