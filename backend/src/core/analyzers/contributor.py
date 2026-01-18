@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Set, Tuple
 
@@ -21,6 +22,108 @@ logger = logging.getLogger(__name__)
 
 # Maximum commits to analyze (None = unlimited)
 MAX_COMMITS = 500
+
+
+def get_first_commit_date(project_path: str) -> Optional[datetime]:
+    """
+    Get the date of the first (oldest) commit in Git history.
+    
+    Args:
+        project_path: Path to the project directory
+        
+    Returns:
+        datetime object of first commit, or None if not a git repo or error
+    """
+    if Repo is None:
+        logger.warning("GitPython not installed")
+        return None
+    
+    try:
+        repo = Repo(project_path)
+        
+        # Get the first (oldest) commit
+        try:
+            # Iterate through all commits and get the last one (oldest)
+            commits = list(repo.iter_commits("--all", reverse=True))
+            if commits:
+                first_commit = commits[0]
+                commit_time = datetime.fromtimestamp(first_commit.committed_date)
+                logger.info(f"Got first commit date from Git: {commit_time}")
+                return commit_time
+        except Exception as e:
+            logger.debug(f"Error getting first commit: {e}")
+            
+    except InvalidGitRepositoryError:
+        logger.debug(f"Not a git repository: {project_path}")
+    except Exception as e:
+        logger.debug(f"Error accessing git repo: {e}")
+    
+    return None
+
+
+def get_project_creation_date(project_path: str) -> Optional[datetime]:
+    """
+    Get the project creation date from the first commit in Git history.
+    Falls back to earliest file modification time if not a git repo.
+    
+    Args:
+        project_path: Path to the project directory
+        
+    Returns:
+        datetime object of project creation, or None if unable to determine
+    """
+    from pathlib import Path as PathlibPath
+    import os
+    
+    if Repo is None:
+        logger.warning("GitPython not installed")
+        return None
+    
+    # Try Git first
+    try:
+        repo = Repo(project_path)
+        
+        # Get the first (oldest) commit
+        try:
+            # Iterate through all commits and get the last one (oldest)
+            commits = list(repo.iter_commits("--all", reverse=True))
+            if commits:
+                first_commit = commits[0]
+                creation_time = datetime.fromtimestamp(first_commit.committed_date)
+                logger.info(f"Got project creation date from Git: {creation_time}")
+                return creation_time
+        except Exception as e:
+            logger.debug(f"Error getting first commit: {e}")
+            
+    except InvalidGitRepositoryError:
+        logger.debug(f"Not a git repository: {project_path}")
+    except Exception as e:
+        logger.debug(f"Error accessing git repo: {e}")
+    
+    # Fallback: get earliest file modification time
+    try:
+        earliest_time = None
+        project_path_obj = PathlibPath(project_path)
+        
+        for file_path in project_path_obj.rglob("*"):
+            if file_path.is_file():
+                try:
+                    stat = file_path.stat()
+                    file_time = datetime.fromtimestamp(stat.st_mtime)
+                    
+                    if earliest_time is None or file_time < earliest_time:
+                        earliest_time = file_time
+                except (OSError, ValueError):
+                    continue
+        
+        if earliest_time:
+            logger.info(f"Got project creation date from file system: {earliest_time}")
+            return earliest_time
+            
+    except Exception as e:
+        logger.debug(f"Error getting file modification times: {e}")
+    
+    return None
 
 
 def analyze_contributors(

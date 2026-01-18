@@ -41,7 +41,38 @@ class ComplexitySummary(BaseModel):
 class AnalysisResult(BaseModel):
     """Schema for analysis result."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "project_id": 1,
+                "project_name": "example-project",
+                "status": "completed",
+                "source_type": "zip",
+                "source_url": "/path/to/project.zip",
+                "languages": ["Python", "JavaScript"],
+                "frameworks": ["FastAPI", "React"],
+                "tools_and_technologies": ["Docker", "Git"],
+                "contextual_skills": ["REST", "CI/CD"],
+                "file_count": 120,
+                "contributor_count": 3,
+                "skill_count": 25,
+                "library_count": 10,
+                "tool_count": 5,
+                "total_lines_of_code": 15432,
+                "complexity_summary": {
+                    "total_functions": 220,
+                    "avg_complexity": 3.2,
+                    "max_complexity": 18,
+                    "high_complexity_count": 12
+                },
+                "zip_uploaded_at": "2026-01-18T12:00:00Z",
+                "first_file_created": "2024-05-10T09:30:00Z",
+                "first_commit_date": "2024-05-11T10:00:00Z",
+                "project_started_at": "2024-05-10T09:30:00Z",
+            }
+        },
+    )
 
     project_id: int
     project_name: str
@@ -59,5 +90,8 @@ class AnalysisResult(BaseModel):
     tool_count: int = 0
     total_lines_of_code: int = 0
     complexity_summary: Optional[ComplexitySummary] = None
-    created_at: datetime
+    zip_uploaded_at: datetime
+    first_file_created: datetime
+    first_commit_date: Optional[datetime] = None
+    project_started_at: datetime
     error_message: Optional[str] = None

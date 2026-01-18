@@ -26,7 +26,11 @@ from src.repositories.framework_repository import FrameworkRepository
 
 # Core analyzers
 from src.core.detectors.metadata import parse_metadata
-from src.core.analyzers.contributor import analyze_contributors as git_analyze_contributors
+from src.core.analyzers.contributor import (
+    analyze_contributors as git_analyze_contributors,
+    get_project_creation_date,
+    get_first_commit_date,
+)
 from src.core.analyzers.project_stats import (
     analyze_project,
     project_analysis_to_dict,
@@ -46,6 +50,43 @@ from src.core.utils.file_walker import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def get_earliest_file_date_from_zip(zip_path: Path) -> Optional[datetime]:
+    """
+    Extract the earliest file creation/modification date from a ZIP file.
+    
+    Reads ZIP internal metadata to find the oldest file date.
+    
+    Args:
+        zip_path: Path to the ZIP file
+        
+    Returns:
+        datetime object of earliest file in ZIP, or None if error
+    """
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            earliest_time = None
+            
+            for info in zf.infolist():
+                # ZIP files store dates as (year, month, day, hour, minute, second)
+                try:
+                    file_time = datetime(*info.date_time)
+                    
+                    if earliest_time is None or file_time < earliest_time:
+                        earliest_time = file_time
+                except (ValueError, TypeError) as e:
+                    logger.debug(f"Error parsing date for {info.filename}: {e}")
+                    continue
+            
+            if earliest_time:
+                logger.info(f"Earliest file date in ZIP: {earliest_time}")
+                return earliest_time
+                
+    except Exception as e:
+        logger.warning(f"Error extracting file dates from ZIP: {e}")
+    
+    return None
 
 
 class AnalysisService:
@@ -87,6 +128,10 @@ class AnalysisService:
 
         name = project_name or zip_path.stem
 
+        # Get the earliest file date from ZIP metadata
+        earliest_file_date = get_earliest_file_date_from_zip(zip_path)
+        logger.info(f"Earliest file date from ZIP: {earliest_file_date}")
+
         # Extract to temporary directory
         with tempfile.TemporaryDirectory() as temp_dir:
             logger.info(f"Extracting ZIP to {temp_dir}")
@@ -98,6 +143,8 @@ class AnalysisService:
                 project_name=name,
                 source_type="zip",
                 source_url=str(zip_path),
+                zip_upload_time=datetime.utcnow(),
+                earliest_file_date_in_zip=earliest_file_date,
             )
 
     def analyze_from_directory(
@@ -201,6 +248,8 @@ class AnalysisService:
         project_name: str,
         source_type: str,
         source_url: Optional[str] = None,
+        zip_upload_time: Optional[datetime] = None,
+        earliest_file_date_in_zip: Optional[datetime] = None,
     ) -> AnalysisResult:
         """
         Run the full analysis pipeline on a project.
@@ -214,6 +263,8 @@ class AnalysisService:
             project_name: Name of the project
             source_type: Type of source (local, zip, github)
             source_url: URL or path of the source
+            zip_upload_time: Time when ZIP was uploaded (for ZIP sources)
+            earliest_file_date_in_zip: Earliest file date from ZIP metadata
 
         Returns:
             AnalysisResult with all analysis data
@@ -380,7 +431,35 @@ class AnalysisService:
 
             # Build result
             complexity_summary = self.complexity_repo.get_summary(project_id)
-
+            
+            # Calculate 4 timestamps:
+            # 1. zip_uploaded_at: When ZIP was uploaded (for ZIP sources)
+            # 2. first_file_created: Earliest file in ZIP (from ZIP metadata)
+            # 3. first_commit_date: First Git commit (if repository)
+            # 4. project_started_at: min(first_file_created, first_commit_date)
+            
+            # 1. zip_uploaded_at (only for ZIP sources)
+            zip_uploaded_at = zip_upload_time if source_type == "zip" else datetime.utcnow()
+            logger.info(f"ZIP uploaded at: {zip_uploaded_at}")
+            
+            # 2. first_file_created (earliest file from ZIP)
+            first_file_created = earliest_file_date_in_zip if earliest_file_date_in_zip else datetime.utcnow()
+            logger.info(f"First file created: {first_file_created}")
+            
+            # 3. first_commit_date (from Git if available)
+            first_commit_date = get_first_commit_date(str(project_path))
+            logger.info(f"First commit date: {first_commit_date}")
+            
+            # 4. project_started_at (minimum of file creation and first commit)
+            if first_commit_date and first_file_created:
+                project_started_at = min(first_commit_date, first_file_created)
+            elif first_commit_date:
+                project_started_at = first_commit_date
+            else:
+                project_started_at = first_file_created
+            
+            logger.info(f"Project started at: {project_started_at}")
+            
             return AnalysisResult(
                 project_id=project_id,
                 project_name=project_name,
@@ -404,7 +483,10 @@ class AnalysisService:
                     max_complexity=complexity_summary.get("max_complexity", 0),
                     high_complexity_count=complexity_summary.get("high_complexity_count", 0),
                 ),
-                created_at=project.created_at,
+                zip_uploaded_at=zip_uploaded_at,
+                first_file_created=first_file_created,
+                first_commit_date=first_commit_date,
+                project_started_at=project_started_at,
             )
         except Exception as e:
             logger.error(f"Analysis failed for {project_name}: {e}")
@@ -568,6 +650,9 @@ class AnalysisService:
             for skill_obj in self.skill_repo.get_skills_by_source(project_id, "contextual")
         ])
 
+        # Get earliest file timestamp from files table (if available)
+        first_file_created = self.file_repo.get_earliest_file_date(project_id) or datetime.utcnow()
+
         return AnalysisResult(
             project_id=project_id,
             project_name=project.name,
@@ -590,5 +675,8 @@ class AnalysisService:
                 max_complexity=complexity_summary.get("max_complexity", 0),
                 high_complexity_count=complexity_summary.get("high_complexity_count", 0),
             ),
-            created_at=project.created_at,
+            zip_uploaded_at=project.created_at or datetime.utcnow(),
+            first_file_created=first_file_created,
+            first_commit_date=None,  # TODO: Store in database
+            project_started_at=first_file_created,  # TODO: Calculate from DB values
         )
