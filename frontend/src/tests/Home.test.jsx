@@ -13,7 +13,7 @@ describe("MainPage Component", () => {
   it('displays the main hero heading', () => {
     render(<MainPage />)
     const heading = screen.getByRole('heading', { 
-      name: /Transform Your Work Into a Professional Resume/i 
+      name: /Resume Builder/i 
     })
     expect(heading).toBeInTheDocument()
   })
@@ -122,7 +122,7 @@ describe("MainPage Component", () => {
   // Test 13: Check for no ATS terminology (requirement from conversation)
   it('does not contain ATS terminology', () => {
     render(<MainPage />)
-    const pageText = screen.getByText(/Transform Your Work Into a Professional Resume/i).closest('div')?.textContent || ''
+    const pageText = screen.getByText(/Transform your work history into a professional resume that highlights your best contributions./i).closest('div')?.textContent || ''
     expect(pageText.toLowerCase()).not.toContain('ats')
   })
 
