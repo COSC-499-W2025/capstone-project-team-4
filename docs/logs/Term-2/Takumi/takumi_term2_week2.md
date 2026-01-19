@@ -46,7 +46,9 @@ This week, I focused on establishing the frontend foundation  by implementing th
 ### Review/Collaboration Tasks
 
 #### Code Review
-- Reviewed [PR 137](https://github.com/COSC-499-W2025/capstone-project-team-4/pull/137) and [PR 139](https://github.com/COSC-499-W2025/capstone-project-team-4/pull/139).
+- [PR 137](https://github.com/COSC-499-W2025/capstone-project-team-4/pull/137)
+- [PR 139](https://github.com/COSC-499-W2025/capstone-project-team-4/pull/139)
+- [PR 143](https://github.com/COSC-499-W2025/capstone-project-team-4/pull/143)
 
 ### Connection to Previous Week
 Last week involved minimal development as the team focused on aligning priorities. This week, I started building the homepage and setting up the testing infrastructure.
