@@ -2,7 +2,7 @@
 
 ### Overview
 
-This week, I focused on improving the API's timestamp handling by implementing four distinct timestamp fields to accurately track project lifecycle events, from upload to actual project inception.
+This week, I focused on improving the API's timestamp handling to accurately track project lifecycle events, from upload to actual project inception.
 
 ### Coding Tasks
 
@@ -22,7 +22,6 @@ This week, I focused on improving the API's timestamp handling by implementing f
 - Added four timestamp fields to `AnalysisResult` schema:
   - `zip_uploaded_at`: Timestamp when ZIP file was uploaded to API
   - `first_file_created`: Earliest file date extracted from ZIP metadata
-  - `first_commit_date`: First Git commit timestamp (nullable if not a Git repository)
   - `project_started_at`: Minimum of `first_file_created` and `first_commit_date` representing actual project inception
 
 **Files Modified:**
@@ -43,14 +42,7 @@ This week, I focused on improving the API's timestamp handling by implementing f
 
 - Verified `zip_uploaded_at` correctly captures current time when ZIP is uploaded
 - Confirmed `first_file_created` successfully extracts oldest file date from ZIP internal metadata using `zipfile.ZipFile.infolist()`
-- Tested `first_commit_date` returns correct Git first commit when repository is present, returns `None` for non-Git projects
 - Validated `project_started_at` correctly selects minimum between file creation and first commit dates
-
-#### Swagger Documentation Issue Resolution
-
-**Issue:** Swagger UI was showing duplicate 201 responses with identical placeholder timestamps, causing confusion
-**Root Cause:** FastAPI auto-generates two 201 entries (one from `status_code=201`, one from `response_model`), and auto-generated examples used same timestamp for all fields
-**Solution:** Added explicit `json_schema_extra` example to schema showing four distinct, meaningful timestamps
 
 ### Review & Collaboration Tasks
 
@@ -58,8 +50,7 @@ This week, I focused on improving the API's timestamp handling by implementing f
 
 #### Team Meeting
 
-- Discussed weekly log structure improvements based on TA feedback
-- Aligned on new `Term-2` folder organization for individual logs
+- Task distribution, frontend and backend
 
 ### Connection to Previous Work
 
@@ -73,11 +64,7 @@ Building on Week 1's focus on API layer development, this week addressed a criti
 - [ ] Consider database migration to persist new timestamp fields
 - [ ] Update API documentation with timestamp field descriptions
 
-### Blockers & Questions
 
-- **Commit functionality issue**: PR review identified issues with commit-related features. This is related to ongoing evaluation criteria updates and will be addressed in continued development
-- Database schema update needed to persist all four timestamps (currently only returned in API response)
-- Need to verify `file_repo.get_earliest_file_date()` method exists before `get_analysis_result()` can work properly
 
 ---
 
