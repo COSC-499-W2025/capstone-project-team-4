@@ -1,0 +1,220 @@
+[
+    {
+        "skill": "Object-Oriented Programming (Structs & Interfaces)",
+        "identifiers": [
+            "\\bstruct\\b",
+            "\\binterface\\b",
+            "\\btype\\s+[A-Za-z_]\\w*\\s+struct",
+            "\\btype\\s+[A-Za-z_]\\w*\\s+interface",
+            "\\bmethod\\b",
+            "\\bfunc\\s*\\(.*?\\)",
+            "\\bthis\\b"
+        ]
+    },
+    {
+        "skill": "Concurrency & Goroutines",
+        "identifiers": [
+            "\\bgo\\s+func\\b",
+            "\\bgo\\s+[A-Za-z_]\\w*\\(",
+            "\\bchannel\\b",
+            "\\bchan\\b",
+            "\\b<-\\b",
+            "\\bselect\\b",
+            "\\bMutex\\b",
+            "\\bRWMutex\\b",
+            "\\bWaitGroup\\b",
+            "import\\s+\"sync\"",
+            "import\\s+\"time\""
+        ]
+    },
+    {
+        "skill": "Error Handling",
+        "identifiers": [
+            "\\berr\\b",
+            "\\berror\\b",
+            "\\bif\\s+err\\s*!=\\s*nil",
+            "fmt\\.Errorf",
+            "errors\\.New",
+            "import\\s+\"errors\""
+        ]
+    },
+    {
+        "skill": "Functional Programming (Go style)",
+        "identifiers": [
+            "\\bfunc\\s*\\(",
+            "\\bclosure\\b",
+            "\\breturn\\s+func\\b",
+            "\\bmap\\b",
+            "\\bfilter\\b",
+            "\\breduce\\b"
+        ]
+    },
+    {
+        "skill": "Go Modules & Dependency Management",
+        "identifiers": [
+            "go\\.mod",
+            "go\\.sum",
+            "module\\s+[A-Za-z0-9_./-]+",
+            "\\brequire\\s+[A-Za-z0-9./_-]+"
+        ]
+    },
+    {
+        "skill": "Testing (Testing, Testify)",
+        "identifiers": [
+            "import\\s+\"testing\"",
+            "\\btesting\\.T\\b",
+            "\\bt\\.Run\\b",
+            "\\bt\\.Fatal\\b",
+            "\\bt\\.Error\\b",
+            "import\\s+\"github\\.com/stretchr/testify\""
+        ]
+    },
+    {
+        "skill": "Web Development (HTTP, REST)",
+        "identifiers": [
+            "import\\s+\"net/http\"",
+            "\\bhttp\\.HandleFunc\\b",
+            "\\bhttp\\.ListenAndServe\\b",
+            "\\bhttp\\.ResponseWriter\\b",
+            "\\bhttp\\.Request\\b",
+            "\\bServeMux\\b"
+        ]
+    },
+    {
+        "skill": "JSON & Serialization",
+        "identifiers": [
+            "import\\s+\"encoding/json\"",
+            "\\bjson\\.Marshal\\b",
+            "\\bjson\\.Unmarshal\\b",
+            "\\bMarshalIndent\\b",
+            "\\bDeserializer\\b",
+            "\\bSerializer\\b"
+        ]
+    },
+    {
+        "skill": "Database & ORM",
+        "identifiers": [
+            "import\\s+\"database/sql\"",
+            "\\bsql\\.DB\\b",
+            "\\bQueryRow\\b",
+            "\\bQuery\\b",
+            "\\bExec\\b",
+            "import\\s+\"gorm\\.io\"",
+            "import\\s+\"github\\.com/jmoiron/sqlx\""
+        ]
+    },
+    {
+        "skill": "Networking & Sockets",
+        "identifiers": [
+            "import\\s+\"net\"",
+            "\\bnet\\.Dial\\b",
+            "\\bnet\\.Listen\\b",
+            "\\bUDPConn\\b",
+            "\\bTCPConn\\b",
+            "\\bPacketConn\\b"
+        ]
+    },
+    {
+        "skill": "CLI & Utilities",
+        "identifiers": [
+            "\\bflag\\.Parse\\b",
+            "import\\s+\"flag\"",
+            "\\bos\\.Args\\b",
+            "import\\s+\"os\"",
+            "\\bfmt\\.Print\\b",
+            "\\bfmt\\.Printf\\b"
+        ]
+    },
+    {
+        "skill": "Context & Cancellation",
+        "identifiers": [
+            "import\\s+\"context\"",
+            "\\bcontext\\.Background\\b",
+            "\\bcontext\\.TODO\\b",
+            "\\bWithTimeout\\b",
+            "\\bWithCancel\\b",
+            "\\bDone\\b"
+        ]
+    },
+    {
+        "skill": "Reflection",
+        "identifiers": [
+            "import\\s+\"reflect\"",
+            "\\breflect\\.TypeOf\\b",
+            "\\breflect\\.ValueOf\\b"
+        ]
+    },
+    {
+        "skill": "Security & Crypto",
+        "identifiers": [
+            "import\\s+\"crypto\"",
+            "import\\s+\"crypto/sha256\"",
+            "import\\s+\"crypto/hmac\"",
+            "import\\s+\"crypto/aes\"",
+            "import\\s+\"crypto/cipher\"",
+            "\\bsha256\\.Sum256\\b",
+            "\\bHMAC\\b"
+        ]
+    },
+    {
+        "skill": "Logging & Monitoring",
+        "identifiers": [
+            "import\\s+\"log\"",
+            "\\blog\\.Print\\b",
+            "\\blog\\.Fatal\\b",
+            "\\blog\\.Printf\\b",
+            "import\\s+\"go\\.uber\\.org/zap\""
+        ]
+    },
+    {
+        "skill": "Containers, Cloud & Deployment",
+        "identifiers": [
+            "Dockerfile",
+            "docker-compose\\.yml",
+            "\\bkubectl\\b",
+            "\\bterraform\\b",
+            "\\bcloudbuild\\.yaml\\b",
+            "import\\s+\"google\\.golang\\.org/api\""
+        ]
+    },
+    {
+        "skill": "gRPC & Protobuf",
+        "identifiers": [
+            "import\\s+\"google\\.golang\\.org/grpc\"",
+            "import\\s+\"google\\.golang\\.org/protobuf\"",
+            "\\bgrpc\\.NewServer\\b",
+            "\\bproto\\.Marshal\\b"
+        ]
+    },
+    {
+        "skill": "File I/O",
+        "identifiers": [
+            "import\\s+\"io\"",
+            "import\\s+\"io/ioutil\"",
+            "import\\s+\"os\"",
+            "\\bos\\.Open\\b",
+            "\\bios\\.Read\\b",
+            "\\bios\\.Write\\b"
+        ]
+    },
+    {
+        "skill": "Build Tools",
+        "identifiers": [
+            "\\bgo\\s+build\\b",
+            "\\bgo\\s+run\\b",
+            "\\bgo\\s+test\\b",
+            "\\bgo\\s+install\\b",
+            "Makefile"
+        ]
+    },
+    {
+        "skill": "Performance & Profiling",
+        "identifiers": [
+            "import\\s+\"runtime\"",
+            "import\\s+\"runtime/pprof\"",
+            "\\bruntime\\.GC\\b",
+            "\\bruntime\\.NumCPU\\b",
+            "\\bpprof\\.StartCPUProfile\\b"
+        ]
+    }
+]

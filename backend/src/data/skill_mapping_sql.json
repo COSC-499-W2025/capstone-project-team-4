@@ -1,0 +1,185 @@
+[
+    {
+        "skill": "Core SQL Syntax",
+        "identifiers": [
+            "\\bSELECT\\b",
+            "\\bFROM\\b",
+            "\\bWHERE\\b",
+            "\\bGROUP BY\\b",
+            "\\bORDER BY\\b",
+            "\\bHAVING\\b",
+            "\\bLIMIT\\b",
+            "\\bOFFSET\\b",
+            "\\bDISTINCT\\b"
+        ]
+    },
+    {
+        "skill": "Data Manipulation (DML)",
+        "identifiers": [
+            "\\bINSERT\\b",
+            "\\bUPDATE\\b",
+            "\\bDELETE\\b",
+            "\\bVALUES\\b",
+            "\\bRETURNING\\b"
+        ]
+    },
+    {
+        "skill": "Data Definition (DDL)",
+        "identifiers": [
+            "\\bCREATE\\b",
+            "\\bALTER\\b",
+            "\\bDROP\\b",
+            "\\bTRUNCATE\\b",
+            "\\bRENAME\\b"
+        ]
+    },
+    {
+        "skill": "Table & Schema Structures",
+        "identifiers": [
+            "\\bTABLE\\b",
+            "\\bSCHEMA\\b",
+            "\\bDATABASE\\b",
+            "\\bCOLUMN\\b",
+            "\\bINDEX\\b",
+            "\\bPRIMARY KEY\\b",
+            "\\bFOREIGN KEY\\b",
+            "\\bUNIQUE\\b",
+            "\\bCHECK\\b",
+            "\\bDEFAULT\\b"
+        ]
+    },
+    {
+        "skill": "Joins & Relationships",
+        "identifiers": [
+            "\\bJOIN\\b",
+            "\\bLEFT JOIN\\b",
+            "\\bRIGHT JOIN\\b",
+            "\\bINNER JOIN\\b",
+            "\\bOUTER JOIN\\b",
+            "\\bCROSS JOIN\\b",
+            "\\bON\\b"
+        ]
+    },
+    {
+        "skill": "Transactions & Concurrency",
+        "identifiers": [
+            "\\bBEGIN\\b",
+            "\\bCOMMIT\\b",
+            "\\bROLLBACK\\b",
+            "\\bSAVEPOINT\\b",
+            "\\bTRANSACTION\\b"
+        ]
+    },
+    {
+        "skill": "Subqueries & Nested Queries",
+        "identifiers": [
+            "\\bEXISTS\\b",
+            "\\bNOT EXISTS\\b",
+            "\\bIN\\b",
+            "\\bANY\\b",
+            "\\bALL\\b"
+        ]
+    },
+    {
+        "skill": "Window Functions",
+        "identifiers": [
+            "\\bOVER\\b",
+            "\\bPARTITION BY\\b",
+            "\\bROW_NUMBER\\b",
+            "\\bRANK\\b",
+            "\\bDENSE_RANK\\b",
+            "\\bNTILE\\b",
+            "\\bLAG\\b",
+            "\\bLEAD\\b"
+        ]
+    },
+    {
+        "skill": "Views, Stored Procedures, Triggers",
+        "identifiers": [
+            "\\bVIEW\\b",
+            "\\bCREATE VIEW\\b",
+            "\\bPROCEDURE\\b",
+            "\\bFUNCTION\\b",
+            "\\bTRIGGER\\b",
+            "\\bCURSOR\\b"
+        ]
+    },
+    {
+        "skill": "Indexing & Performance Optimization",
+        "identifiers": [
+            "\\bINDEX\\b",
+            "\\bCREATE INDEX\\b",
+            "\\bANALYZE\\b",
+            "\\bEXPLAIN\\b",
+            "\\bEXPLAIN ANALYZE\\b",
+            "\\bVACUUM\\b"
+        ]
+    },
+    {
+        "skill": "Security (DCL)",
+        "identifiers": [
+            "\\bGRANT\\b",
+            "\\bREVOKE\\b",
+            "\\bROLE\\b",
+            "\\bUSER\\b"
+        ]
+    },
+    {
+        "skill": "MySQL-Specific Features",
+        "identifiers": [
+            "AUTO_INCREMENT",
+            "ENGINE=",
+            "SHOW TABLES",
+            "DESCRIBE ",
+            "TINYINT",
+            "MEDIUMTEXT"
+        ]
+    },
+    {
+        "skill": "PostgreSQL-Specific Features",
+        "identifiers": [
+            "SERIAL",
+            "BIGSERIAL",
+            "\\bRETURNING\\b",
+            "GIN\\b",
+            "JSONB",
+            "TSVECTOR",
+            "TO_TSQUERY"
+        ]
+    },
+    {
+        "skill": "SQL Server-Specific Features",
+        "identifiers": [
+            "TOP ",
+            "NVARCHAR",
+            "GO",
+            "\\bIDENTITY\\b"
+        ]
+    },
+    {
+        "skill": "Oracle-Specific Features",
+        "identifiers": [
+            "\\bDUAL\\b",
+            "\\bSEQUENCE\\b",
+            "\\bROWNUM\\b",
+            "\\bNVL\\b"
+        ]
+    },
+    {
+        "skill": "Cloud SQL Indicators",
+        "identifiers": [
+            "spanner",
+            "bigquery",
+            "athena",
+            "cosmosdb"
+        ]
+    },
+    {
+        "skill": "NoSQL Interoperability (JSON / Document SQL)",
+        "identifiers": [
+            "JSON_EXTRACT",
+            "JSON_VALUE",
+            "JSON_QUERY"
+        ]
+    }
+]

@@ -1,0 +1,205 @@
+[
+    {
+        "skill": "Object-Oriented Programming (OOP)",
+        "identifiers": [
+            "\\bclass\\b",
+            "\\bstruct\\b",
+            "\\bpublic:\\b",
+            "\\bprivate:\\b",
+            "\\bprotected:\\b",
+            "\\bvirtual\\b",
+            "\\boverride\\b",
+            "\\bfinal\\b",
+            "\\bthis->\\b",
+            "\\bnew\\b",
+            "\\bdelete\\b",
+            "\\bfriend\\b",
+            "\\binline\\b"
+        ]
+    },
+    {
+        "skill": "Templates & Generic Programming",
+        "identifiers": [
+            "\\btemplate\\b",
+            "<typename",
+            "<class",
+            "\\bconstexpr\\b",
+            "\\bconcept\\b",
+            "\\brequires\\b",
+            "\\bstd::enable_if\\b"
+        ]
+    },
+    {
+        "skill": "Standard Template Library (STL)",
+        "identifiers": [
+            "\\bstd::vector\\b",
+            "\\bstd::map\\b",
+            "\\bstd::unordered_map\\b",
+            "\\bstd::set\\b",
+            "\\bstd::unordered_set\\b",
+            "\\bstd::queue\\b",
+            "\\bstd::priority_queue\\b",
+            "\\bstd::stack\\b",
+            "\\bstd::array\\b",
+            "\\bstd::deque\\b",
+            "\\bstd::list\\b",
+            "\\bstd::pair\\b",
+            "\\bstd::tuple\\b",
+            "import\\s+<vector>",
+            "import\\s+<map>",
+            "import\\s+<algorithm>"
+        ]
+    },
+    {
+        "skill": "Memory Management & Smart Pointers",
+        "identifiers": [
+            "\\bstd::unique_ptr\\b",
+            "\\bstd::shared_ptr\\b",
+            "\\bstd::weak_ptr\\b",
+            "\\bstd::make_unique\\b",
+            "\\bstd::make_shared\\b",
+            "\\bnew\\b",
+            "\\bdelete\\b",
+            "\\bRAII\\b"
+        ]
+    },
+    {
+        "skill": "Exception Handling",
+        "identifiers": [
+            "\\btry\\b",
+            "\\bcatch\\b",
+            "\\bthrow\\b",
+            "\\bstd::exception\\b",
+            "\\bnoexcept\\b"
+        ]
+    },
+    {
+        "skill": "Concurrency & Multithreading",
+        "identifiers": [
+            "import\\s+<thread>",
+            "import\\s+<mutex>",
+            "import\\s+<future>",
+            "import\\s+<condition_variable>",
+            "\\bstd::thread\\b",
+            "\\bstd::mutex\\b",
+            "\\bstd::lock_guard\\b",
+            "\\bstd::unique_lock\\b",
+            "\\bstd::condition_variable\\b",
+            "\\bstd::async\\b",
+            "\\bstd::future\\b",
+            "\\bstd::atomic\\b"
+        ]
+    },
+    {
+        "skill": "File I/O",
+        "identifiers": [
+            "import\\s+<fstream>",
+            "\\bstd::ifstream\\b",
+            "\\bstd::ofstream\\b",
+            "\\bstd::fstream\\b"
+        ]
+    },
+    {
+        "skill": "Networking",
+        "identifiers": [
+            "import\\s+<asio>",
+            "\\bboost::asio\\b",
+            "\\bsocket\\b",
+            "\\brecv\\b",
+            "\\bsend\\b",
+            "\\bconnect\\b"
+        ]
+    },
+    {
+        "skill": "Algorithms & Optimization",
+        "identifiers": [
+            "import\\s+<algorithm>",
+            "\\bstd::sort\\b",
+            "\\bstd::find\\b",
+            "\\bstd::accumulate\\b",
+            "\\bstd::transform\\b",
+            "\\bstd::binary_search\\b"
+        ]
+    },
+    {
+        "skill": "Modern C++ (C++11/14/17/20)",
+        "identifiers": [
+            "\\bauto\\b",
+            "\\bnullptr\\b",
+            "\\bconstexpr\\b",
+            "\\bdecltype\\b",
+            "\\bstd::move\\b",
+            "\\bstd::forward\\b",
+            "\\blambda\\b",
+            "\\bco_await\\b",
+            "\\bco_yield\\b",
+            "\\bco_return\\b"
+        ]
+    },
+    {
+        "skill": "GUI (Qt, SFML, wxWidgets)",
+        "identifiers": [
+            "import\\s+<QApplication>",
+            "\\bQWidget\\b",
+            "\\bQMainWindow\\b",
+            "import\\s+<SFML",
+            "\\bsf::RenderWindow\\b",
+            "\\bwxFrame\\b"
+        ]
+    },
+    {
+        "skill": "Testing (GoogleTest, Catch2)",
+        "identifiers": [
+            "import\\s+<gtest",
+            "\\bTEST\\(",
+            "\\bASSERT_",
+            "import\\s+<catch2",
+            "\\bTEST_CASE\\("
+        ]
+    },
+    {
+        "skill": "Security & Cryptography",
+        "identifiers": [
+            "import\\s+<openssl",
+            "\\bEVP_\\b",
+            "\\bRSA_\\b",
+            "\\bAES_\\b"
+        ]
+    },
+    {
+        "skill": "Build Systems",
+        "identifiers": [
+            "CMakeLists\\.txt",
+            "\\bcmake_minimum_required\\b",
+            "\\badd_executable\\b",
+            "\\badd_library\\b",
+            "Makefile",
+            "\\bg++\\b",
+            "\\bclang\\b"
+        ]
+    },
+    {
+        "skill": "Embedded & Systems Programming",
+        "identifiers": [
+            "\\bvolatile\\b",
+            "\\bregister\\b",
+            "\\bISR\\b",
+            "\\buint8_t\\b",
+            "\\buint16_t\\b",
+            "\\buint32_t\\b",
+            "import\\s+<sys",
+            "import\\s+<unistd>"
+        ]
+    },
+    {
+        "skill": "CUDA & Parallel Computing",
+        "identifiers": [
+            "__global__",
+            "__device__",
+            "__host__",
+            "\\bcudaMalloc\\b",
+            "\\bcudaMemcpy\\b",
+            "\\bthrust::\\b"
+        ]
+    }
+]

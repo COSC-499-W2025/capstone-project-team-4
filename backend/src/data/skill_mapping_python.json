@@ -1,0 +1,199 @@
+[
+    {
+        "skill": "Object-Oriented Programming (OOP)",
+        "identifiers": [
+            "\\bclass\\s+[A-Za-z_]\\w*",
+            "\\bself\\b",
+            "\\bsuper\\b",
+            "\\b__init__\\b",
+            "\\b__str__\\b",
+            "\\b__repr__\\b",
+            "\\bproperty\\b",
+            "from\\s+abc\\s+import\\s+ABC",
+            "\\b@abstractmethod\\b"
+        ]
+    },
+    {
+        "skill": "Asynchronous Programming (async/await)",
+        "identifiers": [
+            "\\basync\\b",
+            "\\bawait\\b",
+            "\\basyncio\\b",
+            "import\\s+asyncio",
+            "\\bTask\\b",
+            "\\bEventLoop\\b"
+        ]
+    },
+    {
+        "skill": "Exception Handling & Robustness",
+        "identifiers": [
+            "\\btry\\b",
+            "\\bexcept\\b",
+            "\\bfinally\\b",
+            "\\braise\\b",
+            "\\bassert\\b",
+            "import\\s+logging",
+            "\\blogger\\b",
+            "\\blogging\\b"
+        ]
+    },
+    {
+        "skill": "Unit Testing & TDD",
+        "identifiers": [
+            "import\\s+unittest",
+            "import\\s+pytest",
+            "\\bassert\\b",
+            "\\bTestCase\\b",
+            "@pytest\\.fixture",
+            "@mock\\.patch"
+        ]
+    },
+    {
+        "skill": "Web Development (Flask)",
+        "identifiers": [
+            "from\\s+flask\\s+import",
+            "\\bFlask\\b",
+            "\\brequest\\b",
+            "\\bjsonify\\b",
+            "@app\\.route"
+        ]
+    },
+    {
+        "skill": "Web Development (Django)",
+        "identifiers": [
+            "import\\s+django",
+            "from\\s+django\\.",
+            "\\burlpatterns\\b",
+            "\\bmodels\\.Model\\b",
+            "\\bviews\\.View\\b"
+        ]
+    },
+    {
+        "skill": "Functional Programming (FP)",
+        "identifiers": [
+            "\\blambda\\b",
+            "from\\s+functools\\s+import",
+            "\\bmap\\b",
+            "\\bfilter\\b",
+            "\\breduce\\b",
+            "import\\s+itertools"
+        ]
+    },
+    {
+        "skill": "Data Science & Machine Learning",
+        "identifiers": [
+            "import\\s+pandas",
+            "import\\s+numpy",
+            "import\\s+scikit",
+            "import\\s+sklearn",
+            "import\\s+matplotlib",
+            "import\\s+seaborn",
+            "\\bDataFrame\\b",
+            "\\bndarray\\b"
+        ]
+    },
+    {
+        "skill": "Deep Learning",
+        "identifiers": [
+            "import\\s+tensorflow",
+            "import\\s+torch",
+            "import\\s+keras",
+            "\\bTensor\\b",
+            "\\bnn\\.Module\\b"
+        ]
+    },
+    {
+        "skill": "Scripting & Automation",
+        "identifiers": [
+            "import\\s+subprocess",
+            "import\\s+os",
+            "import\\s+sys",
+            "import\\s+shutil",
+            "import\\s+pathlib",
+            "\\bargparse\\b"
+        ]
+    },
+    {
+        "skill": "Data Structures & Algorithms",
+        "identifiers": [
+            "\\blist\\b",
+            "\\bdict\\b",
+            "\\bset\\b",
+            "\\btuple\\b",
+            "from\\s+collections\\s+import",
+            "\\bheapq\\b",
+            "\\bbisect\\b"
+        ]
+    },
+    {
+        "skill": "File I/O & Serialization",
+        "identifiers": [
+            "open\\(",
+            "\\bjson\\b",
+            "import\\s+pickle",
+            "import\\s+csv",
+            "import\\s+yaml",
+            "\\bPath\\b"
+        ]
+    },
+    {
+        "skill": "Networking & APIs",
+        "identifiers": [
+            "import\\s+requests",
+            "import\\s+socket",
+            "import\\s+http",
+            "\\bSession\\b",
+            "\\bHTTPConnection\\b"
+        ]
+    },
+    {
+        "skill": "CLI / Utility",
+        "identifiers": [
+            "if\\s+__name__\\s*==\\s*['\"]__main__['\"]",
+            "import\\s+argparse",
+            "\\bprint\\(",
+            "\\binput\\("
+        ]
+    },
+    {
+        "skill": "Security & Cryptography",
+        "identifiers": [
+            "import\\s+hashlib",
+            "import\\s+hmac",
+            "import\\s+secrets",
+            "import\\s+cryptography",
+            "\\bFernet\\b"
+        ]
+    },
+    {
+        "skill": "Build & Packaging",
+        "identifiers": [
+            "setup\\.py",
+            "pyproject\\.toml",
+            "requirements\\.txt",
+            "Pipfile",
+            "import\\s+setuptools"
+        ]
+    },
+    {
+        "skill": "CI/CD & Deployment",
+        "identifiers": [
+            "\\.github/workflows",
+            "Dockerfile",
+            "docker-compose\\.yml",
+            "Jenkinsfile",
+            "import\\s+fabric",
+            "import\\s+ansible"
+        ]
+    },
+    {
+        "skill": "Memory & Performance",
+        "identifiers": [
+            "import\\s+tracemalloc",
+            "import\\s+gc",
+            "\\bmemoryview\\b",
+            "import\\s+profiling",
+            "\\btimeit\\b"
+        ]
+    }
+]

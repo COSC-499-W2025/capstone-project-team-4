@@ -1,0 +1,879 @@
+rules_version: 0.1
+
+settings:
+  exclude_dirs:
+    [
+      "node_modules",
+      ".venv",
+      "venv",
+      "__pycache__",
+      "dist",
+      "build",
+      ".next",
+      ".git",
+      "target",
+      "vendor",
+    ]
+  default_min_score: 0.5
+
+categories:
+  # --------------------------
+  # Build Tools
+  # --------------------------
+  build:
+    Webpack:
+      signals:
+        - type: file_exists_any
+          value: ["webpack.config.js", "webpack.config.ts", "webpack.config.mjs"]
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "webpack"
+          weight: 0.7
+
+    Vite:
+      signals:
+        - type: file_exists_any
+          value: ["vite.config.js", "vite.config.ts", "vite.config.mjs"]
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "vite"
+          weight: 0.7
+
+    Rollup:
+      signals:
+        - type: file_exists_any
+          value: ["rollup.config.js", "rollup.config.ts", "rollup.config.mjs"]
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "rollup"
+          weight: 0.7
+
+    Parcel:
+      signals:
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "parcel"
+          weight: 0.9
+
+    esbuild:
+      signals:
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "esbuild"
+          weight: 0.9
+
+    Turbopack:
+      signals:
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "turbo"
+          weight: 0.8
+        - type: file_exists
+          value: "turbo.json"
+          weight: 0.9
+
+    Make:
+      signals:
+        - type: file_exists_any
+          value: ["Makefile", "makefile", "GNUmakefile"]
+          weight: 0.9
+
+    CMake:
+      signals:
+        - type: file_exists
+          value: "CMakeLists.txt"
+          weight: 0.9
+
+    Maven:
+      signals:
+        - type: file_exists
+          value: "pom.xml"
+          weight: 0.9
+
+    Gradle:
+      signals:
+        - type: file_exists_any
+          value: ["build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts"]
+          weight: 0.9
+
+    Ant:
+      signals:
+        - type: file_exists
+          value: "build.xml"
+          weight: 0.9
+
+    Bazel:
+      signals:
+        - type: file_exists_any
+          value: ["BUILD", "BUILD.bazel", "WORKSPACE", "WORKSPACE.bazel"]
+          weight: 0.9
+
+    Gulp:
+      signals:
+        - type: file_exists_any
+          value: ["gulpfile.js", "gulpfile.ts", "gulpfile.babel.js"]
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "gulp"
+          weight: 0.7
+
+    Grunt:
+      signals:
+        - type: file_exists_any
+          value: ["Gruntfile.js", "Gruntfile.coffee"]
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "grunt"
+          weight: 0.7
+
+    Cargo:
+      signals:
+        - type: file_exists
+          value: "Cargo.toml"
+          weight: 0.9
+
+  # --------------------------
+  # CI/CD Platforms
+  # --------------------------
+  cicd:
+    "GitHub Actions":
+      signals:
+        - type: dir_exists
+          value: ".github/workflows"
+          weight: 0.9
+        - type: file_exists_glob
+          value: [".github/workflows/*.yml", ".github/workflows/*.yaml"]
+          weight: 0.3
+
+    "GitLab CI":
+      signals:
+        - type: file_exists
+          value: ".gitlab-ci.yml"
+          weight: 0.9
+
+    Jenkins:
+      signals:
+        - type: file_exists_any
+          value: ["Jenkinsfile", "jenkins/Jenkinsfile", "ci/Jenkinsfile"]
+          weight: 0.9
+
+    CircleCI:
+      signals:
+        - type: file_exists
+          value: ".circleci/config.yml"
+          weight: 0.9
+
+    "Travis CI":
+      signals:
+        - type: file_exists
+          value: ".travis.yml"
+          weight: 0.9
+
+    "Azure Pipelines":
+      signals:
+        - type: file_exists_any
+          value: ["azure-pipelines.yml", ".azure-pipelines.yml", "azure-pipelines.yaml"]
+          weight: 0.9
+
+    "Bitbucket Pipelines":
+      signals:
+        - type: file_exists
+          value: "bitbucket-pipelines.yml"
+          weight: 0.9
+
+    DroneCI:
+      signals:
+        - type: file_exists
+          value: ".drone.yml"
+          weight: 0.9
+
+    Buildkite:
+      signals:
+        - type: file_exists_any
+          value: [".buildkite/pipeline.yml", ".buildkite/pipeline.yaml", "buildkite.yml"]
+          weight: 0.9
+
+    "AWS CodeBuild":
+      signals:
+        - type: file_exists
+          value: "buildspec.yml"
+          weight: 0.9
+
+    "Google Cloud Build":
+      signals:
+        - type: file_exists
+          value: "cloudbuild.yaml"
+          weight: 0.9
+
+    Semaphore:
+      signals:
+        - type: file_exists
+          value: ".semaphore/semaphore.yml"
+          weight: 0.9
+
+    AppVeyor:
+      signals:
+        - type: file_exists_any
+          value: ["appveyor.yml", ".appveyor.yml"]
+          weight: 0.9
+
+  # --------------------------
+  # Containerization
+  # --------------------------
+  container:
+    Docker:
+      signals:
+        - type: file_exists_any
+          value: ["Dockerfile", "dockerfile", "Dockerfile.dev", "Dockerfile.prod"]
+          weight: 0.9
+        - type: file_exists
+          value: ".dockerignore"
+          weight: 0.3
+
+    "Docker Compose":
+      signals:
+        - type: file_exists_any
+          value: ["docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"]
+          weight: 0.9
+
+    Kubernetes:
+      signals:
+        - type: dir_exists_any
+          value: ["k8s", "kubernetes", ".kube", "manifests"]
+          weight: 0.7
+        - type: file_exists_glob
+          value: ["**/deployment.yaml", "**/deployment.yml", "k8s/*.yaml"]
+          weight: 0.5
+        - type: cfg_contains
+          value: "apiVersion: apps/v1"
+          weight: 0.3
+
+    Helm:
+      signals:
+        - type: file_exists
+          value: "Chart.yaml"
+          weight: 0.9
+        - type: dir_exists
+          value: "charts"
+          weight: 0.5
+
+    Kustomize:
+      signals:
+        - type: file_exists
+          value: "kustomization.yaml"
+          weight: 0.9
+
+    Skaffold:
+      signals:
+        - type: file_exists
+          value: "skaffold.yaml"
+          weight: 0.9
+
+    Podman:
+      signals:
+        - type: file_exists
+          value: "Containerfile"
+          weight: 0.9
+
+  # --------------------------
+  # Infrastructure as Code
+  # --------------------------
+  infrastructure:
+    Terraform:
+      signals:
+        - type: file_exists_glob
+          value: ["*.tf", "terraform/*.tf", "infra/*.tf"]
+          weight: 0.9
+
+    Pulumi:
+      signals:
+        - type: file_exists
+          value: "Pulumi.yaml"
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "dependencies"
+          contains: "@pulumi/"
+          weight: 0.7
+
+    "AWS CDK":
+      signals:
+        - type: file_exists
+          value: "cdk.json"
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "dependencies"
+          contains: "aws-cdk-lib"
+          weight: 0.7
+
+    CloudFormation:
+      signals:
+        - type: file_exists_glob
+          value: ["cloudformation/*.yaml", "cloudformation/*.json", "**/template.yaml"]
+          weight: 0.8
+        - type: cfg_contains
+          value: "AWSTemplateFormatVersion"
+          weight: 0.5
+
+    Ansible:
+      signals:
+        - type: file_exists_any
+          value: ["ansible.cfg", "playbook.yml", "site.yml"]
+          weight: 0.9
+        - type: dir_exists_any
+          value: ["playbooks", "roles", "inventory"]
+          weight: 0.5
+
+    Chef:
+      signals:
+        - type: file_exists
+          value: "Berksfile"
+          weight: 0.9
+        - type: dir_exists
+          value: "cookbooks"
+          weight: 0.7
+
+    Puppet:
+      signals:
+        - type: file_exists
+          value: "Puppetfile"
+          weight: 0.9
+        - type: dir_exists
+          value: "manifests"
+          weight: 0.5
+
+    Vagrant:
+      signals:
+        - type: file_exists
+          value: "Vagrantfile"
+          weight: 0.9
+
+    Packer:
+      signals:
+        - type: file_exists_glob
+          value: ["*.pkr.hcl", "packer.json", "packer/*.json"]
+          weight: 0.9
+
+  # --------------------------
+  # Testing Tools
+  # --------------------------
+  testing:
+    Jest:
+      signals:
+        - type: file_exists_any
+          value: ["jest.config.js", "jest.config.ts", "jest.config.mjs", "jest.config.json"]
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "jest"
+          weight: 0.7
+
+    Mocha:
+      signals:
+        - type: file_exists_any
+          value: [".mocharc.js", ".mocharc.json", ".mocharc.yml", "mocha.opts"]
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "mocha"
+          weight: 0.7
+
+    Vitest:
+      signals:
+        - type: file_exists_any
+          value: ["vitest.config.js", "vitest.config.ts"]
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "vitest"
+          weight: 0.7
+
+    Cypress:
+      signals:
+        - type: file_exists_any
+          value: ["cypress.config.js", "cypress.config.ts", "cypress.json"]
+          weight: 0.9
+        - type: dir_exists
+          value: "cypress"
+          weight: 0.5
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "cypress"
+          weight: 0.7
+
+    Playwright:
+      signals:
+        - type: file_exists_any
+          value: ["playwright.config.js", "playwright.config.ts"]
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "@playwright/test"
+          weight: 0.7
+
+    Selenium:
+      signals:
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "selenium-webdriver"
+          weight: 0.9
+        - type: req_txt_contains
+          value: "selenium"
+          weight: 0.9
+
+    Pytest:
+      signals:
+        - type: file_exists_any
+          value: ["pytest.ini", "pyproject.toml", "setup.cfg", "conftest.py"]
+          weight: 0.5
+        - type: req_txt_contains
+          value: "pytest"
+          weight: 0.8
+        - type: toml_dep
+          key: "tool.pytest"
+          contains: ""
+          weight: 0.7
+
+    unittest:
+      signals:
+        - type: import_snippet_any
+          value: ["import unittest", "from unittest"]
+          weight: 0.8
+
+    JUnit:
+      signals:
+        - type: pom_contains
+          contains: "junit"
+          weight: 0.9
+        - type: gradle_contains
+          contains: "junit"
+          weight: 0.9
+
+    TestNG:
+      signals:
+        - type: pom_contains
+          contains: "testng"
+          weight: 0.9
+        - type: file_exists
+          value: "testng.xml"
+          weight: 0.9
+
+    RSpec:
+      signals:
+        - type: file_exists
+          value: ".rspec"
+          weight: 0.9
+        - type: gemfile_dep
+          contains: "rspec"
+          weight: 0.8
+        - type: dir_exists
+          value: "spec"
+          weight: 0.5
+
+    PHPUnit:
+      signals:
+        - type: file_exists_any
+          value: ["phpunit.xml", "phpunit.xml.dist"]
+          weight: 0.9
+        - type: composer_dep
+          contains: "phpunit/phpunit"
+          weight: 0.8
+
+    xUnit:
+      signals:
+        - type: csproj_contains
+          contains: "xunit"
+          weight: 0.9
+
+    NUnit:
+      signals:
+        - type: csproj_contains
+          contains: "NUnit"
+          weight: 0.9
+
+  # --------------------------
+  # Linting & Formatting
+  # --------------------------
+  linting:
+    ESLint:
+      signals:
+        - type: file_exists_any
+          value: [".eslintrc", ".eslintrc.js", ".eslintrc.json", ".eslintrc.yml", ".eslintrc.yaml", "eslint.config.js", "eslint.config.mjs"]
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "eslint"
+          weight: 0.7
+
+    Prettier:
+      signals:
+        - type: file_exists_any
+          value: [".prettierrc", ".prettierrc.js", ".prettierrc.json", ".prettierrc.yml", ".prettierrc.yaml", "prettier.config.js", "prettier.config.mjs"]
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "prettier"
+          weight: 0.7
+
+    Stylelint:
+      signals:
+        - type: file_exists_any
+          value: [".stylelintrc", ".stylelintrc.js", ".stylelintrc.json", "stylelint.config.js"]
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "stylelint"
+          weight: 0.7
+
+    Black:
+      signals:
+        - type: toml_dep
+          key: "tool.black"
+          contains: ""
+          weight: 0.9
+        - type: req_txt_contains
+          value: "black"
+          weight: 0.8
+
+    Ruff:
+      signals:
+        - type: file_exists
+          value: "ruff.toml"
+          weight: 0.9
+        - type: toml_dep
+          key: "tool.ruff"
+          contains: ""
+          weight: 0.8
+        - type: req_txt_contains
+          value: "ruff"
+          weight: 0.7
+
+    Flake8:
+      signals:
+        - type: file_exists_any
+          value: [".flake8", "setup.cfg", "tox.ini"]
+          weight: 0.5
+        - type: req_txt_contains
+          value: "flake8"
+          weight: 0.8
+
+    Pylint:
+      signals:
+        - type: file_exists
+          value: ".pylintrc"
+          weight: 0.9
+        - type: req_txt_contains
+          value: "pylint"
+          weight: 0.8
+
+    mypy:
+      signals:
+        - type: file_exists_any
+          value: ["mypy.ini", ".mypy.ini"]
+          weight: 0.9
+        - type: toml_dep
+          key: "tool.mypy"
+          contains: ""
+          weight: 0.8
+        - type: req_txt_contains
+          value: "mypy"
+          weight: 0.7
+
+    isort:
+      signals:
+        - type: toml_dep
+          key: "tool.isort"
+          contains: ""
+          weight: 0.9
+        - type: file_exists
+          value: ".isort.cfg"
+          weight: 0.9
+        - type: req_txt_contains
+          value: "isort"
+          weight: 0.7
+
+    RuboCop:
+      signals:
+        - type: file_exists
+          value: ".rubocop.yml"
+          weight: 0.9
+        - type: gemfile_dep
+          contains: "rubocop"
+          weight: 0.8
+
+    Checkstyle:
+      signals:
+        - type: file_exists_any
+          value: ["checkstyle.xml", "checkstyle-config.xml"]
+          weight: 0.9
+        - type: pom_contains
+          contains: "checkstyle"
+          weight: 0.8
+
+    SpotBugs:
+      signals:
+        - type: pom_contains
+          contains: "spotbugs"
+          weight: 0.9
+
+    golangci-lint:
+      signals:
+        - type: file_exists_any
+          value: [".golangci.yml", ".golangci.yaml", ".golangci.toml"]
+          weight: 0.9
+
+    clippy:
+      signals:
+        - type: file_exists
+          value: "clippy.toml"
+          weight: 0.9
+        - type: cfg_contains
+          value: "clippy"
+          weight: 0.5
+
+    Husky:
+      signals:
+        - type: dir_exists
+          value: ".husky"
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "husky"
+          weight: 0.7
+
+    "lint-staged":
+      signals:
+        - type: file_exists_any
+          value: [".lintstagedrc", ".lintstagedrc.js", ".lintstagedrc.json", "lint-staged.config.js"]
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "lint-staged"
+          weight: 0.7
+
+    commitlint:
+      signals:
+        - type: file_exists_any
+          value: ["commitlint.config.js", ".commitlintrc.js", ".commitlintrc.json"]
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "@commitlint/cli"
+          weight: 0.7
+
+  # --------------------------
+  # Package Managers
+  # --------------------------
+  package_manager:
+    npm:
+      signals:
+        - type: file_exists
+          value: "package-lock.json"
+          weight: 0.9
+
+    Yarn:
+      signals:
+        - type: file_exists_any
+          value: ["yarn.lock", ".yarnrc", ".yarnrc.yml"]
+          weight: 0.9
+
+    pnpm:
+      signals:
+        - type: file_exists_any
+          value: ["pnpm-lock.yaml", "pnpm-workspace.yaml", ".pnpmrc"]
+          weight: 0.9
+
+    Bun:
+      signals:
+        - type: file_exists
+          value: "bun.lockb"
+          weight: 0.9
+
+    Poetry:
+      signals:
+        - type: file_exists
+          value: "poetry.lock"
+          weight: 0.9
+        - type: toml_dep
+          key: "tool.poetry"
+          contains: ""
+          weight: 0.8
+
+    Pipenv:
+      signals:
+        - type: file_exists_any
+          value: ["Pipfile", "Pipfile.lock"]
+          weight: 0.9
+
+    uv:
+      signals:
+        - type: file_exists
+          value: "uv.lock"
+          weight: 0.9
+
+    Bundler:
+      signals:
+        - type: file_exists
+          value: "Gemfile.lock"
+          weight: 0.9
+
+    Composer:
+      signals:
+        - type: file_exists
+          value: "composer.lock"
+          weight: 0.9
+
+  # --------------------------
+  # Documentation
+  # --------------------------
+  documentation:
+    Storybook:
+      signals:
+        - type: dir_exists
+          value: ".storybook"
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "@storybook/"
+          weight: 0.7
+
+    Swagger:
+      signals:
+        - type: file_exists_any
+          value: ["swagger.json", "swagger.yaml", "openapi.json", "openapi.yaml"]
+          weight: 0.9
+
+    TypeDoc:
+      signals:
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "typedoc"
+          weight: 0.9
+
+    JSDoc:
+      signals:
+        - type: file_exists_any
+          value: ["jsdoc.json", "jsdoc.config.json", ".jsdoc.json"]
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "devDependencies"
+          contains: "jsdoc"
+          weight: 0.7
+
+    Sphinx:
+      signals:
+        - type: file_exists
+          value: "conf.py"
+          weight: 0.7
+        - type: dir_exists
+          value: "docs"
+          weight: 0.3
+        - type: req_txt_contains
+          value: "sphinx"
+          weight: 0.8
+
+    MkDocs:
+      signals:
+        - type: file_exists
+          value: "mkdocs.yml"
+          weight: 0.9
+
+    Docusaurus:
+      signals:
+        - type: file_exists
+          value: "docusaurus.config.js"
+          weight: 0.9
+        - type: pkg_json_dep
+          key: "dependencies"
+          contains: "@docusaurus/"
+          weight: 0.7
+
+  # --------------------------
+  # Deployment Platforms
+  # --------------------------
+  deployment:
+    Vercel:
+      signals:
+        - type: file_exists
+          value: "vercel.json"
+          weight: 0.9
+
+    Netlify:
+      signals:
+        - type: file_exists
+          value: "netlify.toml"
+          weight: 0.9
+
+    Heroku:
+      signals:
+        - type: file_exists_any
+          value: ["Procfile", "Procfile.dev", "app.json"]
+          weight: 0.9
+        - type: file_exists
+          value: "heroku.yml"
+          weight: 0.9
+
+    "Railway":
+      signals:
+        - type: file_exists
+          value: "railway.json"
+          weight: 0.9
+
+    "Render":
+      signals:
+        - type: file_exists
+          value: "render.yaml"
+          weight: 0.9
+
+    "Fly.io":
+      signals:
+        - type: file_exists
+          value: "fly.toml"
+          weight: 0.9
+
+  # --------------------------
+  # Monorepo Tools
+  # --------------------------
+  monorepo:
+    Lerna:
+      signals:
+        - type: file_exists
+          value: "lerna.json"
+          weight: 0.9
+
+    Nx:
+      signals:
+        - type: file_exists_any
+          value: ["nx.json", "workspace.json"]
+          weight: 0.9
+
+    Turborepo:
+      signals:
+        - type: file_exists
+          value: "turbo.json"
+          weight: 0.9
+
+    Rush:
+      signals:
+        - type: file_exists
+          value: "rush.json"
+          weight: 0.9
+
+    "Yarn Workspaces":
+      signals:
+        - type: file_exists
+          value: "package.json"
+          weight: 0.3
+        - type: cfg_contains
+          value: '"workspaces":'
+          weight: 0.7
+
+    "pnpm Workspaces":
+      signals:
+        - type: file_exists
+          value: "pnpm-workspace.yaml"
+          weight: 0.9

@@ -1,0 +1,37 @@
+name: CI - Docker Compose with Tests
+
+on:
+  push:
+    branches:
+      - main
+      - development
+  pull_request:
+    branches:
+      - main
+      - development
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Build and start services
+      - name: Build and start containers
+        run: docker compose -f backend/docker-compose.yml up -d --build
+
+      # Step 3: Wait for service to be ready
+      - name: Wait for service health check
+        run: docker compose -f backend/docker-compose.yml exec -T app curl -f http://localhost:8000/health || exit 1
+        continue-on-error: true
+
+      # Step 4: Run tests with coverage inside container
+      # - name: Run tests with coverage inside Docker
+      # run: docker compose -f backend/docker-compose.yml exec -T app pytest --cov=src --cov-report=term-missing
+
+      # Step 5: Stop and clean up
+      - name: Stop and remove containers
+        run: docker compose -f backend/docker-compose.yml down

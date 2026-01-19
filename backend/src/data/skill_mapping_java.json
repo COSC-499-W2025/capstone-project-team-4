@@ -1,0 +1,319 @@
+[
+    {
+      "skill": "Object-Oriented Programming (OOP)",
+      "identifiers": [
+        "\\bclass\\b",
+        "\\binterface\\b",
+        "\\benum\\b",
+        "\\babstract\\b",
+        "\\bextends\\b",
+        "\\bimplements\\b",
+        "\\bthis\\b",
+        "\\bsuper\\b",
+        "\\bnew\\s+[A-Za-z_]\\w*",
+        "import\\s+java\\.lang\\.",
+        "\\bprivate\\b",
+        "\\bpublic\\b",
+        "\\bprotected\\b",
+        "\\bstatic\\b",
+        "\\bfinal\\b"
+      ]
+    },
+  
+    {
+      "skill": "Concurrency & Multithreading",
+      "identifiers": [
+        "\\bThread\\b",
+        "\\bRunnable\\b",
+        "\\bCallable\\b",
+        "\\bExecutorService\\b",
+        "\\bScheduledExecutorService\\b",
+        "\\bFuture\\b",
+        "\\bCompletableFuture\\b",
+        "\\bReentrantLock\\b",
+        "\\bSemaphore\\b",
+        "\\bCountDownLatch\\b",
+        "\\bCyclicBarrier\\b",
+        "\\bAtomic[A-Za-z]+\\b",
+        "import\\s+java\\.util\\.concurrent"
+      ]
+    },
+  
+    {
+      "skill": "Exception Handling & Robustness",
+      "identifiers": [
+        "\\btry\\b",
+        "\\bcatch\\b",
+        "\\bfinally\\b",
+        "\\bthrow\\b",
+        "\\bthrows\\b",
+        "\\bException\\b",
+        "\\bRuntimeException\\b",
+        "\\bIllegalArgumentException\\b",
+        "\\bIllegalStateException\\b",
+        "\\bIOException\\b",
+        "\\bOptional\\b",
+        "\\bObjects\\b",
+        "import\\s+org\\.slf4j\\.",
+        "\\blogger\\b"
+      ]
+    },
+  
+    {
+      "skill": "Unit Testing & TDD",
+      "identifiers": [
+        "@Test",
+        "@BeforeEach",
+        "@AfterEach",
+        "@BeforeAll",
+        "@AfterAll",
+        "@DisplayName",
+        "@Mock",
+        "@InjectMocks",
+        "import\\s+org\\.junit\\.",
+        "import\\s+org\\.mockito\\.",
+        "\\bAssertions\\b",
+        "\\bMockito\\b"
+      ]
+    },
+  
+    {
+      "skill": "RESTful API Development",
+      "identifiers": [
+        "@RestController",
+        "@Controller",
+        "@GetMapping",
+        "@PostMapping",
+        "@PutMapping",
+        "@DeleteMapping",
+        "@PatchMapping",
+        "@RequestMapping",
+        "@RequestBody",
+        "@RequestParam",
+        "@PathVariable",
+        "\\bResponseEntity\\b",
+        "import\\s+org\\.springframework\\.web"
+      ]
+    },
+  
+    {
+      "skill": "Dependency Injection & IoC",
+      "identifiers": [
+        "@Autowired",
+        "@Inject",
+        "@Service",
+        "@Repository",
+        "@Component",
+        "@Configuration",
+        "@Bean",
+        "@Qualifier",
+        "@Primary",
+        "@Value",
+        "\\bApplicationContext\\b",
+        "import\\s+org\\.springframework\\.beans",
+        "import\\s+org\\.springframework\\.context"
+      ]
+    },
+  
+    {
+      "skill": "Functional Programming (Streams)",
+      "identifiers": [
+        "\\bstream\\b",
+        "\\bparallelStream\\b",
+        "\\bOptional\\b",
+        "\\bCollectors\\b",
+        "import\\s+java\\.util\\.stream"
+      ]
+    },
+  
+    {
+      "skill": "Data Persistence & ORM",
+      "identifiers": [
+        "@Entity",
+        "@Id",
+        "@GeneratedValue",
+        "@Column",
+        "@Table",
+        "@OneToMany",
+        "@OneToOne",
+        "@ManyToMany",
+        "@ManyToOne",
+        "@JoinColumn",
+        "@JoinTable",
+        "@Transactional",
+        "\\bEntityManager\\b",
+        "\\brepository\\b",
+        "import\\s+jakarta\\.persistence",
+        "import\\s+org\\.springframework\\.data"
+      ]
+    },
+  
+    {
+      "skill": "Build Tools",
+      "identifiers": [
+        "pom\\.xml",
+        "build\\.gradle",
+        "settings\\.gradle",
+        "import\\s+maven",
+        "\\bmvn\\b",
+        "\\bgradle\\b"
+      ]
+    },
+  
+    {
+      "skill": "Data Structures & Algorithms",
+      "identifiers": [
+        "\\bArrayList\\b",
+        "\\bLinkedList\\b",
+        "\\bHashMap\\b",
+        "\\bLinkedHashMap\\b",
+        "\\bTreeMap\\b",
+        "\\bHashSet\\b",
+        "\\bTreeSet\\b",
+        "\\bPriorityQueue\\b",
+        "\\bDeque\\b",
+        "\\bQueue\\b",
+        "\\bComparator\\b",
+        "import\\s+java\\.util"
+      ]
+    },
+  
+    {
+      "skill": "File I/O & Serialization",
+      "identifiers": [
+        "\\bFile\\b",
+        "\\bFileInputStream\\b",
+        "\\bFileOutputStream\\b",
+        "\\bBufferedReader\\b",
+        "\\bBufferedWriter\\b",
+        "\\bScanner\\b",
+        "\\bSerializable\\b",
+        "\\bExternalizable\\b",
+        "import\\s+java\\.io"
+      ]
+    },
+  
+    {
+      "skill": "Networking (Sockets)",
+      "identifiers": [
+        "\\bSocket\\b",
+        "\\bServerSocket\\b",
+        "\\bDatagramSocket\\b",
+        "\\bDatagramPacket\\b",
+        "\\bHttpURLConnection\\b",
+        "\\bURL\\b",
+        "import\\s+java\\.net"
+      ]
+    },
+  
+    {
+      "skill": "GUI Development",
+      "identifiers": [
+        "\\bJFrame\\b",
+        "\\bJPanel\\b",
+        "\\bJButton\\b",
+        "\\bJLabel\\b",
+        "\\bJTable\\b",
+        "\\bJTextField\\b",
+        "\\bFXML\\b",
+        "\\bApplication\\b",
+        "import\\s+javax\\.swing",
+        "import\\s+javafx\\."
+      ]
+    },
+  
+    {
+      "skill": "Design Patterns",
+      "identifiers": [
+        "\\bSingleton\\b",
+        "\\bFactory\\b",
+        "\\bBuilder\\b",
+        "\\bStrategy\\b",
+        "\\bObserver\\b",
+        "\\bDecorator\\b",
+        "\\bProxy\\b",
+        "\\bTemplate\\b",
+        "\\bVisitor\\b"
+      ]
+    },
+  
+    {
+      "skill": "Logging & Monitoring",
+      "identifiers": [
+        "\\blogger\\b",
+        "\\bLogger\\b",
+        "\\bLoggerFactory\\b",
+        "@Slf4j",
+        "@Log4j",
+        "import\\s+org\\.slf4j",
+        "import\\s+org\\.apache\\.logging"
+      ]
+    },
+  
+    {
+      "skill": "Security & Crypto",
+      "identifiers": [
+        "@PreAuthorize",
+        "@PostAuthorize",
+        "@Secured",
+        "@RolesAllowed",
+        "\\bCipher\\b",
+        "\\bMessageDigest\\b",
+        "\\bKeyFactory\\b",
+        "\\bBCryptPasswordEncoder\\b",
+        "\\bSecureRandom\\b",
+        "import\\s+org\\.springframework\\.security"
+      ]
+    },
+  
+    {
+      "skill": "CI/CD & Deployment Automation",
+      "identifiers": [
+        "\\.github/workflows",
+        "Dockerfile",
+        "docker-compose\\.yml",
+        "Jenkinsfile",
+        "\\bkubectl\\b",
+        "\\bhelm\\b",
+        "\\bterraform\\b"
+      ]
+    },
+  
+    {
+      "skill": "CLI / Utility",
+      "identifiers": [
+        "\\bpublic\\s+static\\s+void\\s+main\\b",
+        "\\bSystem\\.out\\b",
+        "\\bSystem\\.err\\b",
+        "\\bScanner\\b",
+        "\\bProperties\\b"
+      ]
+    },
+  
+    {
+      "skill": "Memory & Runtime Awareness",
+      "identifiers": [
+        "\\bSystem\\.gc\\b",
+        "\\bThreadLocal\\b",
+        "\\bWeakReference\\b",
+        "\\bSoftReference\\b",
+        "\\bPhantomReference\\b",
+        "\\bRuntime\\.getRuntime\\b"
+      ]
+    },
+  
+    {
+      "skill": "Android (mobile)",
+      "identifiers": [
+        "\\bActivity\\b",
+        "\\bAppCompatActivity\\b",
+        "\\bFragment\\b",
+        "\\bIntent\\b",
+        "\\bBundle\\b",
+        "\\bViewModel\\b",
+        "\\bLiveData\\b",
+        "import\\s+android\\."
+      ]
+    }
+  ]
+  

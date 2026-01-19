@@ -1,0 +1,179 @@
+[
+    {
+        "skill": "Core HTML Structure",
+        "identifiers": [
+            "<!DOCTYPE html>",
+            "<html",
+            "<head",
+            "<body",
+            "<title",
+            "<meta",
+            "<link",
+            "<script",
+            "<style>"
+        ]
+    },
+    {
+        "skill": "Semantic HTML",
+        "identifiers": [
+            "<header",
+            "<footer",
+            "<nav",
+            "<main",
+            "<section",
+            "<article",
+            "<aside",
+            "<figure",
+            "<figcaption",
+            "<time",
+            "<details",
+            "<summary"
+        ]
+    },
+    {
+        "skill": "Text & Inline Elements",
+        "identifiers": [
+            "<p",
+            "<span",
+            "<strong",
+            "<em",
+            "<mark",
+            "<small",
+            "<sup",
+            "<sub",
+            "<code",
+            "<pre",
+            "<blockquote"
+        ]
+    },
+    {
+        "skill": "Forms & User Input",
+        "identifiers": [
+            "<form",
+            "<input",
+            "<textarea",
+            "<select",
+            "<option",
+            "<label",
+            "<button",
+            "<fieldset",
+            "<legend",
+            "<output",
+            "type=\"checkbox\"",
+            "type=\"radio\"",
+            "type=\"email\"",
+            "type=\"password\"",
+            "type=\"file\""
+        ]
+    },
+    {
+        "skill": "Media & Graphics",
+        "identifiers": [
+            "<img",
+            "<audio",
+            "<video",
+            "<track",
+            "<canvas",
+            "<svg",
+            "<picture",
+            "<source",
+            "<iframe"
+        ]
+    },
+    {
+        "skill": "Tables & Data Display",
+        "identifiers": [
+            "<table",
+            "<thead",
+            "<tbody",
+            "<tfoot",
+            "<tr",
+            "<th",
+            "<td",
+            "<caption",
+            "<colgroup",
+            "<col"
+        ]
+    },
+    {
+        "skill": "Lists & Navigation",
+        "identifiers": [
+            "<ul",
+            "<ol",
+            "<li",
+            "<dl",
+            "<dt",
+            "<dd",
+            "<menu"
+        ]
+    },
+    {
+        "skill": "Metadata & SEO",
+        "identifiers": [
+            "<meta name=\"description\"",
+            "<meta name=\"keywords\"",
+            "<meta name=\"author\"",
+            "<meta property=\"og:",
+            "<meta name=\"viewport\"",
+            "<link rel=\"canonical\"",
+            "<link rel=\"manifest\""
+        ]
+    },
+    {
+        "skill": "Accessibility (A11y)",
+        "identifiers": [
+            "role=",
+            "aria-",
+            "aria-label",
+            "aria-hidden",
+            "tabindex=",
+            "<label",
+            "<caption"
+        ]
+    },
+    {
+        "skill": "HTML5 APIs & Advanced Features",
+        "identifiers": [
+            "<template",
+            "<slot",
+            "<dialog",
+            "<progress",
+            "<meter",
+            "<datalist",
+            "<output"
+        ]
+    },
+    {
+        "skill": "Frontend Routing & SPA Indicators",
+        "identifiers": [
+            "<router-view",
+            "<router-link",
+            "<app-root",
+            "<base href=\"/\"",
+            "<noscript"
+        ]
+    },
+    {
+        "skill": "Framework & Templating Hooks",
+        "identifiers": [
+            "<ng-container",
+            "<ng-template",
+            "<ng-content",
+            "v-",
+            ":class=",
+            "@click=",
+            "{%",
+            "{{"
+        ]
+    },
+    {
+        "skill": "Inline Styling and Script Indicators",
+        "identifiers": [
+            "<style",
+            "<script",
+            "style=",
+            "onload=",
+            "onclick="
+        ]
+    }
+]

@@ -1,0 +1,152 @@
+[
+    {
+        "skill": "Core YAML Structure",
+        "identifiers": [
+            "^---",
+            "^[\\s]*[A-Za-z0-9_-]+:",
+            "^[\\s]*-[\\s]",
+            "\\.{3}$",
+            "^#"
+        ]
+    },
+    {
+        "skill": "Anchors, Aliases & Merge Keys",
+        "identifiers": [
+            "&[A-Za-z0-9_-]+",
+            "\\*[A-Za-z0-9_-]+",
+            "<<:"
+        ]
+    },
+    {
+        "skill": "YAML Data Types",
+        "identifiers": [
+            "!!str",
+            "!!int",
+            "!!float",
+            "!!bool",
+            "!!map",
+            "!!seq",
+            "null",
+            "true",
+            "false"
+        ]
+    },
+    {
+        "skill": "Multi-line & Literal Styles",
+        "identifiers": [
+            "\\|[\\s]*$",
+            ">[\\s]*$",
+            "\\|\\-",
+            ">\\-"
+        ]
+    },
+    {
+        "skill": "Arrays & Nested Structures",
+        "identifiers": [
+            "^[\\s]*-",
+            "\\[[^\\]]*\\]",
+            "\\{[^\\}]*\\}"
+        ]
+    },
+    {
+        "skill": "Kubernetes Manifests",
+        "identifiers": [
+            "apiVersion:",
+            "kind:",
+            "metadata:",
+            "spec:",
+            "Deployment",
+            "Service",
+            "Ingress",
+            "ConfigMap",
+            "Secret"
+        ]
+    },
+    {
+        "skill": "Docker / Docker Compose",
+        "identifiers": [
+            "version:",
+            "services:",
+            "volumes:",
+            "networks:",
+            "build:",
+            "image:",
+            "container_name:"
+        ]
+    },
+    {
+        "skill": "CI/CD Pipelines",
+        "identifiers": [
+            "stages:",
+            "jobs:",
+            "steps:",
+            "workflow:",
+            "trigger:",
+            "on:",
+            "env:"
+        ]
+    },
+    {
+        "skill": "GitHub Actions",
+        "identifiers": [
+            "uses:",
+            "run:",
+            "jobs:",
+            "workflow_dispatch:",
+            "permissions:"
+        ]
+    },
+    {
+        "skill": "Ansible",
+        "identifiers": [
+            "hosts:",
+            "tasks:",
+            "vars:",
+            "roles:",
+            "handlers:",
+            "become:",
+            "- name:"
+        ]
+    },
+    {
+        "skill": "Cloud Config (AWS / Azure / GCP)",
+        "identifiers": [
+            "Resources:",
+            "Outputs:",
+            "Parameters:",
+            "Conditions:",
+            "AWSTemplateFormatVersion:",
+            "azure-pipelines:",
+            "gcloud"
+        ]
+    },
+    {
+        "skill": "Helm Charts",
+        "identifiers": [
+            "chart:",
+            "templates:",
+            "values:",
+            "apiVersion:",
+            "kind:"
+        ]
+    },
+    {
+        "skill": "Security & Credentials Indicators",
+        "identifiers": [
+            "password:",
+            "secret:",
+            "token:",
+            "access_key:",
+            "private_key:"
+        ]
+    },
+    {
+        "skill": "Infrastructure as Code",
+        "identifiers": [
+            "terraform:",
+            "provider:",
+            "resource:",
+            "module:"
+        ]
+    }
+]

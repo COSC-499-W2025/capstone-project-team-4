@@ -1,0 +1,259 @@
+[
+    {
+        "skill": "Object-Oriented Programming (OOP)",
+        "identifiers": [
+            "\\bclass\\b",
+            "\\binterface\\b",
+            "\\babstract\\b",
+            "\\bextends\\b",
+            "\\bimplements\\b",
+            "\\bprivate\\b",
+            "\\bpublic\\b",
+            "\\bprotected\\b",
+            "\\breadonly\\b",
+            "\\bconstructor\\b",
+            "\\bsuper\\b",
+            "\\bthis\\b"
+        ]
+    },
+    {
+        "skill": "Types & Type System",
+        "identifiers": [
+            "\\btype\\b",
+            "\\benum\\b",
+            "\\bnamespace\\b",
+            "\\bRecord<",
+            "\\bPartial<",
+            "\\bPick<",
+            "\\bOmit<",
+            "\\bReadonly<",
+            "\\bkeyof\\b",
+            "\\binfer\\b",
+            "\\bas\\b"
+        ]
+    },
+    {
+        "skill": "Asynchronous Programming",
+        "identifiers": [
+            "\\basync\\b",
+            "\\bawait\\b",
+            "\\bPromise\\b",
+            "\\bObservable\\b",
+            "\\bSubject\\b",
+            "\\bBehaviorSubject\\b",
+            "\\bfromPromise\\b"
+        ]
+    },
+    {
+        "skill": "Node.js Backend",
+        "identifiers": [
+            "import\\s+.*from\\s+['\"]fs['\"]",
+            "import\\s+.*from\\s+['\"]path['\"]",
+            "import\\s+.*from\\s+['\"]http['\"]",
+            "import\\s+.*from\\s+['\"]os['\"]",
+            "\\bprocess\\.env\\b",
+            "\\bBuffer\\b",
+            "\\b__dirname\\b"
+        ]
+    },
+    {
+        "skill": "Express.js",
+        "identifiers": [
+            "import\\s+.*from\\s+['\"]express['\"]",
+            "\\bexpress\\b",
+            "\\bRouter\\b",
+            "\\bRequest\\b",
+            "\\bResponse\\b",
+            "\\bNextFunction\\b"
+        ]
+    },
+    {
+        "skill": "NestJS (Decorators & DI)",
+        "identifiers": [
+            "@Controller",
+            "@Get",
+            "@Post",
+            "@Put",
+            "@Delete",
+            "@Injectable",
+            "@Module",
+            "@Body",
+            "@Param",
+            "@Query",
+            "@UseGuards",
+            "@UseInterceptors"
+        ]
+    },
+    {
+        "skill": "React (TSX)",
+        "identifiers": [
+            "from\\s+['\"]react['\"]",
+            "\\buseState\\b",
+            "\\buseEffect\\b",
+            "\\buseMemo\\b",
+            "\\buseCallback\\b",
+            "\\buseRef\\b",
+            "<[A-Z][A-Za-z0-9]*",
+            "\\bReact\\.FC\\b",
+            "\\bJSX\\.Element\\b"
+        ]
+    },
+    {
+        "skill": "Angular",
+        "identifiers": [
+            "@Component",
+            "@Injectable",
+            "@NgModule",
+            "@Input",
+            "@Output",
+            "@HostListener",
+            "@Directive",
+            "@Pipe",
+            "\\bOnInit\\b",
+            "\\bOnDestroy\\b"
+        ]
+    },
+    {
+        "skill": "Vue (TS)",
+        "identifiers": [
+            "from\\s+['\"]vue['\"]",
+            "\\bdefineComponent\\b",
+            "\\bref\\b",
+            "\\breaction\\b",
+            "\\bonMounted\\b",
+            "\\bcomputed\\b"
+        ]
+    },
+    {
+        "skill": "Functional Programming",
+        "identifiers": [
+            "\\bmap\\b",
+            "\\breduce\\b",
+            "\\bfilter\\b",
+            "\\bsome\\b",
+            "\\bevery\\b",
+            "\\bflatMap\\b",
+            "from\\s+['\"]rxjs['\"]",
+            "\\bpipe\\b"
+        ]
+    },
+    {
+        "skill": "Data Structures",
+        "identifiers": [
+            "\\bArray<",
+            "\\bMap<",
+            "\\bSet<",
+            "\\bWeakMap\\b",
+            "\\bWeakSet\\b",
+            "\\bReadonlyArray<",
+            "\\bTuple\\b"
+        ]
+    },
+    {
+        "skill": "Testing (Jest, Mocha, Jasmine)",
+        "identifiers": [
+            "import\\s+.*from\\s+['\"]jest['\"]",
+            "describe\\(",
+            "test\\(",
+            "it\\(",
+            "expect\\(",
+            "beforeEach\\(",
+            "afterEach\\(",
+            "spyOn\\(",
+            "import\\s+.*from\\s+['\"]mocha['\"]"
+        ]
+    },
+    {
+        "skill": "Security & Authentication",
+        "identifiers": [
+            "import\\s+.*from\\s+['\"]bcrypt['\"]",
+            "import\\s+.*from\\s+['\"]jsonwebtoken['\"]",
+            "\\bjwt\\b",
+            "\\bcrypto\\b",
+            "import\\s+.*from\\s+['\"]helmet['\"]",
+            "\\bCORS\\b"
+        ]
+    },
+    {
+        "skill": "Web APIs",
+        "identifiers": [
+            "\\bfetch\\b",
+            "\\bFormData\\b",
+            "\\bHeaders\\b",
+            "\\bRequest\\b",
+            "\\bResponse\\b",
+            "\\bURLSearchParams\\b"
+        ]
+    },
+    {
+        "skill": "JSON & Serialization",
+        "identifiers": [
+            "\\bJSON\\.parse\\b",
+            "\\bJSON\\.stringify\\b",
+            "\\bRecord<",
+            "\\bSerializable\\b"
+        ]
+    },
+    {
+        "skill": "Build Tools",
+        "identifiers": [
+            "tsconfig\\.json",
+            "webpack\\.config\\.js",
+            "vite\\.config\\.ts",
+            "rollup\\.config\\.ts",
+            "package\\.json",
+            "\\bnpm\\b",
+            "\\byarn\\b",
+            "\\bpnpm\\b"
+        ]
+    },
+    {
+        "skill": "CI/CD & Deployment",
+        "identifiers": [
+            "\\.github/workflows",
+            "Dockerfile",
+            "docker-compose\\.yml",
+            "Jenkinsfile",
+            "\\bvercel\\b",
+            "\\bnetlify\\b"
+        ]
+    },
+    {
+        "skill": "CLI & Utilities",
+        "identifiers": [
+            "\\bconsole\\.log\\b",
+            "\\bconsole\\.error\\b",
+            "import\\s+.*from\\s+['\"]fs['\"]",
+            "import\\s+.*from\\s+['\"]path['\"]",
+            "\\bprocess\\.argv\\b"
+        ]
+    },
+    {
+        "skill": "Networking",
+        "identifiers": [
+            "import\\s+.*from\\s+['\"]http['\"]",
+            "import\\s+.*from\\s+['\"]https['\"]",
+            "\\bWebSocket\\b",
+            "from\\s+['\"]ws['\"]"
+        ]
+    },
+    {
+        "skill": "Logging & Monitoring",
+        "identifiers": [
+            "import\\s+.*from\\s+['\"]winston['\"]",
+            "import\\s+.*from\\s+['\"]pino['\"]",
+            "\\bconsole\\.debug\\b",
+            "\\bconsole\\.info\\b",
+            "\\blogger\\b"
+        ]
+    },
+    {
+        "skill": "Performance & Optimization",
+        "identifiers": [
+            "\\bperformance\\.now\\b",
+            "\\bWebWorker\\b",
+            "\\bSharedArrayBuffer\\b",
+            "\\bAtomics\\b"
+        ]
+    }
+]
