@@ -5,7 +5,8 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from src.models.schemas.project import ProjectSummary, ProjectDetail, ProjectList
+from src.models.schemas.project import ProjectSummary, ProjectList
+from src.models.schemas.analysis import AnalysisResult, AnalysisStatus, ComplexitySummary
 from src.repositories.project_repository import ProjectRepository
 from src.repositories.file_repository import FileRepository
 from src.repositories.contributor_repository import ContributorRepository
@@ -71,7 +72,7 @@ class ProjectService:
             pages=pages,
         )
 
-    def get_project(self, project_id: int) -> Optional[ProjectDetail]:
+    def get_project(self, project_id: int) -> Optional[AnalysisResult]:
         """
         Get detailed project information.
 
@@ -79,7 +80,7 @@ class ProjectService:
             project_id: ID of the project
 
         Returns:
-            ProjectDetail or None if not found
+            AnalysisResult or None if not found
         """
         project = self.project_repo.get(project_id)
         if not project:
@@ -88,33 +89,44 @@ class ProjectService:
         # Get related data
         languages = self.project_repo.get_languages(project_id)
         frameworks = self.project_repo.get_frameworks(project_id)
+        libraries = self.project_repo.get_libraries(project_id)
+        tools = self.project_repo.get_tools(project_id)
         total_loc = self.project_repo.get_total_lines_of_code(project_id)
         complexity_summary = self.complexity_repo.get_summary(project_id)
 
         # Get counts
         summary = self.project_repo.get_summary(project_id)
 
-        return ProjectDetail(
-            id=project.id,
-            name=project.name,
-            root_path=project.root_path,
+        return AnalysisResult(
+            project_id=project.id,
+            project_name=project.name,
+            status=AnalysisStatus.COMPLETED,
             source_type=project.source_type,
             source_url=project.source_url,
-            created_at=project.created_at,
-            updated_at=project.updated_at,
-            file_count=summary["file_count"] if summary else 0,
-            language_count=summary["language_count"] if summary else 0,
-            framework_count=summary["framework_count"] if summary else 0,
-            contributor_count=summary["contributor_count"] if summary else 0,
-            skill_count=summary["skill_count"] if summary else 0,
             languages=languages,
             frameworks=frameworks,
+            libraries=libraries,
+            tools_and_technologies=tools,
+            contextual_skills=[],  # TODO: populate from project skills if needed
+            file_count=summary["file_count"] if summary else 0,
+            contributor_count=summary["contributor_count"] if summary else 0,
+            skill_count=summary["skill_count"] if summary else 0,
+            library_count=len(libraries),
+            tool_count=len(tools),
             total_lines_of_code=total_loc,
-            avg_complexity=complexity_summary.get("avg_complexity", 0.0),
-            max_complexity=complexity_summary.get("max_complexity", 0),
+            complexity_summary=ComplexitySummary(
+                total_functions=complexity_summary.get("total_functions", 0),
+                avg_complexity=complexity_summary.get("avg_complexity", 0.0),
+                max_complexity=complexity_summary.get("max_complexity", 0),
+                high_complexity_count=complexity_summary.get("high_complexity_count", 0),
+            ),
+            zip_uploaded_at=project.created_at,
+            first_file_created=project.created_at,
+            first_commit_date=None,
+            project_started_at=project.created_at,
         )
 
-    def get_project_by_name(self, name: str) -> Optional[ProjectDetail]:
+    def get_project_by_name(self, name: str) -> Optional[AnalysisResult]:
         """
         Get project by name.
 
@@ -122,7 +134,7 @@ class ProjectService:
             name: Name of the project
 
         Returns:
-            ProjectDetail or None if not found
+            AnalysisResult or None if not found
         """
         project = self.project_repo.get_by_name(name)
         if not project:

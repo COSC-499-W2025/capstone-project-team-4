@@ -643,6 +643,7 @@ class AnalysisService:
 
         languages = self.project_repo.get_languages(project_id)
         frameworks = self.project_repo.get_frameworks(project_id)
+        libraries = self.project_repo.get_libraries(project_id)
         complexity_summary = self.complexity_repo.get_summary(project_id)
         tools_and_technologies = self.tool_repo.get_tool_names(project_id)
         contextual_skills = sorted([
@@ -661,6 +662,7 @@ class AnalysisService:
             source_url=project.source_url,
             languages=languages,
             frameworks=frameworks,
+            libraries=libraries,
             tools_and_technologies=tools_and_technologies,
             contextual_skills=contextual_skills,
             file_count=self.file_repo.count_by_project(project_id),

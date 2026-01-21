@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from src.models.database import get_db
-from src.models.schemas.project import ProjectList, ProjectDetail
+from src.models.schemas.project import ProjectList
+from src.models.schemas.analysis import AnalysisResult
 from src.models.schemas.contributor import ProjectContributorsResponse, ContributorSchema
 from src.models.schemas.complexity import ComplexityReport, ComplexityByFile, ComplexitySchema
 from src.services.project_service import ProjectService
@@ -36,7 +37,7 @@ async def list_projects(
     return service.list_projects(page=page, page_size=page_size)
 
 
-@router.get("/{project_id}", response_model=ProjectDetail)
+@router.get("/{project_id}", response_model=AnalysisResult)
 async def get_project(
     project_id: int,
     db: Session = Depends(get_db),
