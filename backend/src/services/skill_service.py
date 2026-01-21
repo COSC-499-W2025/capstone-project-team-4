@@ -48,32 +48,18 @@ class SkillService:
         # Get languages and frameworks
         languages = self.project_repo.get_languages(project_id)
         frameworks = self.project_repo.get_frameworks(project_id)
-
-        # Get skills grouped by category
-        skills_grouped = self.skill_repo.get_grouped_by_category(project_id)
-
-        skills_by_category = {}
-        total_skills = 0
-
-        for category, skills in skills_grouped.items():
-            skill_schemas = []
-            for skill in skills:
-                skill_schemas.append(SkillSchema(
-                    name=skill.skill,
-                    category=skill.category,
-                    frequency=skill.frequency,
-                ))
-                total_skills += 1
-            skills_by_category[category] = skill_schemas
+        libraries = self.project_repo.get_libraries(project_id)
+        tools = self.project_repo.get_tools(project_id)
+        total_skills = len(self.skill_repo.get_by_project(project_id))
 
         return ProjectSkillsResponse(
             project_id=project_id,
             project_name=project.name,
             languages=languages,
             frameworks=frameworks,
-            skills_by_category=skills_by_category,
+            libraries=libraries,
+            tools=tools,
             total_skills=total_skills,
-            total_categories=len(skills_by_category),
         )
 
     def get_skill_timeline(

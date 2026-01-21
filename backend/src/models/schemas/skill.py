@@ -64,9 +64,9 @@ class ProjectSkillsResponse(BaseModel):
     project_name: str
     languages: List[str] = []
     frameworks: List[str] = []
-    skills_by_category: Dict[str, List[SkillSchema]] = {}
+    libraries: List[str] = []
+    tools: List[str] = []
     total_skills: int = 0
-    total_categories: int = 0
     # New fields for complementary detection system
     skill_sources: Optional[SkillSourceBreakdown] = None
     cross_validation_summary: Optional[CrossValidationSummary] = None

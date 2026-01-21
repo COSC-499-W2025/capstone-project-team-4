@@ -10,6 +10,8 @@ from src.models.orm.project import Project
 from src.models.orm.file import File, Language
 from src.models.orm.skill import ProjectSkill
 from src.models.orm.framework import ProjectFramework, Framework
+from src.models.orm.library import ProjectLibrary, Library
+from src.models.orm.tool import ProjectTool, Tool
 from src.models.orm.contributor import Contributor
 from src.repositories.base import BaseRepository
 
@@ -122,6 +124,24 @@ class ProjectRepository(BaseRepository[Project]):
             select(Framework.name)
             .join(ProjectFramework, ProjectFramework.framework_id == Framework.id)
             .where(ProjectFramework.project_id == project_id)
+        )
+        return list(self.db.scalars(stmt).all())
+
+    def get_libraries(self, project_id: int) -> List[str]:
+        """Get all libraries for a project."""
+        stmt = (
+            select(Library.name)
+            .join(ProjectLibrary, ProjectLibrary.library_id == Library.id)
+            .where(ProjectLibrary.project_id == project_id)
+        )
+        return list(self.db.scalars(stmt).all())
+
+    def get_tools(self, project_id: int) -> List[str]:
+        """Get all tools for a project."""
+        stmt = (
+            select(Tool.name)
+            .join(ProjectTool, ProjectTool.tool_id == Tool.id)
+            .where(ProjectTool.project_id == project_id)
         )
         return list(self.db.scalars(stmt).all())
 
