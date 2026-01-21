@@ -105,6 +105,21 @@ class SkillService:
                 count=entry.count,
             ))
 
+        # Fallback: if no timeline data exists, synthesize a single snapshot from current skills
+        if not timeline:
+            skills = self.skill_repo.get_by_project(project_id)
+            if skill:
+                skills = [s for s in skills if s.skill.lower() == skill.lower()]
+            if skills:
+                snapshot_date = (project.created_at.date() if project.created_at else None)
+                snapshot_date_str = snapshot_date.isoformat() if snapshot_date else ""
+                for s in skills:
+                    timeline.append(SkillTimelineEntry(
+                        skill=s.skill,
+                        date=snapshot_date_str,
+                        count=s.frequency,
+                    ))
+
         return SkillTimelineResponse(
             project_id=project_id,
             timeline=timeline,

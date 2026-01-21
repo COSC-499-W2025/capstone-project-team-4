@@ -164,10 +164,10 @@ class SkillRepository(BaseRepository[ProjectSkill]):
 
     # Skill Timeline operations
     def get_timeline(self, project_id: int, skill: Optional[str] = None) -> List[ProjectSkillTimeline]:
-        """Get skill timeline for a project."""
+        """Get skill timeline for a project (case-insensitive skill filter)."""
         stmt = select(ProjectSkillTimeline).where(ProjectSkillTimeline.project_id == project_id)
         if skill:
-            stmt = stmt.where(ProjectSkillTimeline.skill == skill)
+            stmt = stmt.where(func.lower(ProjectSkillTimeline.skill) == func.lower(skill))
         stmt = stmt.order_by(ProjectSkillTimeline.date)
         return list(self.db.scalars(stmt).all())
 
