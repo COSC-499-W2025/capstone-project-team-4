@@ -1,4 +1,5 @@
 # SQLAlchemy ORM models
+from src.models.orm.user import User
 from src.models.orm.project import Project
 from src.models.orm.file import File, Language
 from src.models.orm.contributor import Contributor, ContributorFile
@@ -10,9 +11,11 @@ from src.models.orm.library import Library, ProjectLibrary
 from src.models.orm.tool import Tool, ProjectTool
 from src.models.orm.config import Config
 from src.models.orm.user_profile import UserProfile
-from src.models.orm.work_experience import WorkExperience
+from src.models.orm.experience import Experience, ExperienceType
+from src.models.orm.data_privacy_settings import DataPrivacySettings
 
 __all__ = [
+    "User",
     "Project",
     "File",
     "Language",
@@ -32,5 +35,7 @@ __all__ = [
     "ProjectTool",
     "Config",
     "UserProfile",
-    "WorkExperience",
+    "Experience",
+    "ExperienceType",
+    "DataPrivacySettings",
 ]

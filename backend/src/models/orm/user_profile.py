@@ -1,15 +1,15 @@
 """User profile ORM model for storing personal information."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.database import Base
 
 if TYPE_CHECKING:
-    from src.models.orm.work_experience import WorkExperience
+    from src.models.orm.user import User
 
 
 class UserProfile(Base):
@@ -18,11 +18,13 @@ class UserProfile(Base):
     __tablename__ = "user_profiles"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
+    )
 
     # Basic personal information
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
     # Location
@@ -43,9 +45,7 @@ class UserProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    work_experiences: Mapped[List["WorkExperience"]] = relationship(
-        "WorkExperience", back_populates="user_profile", cascade="all, delete-orphan"
-    )
+    user: Mapped["User"] = relationship("User", back_populates="profile")
 
     def __repr__(self) -> str:
-        return f"<UserProfile(id={self.id}, name='{self.first_name} {self.last_name}', email='{self.email}')>"
+        return f"<UserProfile(id={self.id}, user_id={self.user_id}, name='{self.first_name} {self.last_name}')>"

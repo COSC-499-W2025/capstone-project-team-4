@@ -66,11 +66,11 @@ def init_db() -> None:
     """Initialize database by creating all tables."""
     # Import all models to ensure they're registered with Base
     from src.models.orm import (
-        Project, File, Language, Contributor, ContributorFile,
+        User, Project, File, Language, Contributor, ContributorFile,
         Complexity, Skill, ProjectSkill, ProjectSkillSummary,
         ProjectSkillTimeline, ResumeItem, Framework, ProjectFramework,
         Library, ProjectLibrary, Tool, ProjectTool, Config,
-        UserProfile, WorkExperience
+        UserProfile, Experience, ExperienceType, DataPrivacySettings
     )
     Base.metadata.create_all(bind=engine)
 

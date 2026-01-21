@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.database import Base
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from src.models.orm.framework import ProjectFramework
     from src.models.orm.library import ProjectLibrary
     from src.models.orm.tool import ProjectTool
+    from src.models.orm.user import User
 
 
 class Project(Base):
@@ -25,6 +26,9 @@ class Project(Base):
     __tablename__ = "projects"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     root_path: Mapped[str] = mapped_column(Text, nullable=False)
     source_type: Mapped[str] = mapped_column(String(50), default="local")
@@ -63,6 +67,7 @@ class Project(Base):
     tools: Mapped[List["ProjectTool"]] = relationship(
         "ProjectTool", back_populates="project", cascade="all, delete-orphan"
     )
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="projects")
 
     def __repr__(self) -> str:
-        return f"<Project(id={self.id}, name='{self.name}')>"
+        return f"<Project(id={self.id}, name='{self.name}', user_id={self.user_id})>"
