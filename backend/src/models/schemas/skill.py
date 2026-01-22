@@ -62,14 +62,8 @@ class ProjectSkillsResponse(BaseModel):
 
     project_id: int
     project_name: str
-    languages: List[str] = []
-    frameworks: List[str] = []
-    libraries: List[str] = []
-    tools: List[str] = []
+    skills: List[str] = []
     total_skills: int = 0
-    # New fields for complementary detection system
-    skill_sources: Optional[SkillSourceBreakdown] = None
-    cross_validation_summary: Optional[CrossValidationSummary] = None
 
 
 class SkillSourceResponse(BaseModel):

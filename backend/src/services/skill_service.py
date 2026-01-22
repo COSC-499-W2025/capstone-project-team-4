@@ -45,21 +45,14 @@ class SkillService:
         if not project:
             return None
 
-        # Get languages and frameworks
-        languages = self.project_repo.get_languages(project_id)
-        frameworks = self.project_repo.get_frameworks(project_id)
-        libraries = self.project_repo.get_libraries(project_id)
-        tools = self.project_repo.get_tools(project_id)
-        total_skills = len(self.skill_repo.get_by_project(project_id))
+        skills = self.skill_repo.get_by_project(project_id)
+        skill_names = [s.skill for s in skills]
 
         return ProjectSkillsResponse(
             project_id=project_id,
             project_name=project.name,
-            languages=languages,
-            frameworks=frameworks,
-            libraries=libraries,
-            tools=tools,
-            total_skills=total_skills,
+            skills=skill_names,
+            total_skills=len(skills),
         )
 
     def get_skill_timeline(
@@ -75,7 +68,6 @@ class SkillService:
             skill: Optional specific skill to filter
 
         Returns:
-            SkillTimelineResponse or None if project not found
         """
         project = self.project_repo.get(project_id)
         if not project:
@@ -84,6 +76,7 @@ class SkillService:
         timeline_entries = self.skill_repo.get_timeline(project_id, skill)
 
         timeline = []
+
         for entry in timeline_entries:
             timeline.append(SkillTimelineEntry(
                 skill=entry.skill,
