@@ -514,7 +514,7 @@ class AnalysisService:
         """
         Detect the actual project root using multiple strategies:
         1. Single subdirectory (most common ZIP structure)
-        2. Directory containing .git folder
+        2. Directory containing .git folder (excluding __MACOSX)
         3. Fall back to base_path
         
         Args:
@@ -523,13 +523,16 @@ class AnalysisService:
         Returns:
             Path to detected project root
         """
-        # Strategy 1: Check for single subdirectory
-        subdirs = [d for d in base_path.iterdir() if d.is_dir() and not d.name.startswith('.')]
+        # Strategy 1: Check for single subdirectory (exclude __MACOSX and hidden)
+        subdirs = [d for d in base_path.iterdir() 
+                   if d.is_dir() and not d.name.startswith('.') and d.name != '__MACOSX']
         if len(subdirs) == 1:
             return subdirs[0]
         
-        # Strategy 2: Search for .git directory
+        # Strategy 2: Search for .git directory (excluding __MACOSX)
         git_dirs = list(base_path.glob('**/.git'))
+        # Filter out any .git directories in __MACOSX folder
+        git_dirs = [gd for gd in git_dirs if '__MACOSX' not in str(gd)]
         if git_dirs:
             # Return parent of the first .git found
             project_root = git_dirs[0].parent
