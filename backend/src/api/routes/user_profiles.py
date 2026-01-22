@@ -42,6 +42,7 @@ async def list_user_profiles(
     - Includes basic personal information
     """
     service = UserProfileService(db)
+    print("Bruh this works right?? This is for user-profiles")
     return service.list_profiles(page=page, page_size=page_size)
 
 
@@ -133,7 +134,9 @@ async def delete_user_profile(
 
 
 # Work Experience Endpoints
-@router.get("/{profile_id}/work-experiences", response_model=List[WorkExperienceResponse])
+@router.get(
+    "/{profile_id}/work-experiences", response_model=List[WorkExperienceResponse]
+)
 async def get_work_experiences(
     profile_id: int,
     db: Session = Depends(get_db),
@@ -153,7 +156,11 @@ async def get_work_experiences(
     return service.get_work_experiences(profile_id)
 
 
-@router.post("/{profile_id}/work-experiences", response_model=WorkExperienceResponse, status_code=201)
+@router.post(
+    "/{profile_id}/work-experiences",
+    response_model=WorkExperienceResponse,
+    status_code=201,
+)
 async def create_work_experience(
     profile_id: int,
     data: WorkExperienceCreate,
@@ -175,7 +182,10 @@ async def create_work_experience(
     return experience
 
 
-@router.put("/{profile_id}/work-experiences/{experience_id}", response_model=WorkExperienceResponse)
+@router.put(
+    "/{profile_id}/work-experiences/{experience_id}",
+    response_model=WorkExperienceResponse,
+)
 async def update_work_experience(
     profile_id: int,
     experience_id: int,

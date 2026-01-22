@@ -18,6 +18,10 @@ export default function Dropzone({ title = "" }) {
     setFiles((prev) => prev.filter((f) => f !== fileToRemove));
   };
 
+  function removeAll() {
+    setFiles([]);
+  }
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
   });
@@ -89,6 +93,20 @@ export default function Dropzone({ title = "" }) {
               ))}
             </div>
           </ScrollArea>
+          <Card>
+            <CardContent>
+              <Button
+                size="lg"
+                className="text-lg px-8"
+                type="button"
+                onClick={removeAll}
+              >
+                Delete all
+              </Button>
+
+              <Button></Button>
+            </CardContent>
+          </Card>
         </aside>
       )}
     </section>
