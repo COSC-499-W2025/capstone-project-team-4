@@ -72,6 +72,14 @@ class ProjectRepository(BaseRepository[Project]):
             .where(File.project_id == project_id)
             .where(File.language_id.isnot(None))
         ) or 0
+        
+        tool_count = self.db.scalar(
+            select(func.count(ProjectTool.id)).where(ProjectTool.project_id == project_id)
+        ) or 0
+        
+        library_count = self.db.scalar(
+            select(func.count(ProjectLibrary.id)).where(ProjectLibrary.project_id == project_id)
+        ) or 0
 
         return {
             "id": project.id,
@@ -83,6 +91,8 @@ class ProjectRepository(BaseRepository[Project]):
             "skill_count": skill_count,
             "framework_count": framework_count,
             "language_count": language_count,
+            "tool_count": tool_count,
+            "library_count": library_count,
         }
 
     def get_all_summaries(self, skip: int = 0, limit: int = 100) -> List[dict]:

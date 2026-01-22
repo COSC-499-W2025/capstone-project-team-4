@@ -60,6 +60,8 @@ class ProjectService:
                     file_count=s["file_count"],
                     language_count=s["language_count"],
                     framework_count=s["framework_count"],
+                    library_count=s["library_count"],
+                    tool_count=s["tool_count"],
                     contributor_count=s["contributor_count"],
                     skill_count=s["skill_count"],
                 ))
