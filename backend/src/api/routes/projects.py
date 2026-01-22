@@ -113,7 +113,7 @@ async def get_project_contributors(
 
     return ProjectContributorsResponse(
         project_id=project_id,
-        project_name=project.name,
+        project_name=project.project_name,
         contributors=contributor_schemas,
         total_contributors=len(contributor_schemas),
         total_commits=total_commits,
@@ -186,7 +186,7 @@ async def get_project_complexity(
 
     return ComplexityReport(
         project_id=project_id,
-        project_name=project.name,
+        project_name=project.project_name,
         summary=ComplexitySummary(
             total_functions=summary.get("total_functions", 0),
             avg_complexity=summary.get("avg_complexity", 0.0),
