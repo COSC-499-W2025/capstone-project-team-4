@@ -88,10 +88,8 @@ class SkillRepository(BaseRepository[ProjectSkill]):
         """
         Create multiple skills efficiently.
 
-        Supports source tracking columns:
+        Supports source tracking:
         - source: "language", "framework", "library", "tool", "contextual", "file_type"
-        - source_id: ID of the related entity
-        - cross_validation_boost: Confidence boost from cross-validation
         """
         # Group by project_id, skill, category to handle duplicates
         skill_map = {}
@@ -106,8 +104,6 @@ class SkillRepository(BaseRepository[ProjectSkill]):
                     "category": data["category"],
                     "frequency": data.get("frequency", 1),
                     "source": data.get("source"),
-                    "source_id": data.get("source_id"),
-                    "cross_validation_boost": data.get("cross_validation_boost"),
                 }
 
         skills = []
@@ -118,8 +114,6 @@ class SkillRepository(BaseRepository[ProjectSkill]):
                 category=data["category"],
                 frequency=data["frequency"],
                 source=data.get("source"),
-                source_id=data.get("source_id"),
-                cross_validation_boost=data.get("cross_validation_boost"),
             )
             skills.append(skill)
         return self.create_many(skills)

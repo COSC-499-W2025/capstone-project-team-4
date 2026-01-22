@@ -6,8 +6,6 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from src.models.schemas.skill import (
-    CrossValidationResponse,
-    CrossValidationSummary,
     ProjectSkillsResponse,
     SkillSchema,
     SkillSourceBreakdown,
@@ -128,8 +126,6 @@ class SkillService:
                     category=s.category,
                     frequency=s.frequency,
                     source=s.source,
-                    source_id=s.source_id,
-                    cross_validation_boost=s.cross_validation_boost,
                 )
                 for s in skills
             ]
@@ -170,8 +166,6 @@ class SkillService:
                 category=s.category,
                 frequency=s.frequency,
                 source=s.source,
-                source_id=s.source_id,
-                cross_validation_boost=s.cross_validation_boost,
             )
             for s in skills
         ]
@@ -181,43 +175,4 @@ class SkillService:
             source=source,
             skills=skill_schemas,
             total=len(skill_schemas),
-        )
-
-    def get_cross_validation_results(
-        self,
-        project_id: int,
-    ) -> CrossValidationResponse:
-        """
-        Get cross-validation results for a project.
-
-        Args:
-            project_id: ID of the project
-
-        Returns:
-            CrossValidationResponse with validation metadata
-        """
-        # Get source counts for the summary
-        source_counts = self.skill_repo.count_by_source(project_id)
-
-        # Build summary
-        summary = CrossValidationSummary(
-            total_frameworks=0,  # Would need framework repo to get this
-            original_frameworks=0,
-            gap_filled_frameworks=0,
-            frameworks_boosted=0,
-            frameworks_penalized=0,
-            validation_sources_used={
-                "library": source_counts.get("library", 0),
-                "tool": source_counts.get("tool", 0),
-                "language": source_counts.get("language", 0),
-            },
-        )
-
-        # For now, return empty lists for frameworks
-        # These would be populated from framework repository with cross-validation data
-        return CrossValidationResponse(
-            project_id=project_id,
-            summary=summary,
-            enhanced_frameworks=[],
-            gap_filled_frameworks=[],
         )

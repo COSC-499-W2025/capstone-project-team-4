@@ -1,6 +1,6 @@
 """Pydantic schemas for skills."""
 
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -13,10 +13,8 @@ class SkillSchema(BaseModel):
     name: str
     category: str
     frequency: int = 1
-    # Source tracking fields for complementary detection system
+    # Source tracking for complementary detection system
     source: Optional[str] = None
-    source_id: Optional[int] = None
-    cross_validation_boost: Optional[float] = None
 
 
 class SkillWithRelations(SkillSchema):
@@ -44,17 +42,6 @@ class SkillSourceBreakdown(BaseModel):
     from_tools: List[SkillSchema] = []
     contextual: List[SkillSchema] = []
     from_file_types: List[SkillSchema] = []
-
-
-class CrossValidationSummary(BaseModel):
-    """Summary of cross-validation results."""
-
-    total_frameworks: int = 0
-    original_frameworks: int = 0
-    gap_filled_frameworks: int = 0
-    frameworks_boosted: int = 0
-    frameworks_penalized: int = 0
-    validation_sources_used: Dict[str, int] = {}
 
 
 class ProjectSkillsResponse(BaseModel):
@@ -96,12 +83,3 @@ class SkillTimelineResponse(BaseModel):
 
     project_id: int
     timeline: List[SkillTimelineEntry]
-
-
-class CrossValidationResponse(BaseModel):
-    """Response for cross-validation endpoint."""
-
-    project_id: int
-    summary: CrossValidationSummary
-    enhanced_frameworks: List[Dict[str, Any]] = []
-    gap_filled_frameworks: List[Dict[str, Any]] = []
