@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
-
+# fixing this function
 @router.get("", response_model=ProjectList)
 async def list_projects(
     page: int = Query(1, ge=1, description="Page number"),

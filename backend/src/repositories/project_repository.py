@@ -76,6 +76,10 @@ class ProjectRepository(BaseRepository[Project]):
             "name": project.name,
             "source_type": project.source_type,
             "created_at": project.created_at,
+            "zip_uploaded_at": project.zip_uploaded_at,
+            "first_file_created": project.first_file_created,
+            "first_commit_date": project.first_commit_date,
+            "project_started_at": project.project_started_at,
             "file_count": file_count,
             "contributor_count": contributor_count,
             "skill_count": skill_count,
@@ -94,6 +98,10 @@ class ProjectRepository(BaseRepository[Project]):
         root_path: str,
         source_type: str = "local",
         source_url: Optional[str] = None,
+        zip_uploaded_at: Optional[datetime] = None,
+        first_file_created: Optional[datetime] = None,
+        first_commit_date: Optional[datetime] = None,
+        project_started_at: Optional[datetime] = None,
     ) -> Project:
         """Create a new project."""
         project = Project(
@@ -103,6 +111,10 @@ class ProjectRepository(BaseRepository[Project]):
             source_url=source_url,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
+            zip_uploaded_at=zip_uploaded_at,
+            first_file_created=first_file_created,
+            first_commit_date=first_commit_date,
+            project_started_at=project_started_at,
         )
         return self.create(project)
 
@@ -115,6 +127,25 @@ class ProjectRepository(BaseRepository[Project]):
             .distinct()
         )
         return list(self.db.scalars(stmt).all())
+
+    def update_timestamps(
+        self,
+        project_id: int,
+        zip_uploaded_at: Optional[datetime],
+        first_file_created: Optional[datetime],
+        first_commit_date: Optional[datetime],
+        project_started_at: Optional[datetime],
+    ) -> Optional[Project]:
+        """Persist timestamp fields on project."""
+        project = self.get(project_id)
+        if not project:
+            return None
+
+        project.zip_uploaded_at = zip_uploaded_at
+        project.first_file_created = first_file_created
+        project.first_commit_date = first_commit_date
+        project.project_started_at = project_started_at
+        return self.update(project)
 
     def get_frameworks(self, project_id: int) -> List[str]:
         """Get all frameworks for a project."""
