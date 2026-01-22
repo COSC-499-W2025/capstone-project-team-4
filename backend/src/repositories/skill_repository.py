@@ -1,5 +1,6 @@
 """Skill repository for database operations."""
 
+from datetime import date
 from typing import Dict, List, Optional
 
 from sqlalchemy import func, select
@@ -170,6 +171,89 @@ class SkillRepository(BaseRepository[ProjectSkill]):
             stmt = stmt.where(func.lower(ProjectSkillTimeline.skill) == func.lower(skill))
         stmt = stmt.order_by(ProjectSkillTimeline.date)
         return list(self.db.scalars(stmt).all())
+
+    def create_timeline_entry(
+        self,
+        project_id: int,
+        skill: str,
+        skill_date: date,
+        count: int = 1,
+    ) -> ProjectSkillTimeline:
+        """
+        Create or update a timeline entry for a skill on a specific date.
+
+        Args:
+            project_id: Project ID
+            skill: Skill name
+            skill_date: Date when skill was used
+            count: Number of occurrences
+
+        Returns:
+            The created or updated timeline entry
+        """
+        # Check if entry already exists
+        existing = self.db.scalar(
+            select(ProjectSkillTimeline)
+            .where(ProjectSkillTimeline.project_id == project_id)
+            .where(func.lower(ProjectSkillTimeline.skill) == func.lower(skill))
+            .where(ProjectSkillTimeline.date == skill_date)
+        )
+        if existing:
+            existing.count += count
+            self.db.commit()
+            self.db.refresh(existing)
+            return existing
+
+        entry = ProjectSkillTimeline(
+            project_id=project_id,
+            skill=skill,
+            date=skill_date,
+            count=count,
+        )
+        self.db.add(entry)
+        self.db.commit()
+        self.db.refresh(entry)
+        return entry
+
+    def create_timeline_bulk(self, timeline_data: List[dict]) -> List[ProjectSkillTimeline]:
+        """
+        Create multiple timeline entries efficiently.
+
+        Args:
+            timeline_data: List of dicts with project_id, skill, date, count
+
+        Returns:
+            List of created timeline entries
+        """
+        # Aggregate by (project_id, skill_lower, date) to handle duplicates
+        # but preserve original skill name casing
+        aggregated: Dict[tuple, tuple] = {}  # key -> (original_skill, count)
+        for data in timeline_data:
+            skill = data["skill"]
+            key = (data["project_id"], skill.lower(), data["date"])
+            if key in aggregated:
+                orig_skill, existing_count = aggregated[key]
+                aggregated[key] = (orig_skill, existing_count + data.get("count", 1))
+            else:
+                aggregated[key] = (skill, data.get("count", 1))
+
+        entries = []
+        for (project_id, _, skill_date), (skill, count) in aggregated.items():
+            entry = ProjectSkillTimeline(
+                project_id=project_id,
+                skill=skill,  # Original casing preserved
+                date=skill_date,
+                count=count,
+            )
+            entries.append(entry)
+
+        if entries:
+            self.db.add_all(entries)
+            self.db.commit()
+            for entry in entries:
+                self.db.refresh(entry)
+
+        return entries
 
     # Source-based skill queries for complementary detection system
     def get_skills_by_source(self, project_id: int, source: str) -> List[ProjectSkill]:

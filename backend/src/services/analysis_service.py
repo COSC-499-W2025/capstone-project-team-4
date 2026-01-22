@@ -404,6 +404,10 @@ class AnalysisService:
                 project_id,
                 skill_report.get("skill_categories", {}),
                 skill_sources=skill_report.get("skill_sources", {}),
+                file_list=file_list,
+                detected_languages=languages,
+                detected_frameworks=frameworks,
+                project_path=project_root,
             )
             self._save_frameworks(project_id, all_enhanced_frameworks)
             self._save_libraries(project_id, library_report.get("libraries", []))
@@ -584,14 +588,22 @@ class AnalysisService:
         project_id: int,
         skill_categories: dict,
         skill_sources: Optional[dict] = None,
+        file_list: Optional[List[dict]] = None,
+        detected_languages: Optional[List[str]] = None,
+        detected_frameworks: Optional[List[str]] = None,
+        project_path: Optional[str] = None,
     ) -> None:
         """
-        Save skills to database with source tracking.
+        Save skills to database with source tracking and timeline entries.
 
         Args:
             project_id: Project ID
             skill_categories: Dict mapping category -> list of skill names
             skill_sources: Optional dict mapping skill name -> source type
+            file_list: Optional list of file metadata for timeline generation
+            detected_languages: Optional list of detected language names
+            detected_frameworks: Optional list of detected framework names
+            project_path: Optional path to project for git history extraction
         """
         skill_sources = skill_sources or {}
         skills_data = []
@@ -608,6 +620,160 @@ class AnalysisService:
 
         if skills_data:
             self.skill_repo.create_skills_bulk(skills_data)
+
+        # Generate timeline entries from git history or file dates
+        if file_list:
+            self._save_skill_timeline(
+                project_id,
+                skill_categories,
+                file_list,
+                detected_languages=detected_languages,
+                detected_frameworks=detected_frameworks,
+                project_path=project_path,
+            )
+
+    def _save_skill_timeline(
+        self,
+        project_id: int,
+        skill_categories: dict,
+        file_list: List[dict],
+        detected_languages: Optional[List[str]] = None,
+        detected_frameworks: Optional[List[str]] = None,
+        contributors: Optional[List[dict]] = None,
+        project_path: Optional[str] = None,
+    ) -> None:
+        """
+        Save skill timeline entries based on git commit history or file dates.
+
+        Uses git commit history when available (more accurate), falls back to
+        file modification timestamps otherwise. Only includes skills that are
+        already in skill_categories (the meaningful, resume-worthy skills).
+
+        Args:
+            project_id: Project ID
+            skill_categories: Dict mapping category -> list of skill names (from skill detector)
+            file_list: List of file metadata with last_modified timestamps
+            detected_languages: List of detected language names
+            detected_frameworks: List of detected framework names
+            contributors: List of contributor data with commit history
+            project_path: Path to project for git history extraction
+        """
+        from collections import defaultdict
+
+        # Only use skills from skill_categories - these are the meaningful skills
+        # detected by the skill detector (not raw file formats like JSON, YAML, etc.)
+        all_skills = set()
+        for skills in skill_categories.values():
+            all_skills.update(skills)
+
+        if not all_skills:
+            logger.info("No skills to create timeline for")
+            return
+
+        # Try to get dates from git commit history first (more accurate)
+        commit_dates = self._extract_commit_dates_from_git(project_path)
+
+        if commit_dates:
+            # Use git commit dates - add all skills to the date range
+            logger.info(f"Using {len(commit_dates)} git commit dates for timeline")
+            min_date = min(commit_dates)
+            max_date = max(commit_dates)
+
+            timeline_data = []
+            for skill in all_skills:
+                # Add entry for first occurrence
+                timeline_data.append({
+                    "project_id": project_id,
+                    "skill": skill,
+                    "date": min_date,
+                    "count": 1,
+                })
+                # Add entry for last occurrence if different
+                if max_date != min_date:
+                    timeline_data.append({
+                        "project_id": project_id,
+                        "skill": skill,
+                        "date": max_date,
+                        "count": 1,
+                    })
+        else:
+            # Fall back to file modification dates
+            logger.info("No git history available, using file modification dates")
+            file_dates = []
+            for file_meta in file_list:
+                last_modified = file_meta.get("last_modified")
+                if last_modified:
+                    try:
+                        file_date = datetime.fromtimestamp(last_modified).date()
+                        file_dates.append(file_date)
+                    except (ValueError, TypeError, OSError):
+                        continue
+
+            if not file_dates:
+                logger.info("No file dates available for timeline")
+                return
+
+            min_date = min(file_dates)
+            max_date = max(file_dates)
+
+            timeline_data = []
+            for skill in all_skills:
+                timeline_data.append({
+                    "project_id": project_id,
+                    "skill": skill,
+                    "date": min_date,
+                    "count": 1,
+                })
+                if max_date != min_date:
+                    timeline_data.append({
+                        "project_id": project_id,
+                        "skill": skill,
+                        "date": max_date,
+                        "count": 1,
+                    })
+
+        if timeline_data:
+            self.skill_repo.create_timeline_bulk(timeline_data)
+            logger.info(f"Saved {len(timeline_data)} skill timeline entries for project {project_id}")
+
+    def _extract_commit_dates_from_git(self, project_path: Optional[str]) -> List:
+        """
+        Extract unique commit dates from git history.
+
+        Args:
+            project_path: Path to the project directory
+
+        Returns:
+            List of date objects from git commits, or empty list if not a git repo
+        """
+        if not project_path:
+            return []
+
+        try:
+            from git import Repo, InvalidGitRepositoryError
+        except ImportError:
+            return []
+
+        try:
+            repo = Repo(project_path)
+            commit_dates = set()
+
+            # Get dates from recent commits (limit to avoid slow processing)
+            for commit in repo.iter_commits(max_count=500):
+                try:
+                    commit_date = datetime.fromtimestamp(commit.committed_date).date()
+                    commit_dates.add(commit_date)
+                except (ValueError, TypeError, OSError):
+                    continue
+
+            return sorted(commit_dates)
+
+        except InvalidGitRepositoryError:
+            logger.debug(f"Not a git repository: {project_path}")
+            return []
+        except Exception as e:
+            logger.debug(f"Error reading git history: {e}")
+            return []
 
     def _save_resume_item(self, project_id: int, resume_item: dict) -> None:
         """Save resume item to database."""
