@@ -646,10 +646,7 @@ class AnalysisService:
         libraries = self.project_repo.get_libraries(project_id)
         complexity_summary = self.complexity_repo.get_summary(project_id)
         tools_and_technologies = self.tool_repo.get_tool_names(project_id)
-        contextual_skills = sorted([
-            skill_obj.skill
-            for skill_obj in self.skill_repo.get_skills_by_source(project_id, "contextual")
-        ])
+        skills = self.skill_repo.get_by_project(project_id)
 
         # Get earliest file timestamp from files table (if available)
         first_file_created = self.file_repo.get_earliest_file_date(project_id) or datetime.utcnow()
@@ -664,7 +661,7 @@ class AnalysisService:
             frameworks=frameworks,
             libraries=libraries,
             tools_and_technologies=tools_and_technologies,
-            contextual_skills=contextual_skills,
+            skills=skills,
             file_count=self.file_repo.count_by_project(project_id),
             contributor_count=self.contributor_repo.count_by_project(project_id),
             skill_count=self.skill_repo.count_by_project(project_id),

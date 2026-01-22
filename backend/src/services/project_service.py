@@ -93,6 +93,7 @@ class ProjectService:
         tools = self.project_repo.get_tools(project_id)
         total_loc = self.project_repo.get_total_lines_of_code(project_id)
         complexity_summary = self.complexity_repo.get_summary(project_id)
+        skills = self.skill_repo.get_by_project(project_id)
 
         # Get counts
         summary = self.project_repo.get_summary(project_id)
@@ -107,7 +108,7 @@ class ProjectService:
             frameworks=frameworks,
             libraries=libraries,
             tools_and_technologies=tools,
-            contextual_skills=[],  # TODO: populate from project skills if needed
+            skills = skills,  # TODO: populate from project skills if needed
             file_count=summary["file_count"] if summary else 0,
             contributor_count=summary["contributor_count"] if summary else 0,
             skill_count=summary["skill_count"] if summary else 0,
