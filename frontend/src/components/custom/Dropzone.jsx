@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { File, X, FolderArchive } from "lucide-react";
+import axios from "axios";
 
 export default function Dropzone({ title = "" }) {
   // 1. We manage the files ourselves now (so we can delete them)
@@ -14,15 +15,38 @@ export default function Dropzone({ title = "" }) {
     setFiles((prev) => [...prev, ...acceptedFiles]);
   }, []);
 
-  const removeFile = (fileToRemove) => {
+  function removeFile(fileToRemove) {
     setFiles((prev) => prev.filter((f) => f !== fileToRemove));
-  };
+  }
 
   function removeAll() {
     setFiles([]);
   }
 
+  function submitFiles() {
+    if (files.length !== 0) {
+      const formData = new FormData();
+
+      files.forEach((file) => {
+        // For some reason in the api it's called file? In any case, just keep file for now.. otherwise it'll error
+        formData.append("file", file);
+      });
+
+      axios
+        .post("http://127.0.0.1:8000/api/projects/analyze/upload", formData)
+        .then((response) => console.log("Success!", response))
+        .catch((error) => console.error("Error", error));
+    } else {
+      return;
+    }
+  }
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    // For now, only take zip files
+    accept: {
+      "application/zip": [".zip"],
+      "application/x-zip-compressed": [".zip"],
+    },
     onDrop,
   });
 
@@ -42,14 +66,14 @@ export default function Dropzone({ title = "" }) {
           <p className="text-sm font-medium text-muted-foreground">
             {isDragActive
               ? "Drop files (or folders) here!"
-              : "Drag & drop files/folders here"}
+              : "Drag & drop .zip files here"}
           </p>
         </CardContent>
       </Card>
 
       {/* FILE LIST WITH 'X' BUTTON for deleting */}
       {files.length > 0 && (
-        <aside className="space-y-3">
+        <aside className="space-y-3 flex flex-col gap-3">
           <h4 className="text-sm font-medium text-muted-foreground">
             Files ({files.length})
           </h4>
@@ -93,20 +117,27 @@ export default function Dropzone({ title = "" }) {
               ))}
             </div>
           </ScrollArea>
-          <Card>
-            <CardContent>
-              <Button
-                size="lg"
-                className="text-lg px-8"
-                type="button"
-                onClick={removeAll}
-              >
-                Delete all
-              </Button>
+          {/* The 2 buttons */}
 
-              <Button></Button>
-            </CardContent>
-          </Card>
+          <div className="flex justify-center gap-8">
+            <Button
+              size="lg"
+              className="text-lg px-8 hover:cursor-pointer"
+              type="button"
+              onClick={removeAll}
+            >
+              Delete all
+            </Button>
+
+            <Button
+              size="lg"
+              className="text-lg px-8 hover:cursor-pointer"
+              type="button"
+              onClick={submitFiles}
+            >
+              Analyze Project
+            </Button>
+          </div>
         </aside>
       )}
     </section>

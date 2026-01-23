@@ -10,9 +10,11 @@ class Settings(BaseSettings):
     """Application configuration settings."""
 
     model_config = SettingsConfigDict(
+        # Can remove the extra="ignore" if errors occur. Just conflicts with the PostgreSQL database for some reason
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",
     )
 
     # Application

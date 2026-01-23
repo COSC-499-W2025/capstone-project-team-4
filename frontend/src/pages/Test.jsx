@@ -12,9 +12,6 @@ export default function Test() {
   return (
     <>
       <Dropzone title="Cool test" />
-      <Button className="hover:cursor-pointer" onClick={testConnection}>
-        Chicken
-      </Button>
     </>
   );
 }
