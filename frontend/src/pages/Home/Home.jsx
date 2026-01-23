@@ -1,8 +1,8 @@
-import MainNav from "@/components/custom/MainNav"
-import Hero from "@/components/custom/Hero"
-import Steps from "@/components/custom/Steps"
-import CTA from "@/components/custom/CTA"
-import FeaturesSection from "@/components/custom/FeaturesSection"
+import MainNav from "@/components/custom/Home/MainNav"
+import Hero from "@/components/custom/Home/Hero"
+import Steps from "@/components/custom/Home/Steps"
+import CTA from "@/components/custom/Home/CTA"
+import FeaturesSection from "@/components/custom/Home/FeaturesSection"
 
 export default function MainPage() {
   return (
