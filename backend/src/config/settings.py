@@ -9,10 +9,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application configuration settings."""
 
+    # Just gonna shove this in here idk why or what these settings do but yeah
+    DATABASE_URL: Optional[str] = None
+
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
 
     # Application
