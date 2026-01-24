@@ -1,13 +1,14 @@
 """Analysis service - main orchestration for project analysis pipeline."""
 
 import logging
+import time
 import zipfile
 import tempfile
 import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Dict
 from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
@@ -270,19 +271,27 @@ class AnalysisService:
             AnalysisResult with all analysis data
         """
         logger.info(f"Starting analysis for {project_name} at {project_path}")
+        
+        # Track timing for performance analysis
+        start_time = time.time()
+        stage_timings: Dict[str, float] = {}
 
         try:
             # Step 0: Single-pass file collection (OPTIMIZATION)
             logger.info("Step 0: Collecting file info (single pass)")
+            step_start = time.time()
             file_info_list = collect_all_file_info(project_path, show_progress=True)
             file_paths = [f.path for f in file_info_list]
-            logger.info(f"Step 0 complete: Collected info for {len(file_info_list)} files")
+            stage_timings['file_collection'] = time.time() - step_start
+            logger.info(f"Step 0 complete: Collected info for {len(file_info_list)} files in {stage_timings['file_collection']:.2f}s")
 
             # Step 1: Convert file info to metadata format
             logger.info("Step 1: Building metadata from collected files")
+            step_start = time.time()
             project_root = str(Path(project_path).resolve())
             file_list = [file_info_to_metadata_dict(f) for f in file_info_list]
-            logger.info(f"Step 1 complete: {len(file_list)} files")
+            stage_timings['metadata_conversion'] = time.time() - step_start
+            logger.info(f"Step 1 complete: {len(file_list)} files in {stage_timings['metadata_conversion']:.2f}s")
 
             # Step 2: Create project entry
             logger.info("Step 2: Creating project entry")
@@ -297,6 +306,7 @@ class AnalysisService:
 
             # Steps 3-6: PARALLEL ANALYSIS (Git, Complexity, Languages, Frameworks, Libraries, Tools)
             logger.info("Steps 3-6: Running parallel analysis")
+            step_start = time.time()
 
             # Default values in case of errors
             contributors = []
@@ -345,10 +355,12 @@ class AnalysisService:
                     except Exception as e:
                         logger.warning(f"{task_name} analysis failed: {e}")
 
-            logger.info("Steps 3-6 complete: Parallel analysis finished")
+            stage_timings['parallel_analysis'] = time.time() - step_start
+            logger.info(f"Steps 3-6 complete: Parallel analysis finished in {stage_timings['parallel_analysis']:.2f}s")
 
             # Step 5.5: Extract skills with pre-detected signals
             logger.info("Step 5.5: Extracting skills with library/tool context")
+            step_start = time.time()
             framework_names = [fw.get("name") for fw in frameworks_detected if fw.get("name")]
             skill_report = analyze_project_skills(
                 project_root,
@@ -357,10 +369,12 @@ class AnalysisService:
                 languages=languages_detected,
                 frameworks=framework_names,
             )
-            logger.info("Step 5.5 complete: Found %d skills", skill_report.get("total_skills", 0))
+            stage_timings['skill_extraction'] = time.time() - step_start
+            logger.info("Step 5.5 complete: Found %d skills in %.2fs", skill_report.get("total_skills", 0), stage_timings['skill_extraction'])
 
             # Step 5.6: Cross-validate detections
             logger.info("Step 5.6: Cross-validating detections")
+            step_start = time.time()
             validator = CrossValidator(
                 languages=languages_detected,
                 frameworks=frameworks_detected,
@@ -369,10 +383,12 @@ class AnalysisService:
             )
             enhanced_results = validator.get_enhanced_results()
             validation_summary = enhanced_results.validation_summary
+            stage_timings['cross_validation'] = time.time() - step_start
             logger.info(
-                "Step 5.6 complete: Cross-validation found %d boosted, %d gap-filled frameworks",
+                "Step 5.6 complete: Cross-validation found %d boosted, %d gap-filled frameworks in %.2fs",
                 validation_summary.get("frameworks_boosted", 0),
-                validation_summary.get("gap_filled_frameworks", 0)
+                validation_summary.get("gap_filled_frameworks", 0),
+                stage_timings['cross_validation']
             )
 
             # Merge enhanced frameworks with gap-filled ones
@@ -396,6 +412,7 @@ class AnalysisService:
 
             # Step 7: Save to database
             logger.info("Step 7: Saving to database")
+            step_start = time.time()
             self._save_files(project_id, file_list)
             self._save_complexity(project_id, complexity_dict.get("functions", []))
             if contributors:
@@ -413,10 +430,12 @@ class AnalysisService:
             self._save_frameworks(project_id, all_enhanced_frameworks)
             self._save_libraries(project_id, library_report.get("libraries", []))
             self._save_tools(project_id, tool_report.get("tools", []))
-            logger.info("Step 7 complete: Database saves finished")
+            stage_timings['database_saves'] = time.time() - step_start
+            logger.info(f"Step 7 complete: Database saves finished in {stage_timings['database_saves']:.2f}s")
 
             # Step 8: Generate and save resume item
             logger.info("Step 8: Generating resume item")
+            step_start = time.time()
             resume_item = generate_resume_item(
                 project_name=project_name,
                 contributors=contributors,
@@ -433,6 +452,8 @@ class AnalysisService:
                 ai_max_tokens=settings.ai_max_tokens,
             )
             self._save_resume_item(project_id, resume_item)
+            stage_timings['resume_generation'] = time.time() - step_start
+            logger.info(f"Step 8 complete: Resume generated in {stage_timings['resume_generation']:.2f}s")
 
             # Build result
             complexity_summary = self.complexity_repo.get_summary(project_id)
@@ -464,6 +485,18 @@ class AnalysisService:
                 project_started_at = first_file_created
             
             logger.info(f"Project started at: {project_started_at}")
+            
+            # Step 9: Save analysis summary with timing data
+            total_duration = time.time() - start_time
+            self._save_analysis_summary(
+                project_id=project_id,
+                total_files_processed=len(file_list),
+                total_files_analyzed=len([f for f in file_list if f.get('lines_of_code', 0) > 0]),
+                total_files_skipped=len([f for f in file_list if f.get('lines_of_code', 0) == 0]),
+                analysis_duration_seconds=total_duration,
+                stage_durations=stage_timings,
+            )
+            logger.info(f"Analysis summary saved: Total duration {total_duration:.2f}s")
             
             return AnalysisResult(
                 project_id=project_id,
@@ -804,6 +837,49 @@ class AnalysisService:
         if tools:
             self.tool_repo.create_tools_bulk(tools, project_id)
             logger.info(f"Saved {len(tools)} tools for project {project_id}")
+
+    def _save_analysis_summary(
+        self,
+        project_id: int,
+        total_files_processed: int,
+        total_files_analyzed: int,
+        total_files_skipped: int,
+        analysis_duration_seconds: float,
+        stage_durations: Optional[Dict[str, float]] = None,
+    ) -> None:
+        """
+        Save project analysis summary with timing and statistics.
+        
+        This function populates the ProjectAnalysisSummary table with:
+        - File processing statistics (total, analyzed, skipped)
+        - Total analysis duration
+        - Per-stage timing breakdown for performance analysis
+        
+        Args:
+            project_id: Project ID
+            total_files_processed: Total number of files found in project
+            total_files_analyzed: Number of files with content analyzed
+            total_files_skipped: Number of files skipped (binary, empty, etc.)
+            analysis_duration_seconds: Total analysis time in seconds
+            stage_durations: Dict mapping stage name to duration in seconds
+        """
+        try:
+            self.skill_repo.create_summary(
+                project_id=project_id,
+                total_files_processed=total_files_processed,
+                total_files_analyzed=total_files_analyzed,
+                total_files_skipped=total_files_skipped,
+                analysis_duration_seconds=analysis_duration_seconds,
+                stage_durations=stage_durations,
+            )
+            
+            # Log performance insights
+            if stage_durations:
+                slowest_stage = max(stage_durations.items(), key=lambda x: x[1])
+                logger.info(f"Performance: Slowest stage was '{slowest_stage[0]}' at {slowest_stage[1]:.2f}s")
+                
+        except Exception as e:
+            logger.error(f"Failed to save analysis summary for project {project_id}: {e}")
 
     def get_analysis_result(self, project_id: int) -> Optional[AnalysisResult]:
         """Get analysis result for a project."""
