@@ -86,13 +86,13 @@ class SkillService:
         if not timeline:
             skills = self.skill_repo.get_by_project(project_id)
             if skill:
-                skills = [s for s in skills if s.skill.lower() == skill.lower()]
+                skills = [s for s in skills if s.skill and s.skill.name.lower() == skill.lower()]
             if skills:
                 snapshot_date = (project.created_at.date() if project.created_at else None)
                 snapshot_date_str = snapshot_date.isoformat() if snapshot_date else ""
                 for s in skills:
                     timeline.append(SkillTimelineEntry(
-                        skill=s.skill,
+                        skill=s.skill.name if s.skill else "",
                         date=snapshot_date_str,
                         count=s.frequency,
                     ))
@@ -119,16 +119,18 @@ class SkillService:
         breakdown = self.skill_repo.get_skill_source_breakdown(project_id)
         source_counts = self.skill_repo.count_by_source(project_id)
 
+        def _to_schema(project_skill: Any) -> SkillSchema:
+            # Normalize ORM object into the API schema using the related Skill entity
+            skill = project_skill.skill
+            return SkillSchema(
+                name=skill.name if skill else "",
+                category=skill.category if skill else "",
+                frequency=project_skill.frequency,
+                source=project_skill.source,
+            )
+
         def _to_schemas(skills) -> List[SkillSchema]:
-            return [
-                SkillSchema(
-                    name=s.skill,
-                    category=s.category,
-                    frequency=s.frequency,
-                    source=s.source,
-                )
-                for s in skills
-            ]
+            return [_to_schema(s) for s in skills]
 
         return SkillSourceResponse(
             project_id=project_id,
@@ -160,15 +162,16 @@ class SkillService:
         """
         skills = self.skill_repo.get_skills_by_source(project_id, source)
 
-        skill_schemas = [
-            SkillSchema(
-                name=s.skill,
-                category=s.category,
-                frequency=s.frequency,
-                source=s.source,
+        def _to_schema(project_skill: Any) -> SkillSchema:
+            skill = project_skill.skill
+            return SkillSchema(
+                name=skill.name if skill else "",
+                category=skill.category if skill else "",
+                frequency=project_skill.frequency,
+                source=project_skill.source,
             )
-            for s in skills
-        ]
+
+        skill_schemas = [_to_schema(s) for s in skills]
 
         return SkillsBySourceResponse(
             project_id=project_id,

@@ -345,8 +345,9 @@ class SkillRepository(BaseRepository[ProjectSkill]):
         """
         stmt = (
             select(ProjectSkill)
+            .join(Skill)
             .where(ProjectSkill.project_id == project_id)
-            .order_by(ProjectSkill.source, ProjectSkill.category, ProjectSkill.frequency.desc())
+            .order_by(ProjectSkill.source, Skill.category, ProjectSkill.frequency.desc())
         )
         return list(self.db.scalars(stmt).all())
 
