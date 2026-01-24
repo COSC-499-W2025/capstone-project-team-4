@@ -404,6 +404,7 @@ class AnalysisService:
                 project_id,
                 skill_report.get("skill_categories", {}),
                 skill_sources=skill_report.get("skill_sources", {}),
+                skill_frequencies=skill_report.get("skill_frequencies", {}),
                 file_list=file_list,
                 detected_languages=languages,
                 detected_frameworks=frameworks,
@@ -588,24 +589,27 @@ class AnalysisService:
         project_id: int,
         skill_categories: dict,
         skill_sources: Optional[dict] = None,
+        skill_frequencies: Optional[dict] = None,
         file_list: Optional[List[dict]] = None,
         detected_languages: Optional[List[str]] = None,
         detected_frameworks: Optional[List[str]] = None,
         project_path: Optional[str] = None,
     ) -> None:
         """
-        Save skills to database with source tracking and timeline entries.
+        Save skills to database with source tracking, frequency counts, and timeline entries.
 
         Args:
             project_id: Project ID
             skill_categories: Dict mapping category -> list of skill names
             skill_sources: Optional dict mapping skill name -> source type
+            skill_frequencies: Optional dict mapping skill name -> occurrence count
             file_list: Optional list of file metadata for timeline generation
             detected_languages: Optional list of detected language names
             detected_frameworks: Optional list of detected framework names
             project_path: Optional path to project for git history extraction
         """
         skill_sources = skill_sources or {}
+        skill_frequencies = skill_frequencies or {}
         skills_data = []
 
         for category, skills in skill_categories.items():
@@ -614,7 +618,7 @@ class AnalysisService:
                     "project_id": project_id,
                     "skill": skill,
                     "category": category,
-                    "frequency": 1,
+                    "frequency": skill_frequencies.get(skill, 1),
                     "source": skill_sources.get(skill),
                 })
 
