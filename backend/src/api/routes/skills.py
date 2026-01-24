@@ -45,6 +45,25 @@ async def get_project_skills(
     return result
 
 
+@router.get("/categories", response_model=list)
+async def get_skill_categories(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Get all skill categories for a project.
+
+    - Returns list of unique skill categories
+    """
+    # First check if project exists
+    project_service = ProjectService(db)
+    if not project_service.project_exists(project_id):
+        raise ProjectNotFoundError(project_id)
+
+    service = SkillService(db)
+    return service.get_skill_categories(project_id)
+
+
 @router.get("/timeline", response_model=SkillTimelineResponse)
 async def get_skill_timeline(
     project_id: int,
@@ -64,25 +83,6 @@ async def get_skill_timeline(
         raise ProjectNotFoundError(project_id)
 
     return result
-
-
-@router.get("/categories", response_model=list)
-async def get_skill_categories(
-    project_id: int,
-    db: Session = Depends(get_db),
-):
-    """
-    Get all skill categories for a project.
-
-    - Returns list of unique skill categories
-    """
-    # First check if project exists
-    project_service = ProjectService(db)
-    if not project_service.project_exists(project_id):
-        raise ProjectNotFoundError(project_id)
-
-    service = SkillService(db)
-    return service.get_skill_categories(project_id)
 
 
 @router.get("/sources", response_model=SkillSourceResponse)
