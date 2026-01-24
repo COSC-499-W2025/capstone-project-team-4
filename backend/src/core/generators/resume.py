@@ -45,17 +45,17 @@ def extract_tech_stack(
 
 def pick_main_contributor(contributors: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Pick the main contributor based on contribution percentage.
+    Pick the main contributor based on commit percentage.
 
     Args:
         contributors: List of contributor dictionaries
 
     Returns:
-        The contributor with highest percentage, or empty dict
+        The contributor with highest commit percentage, or empty dict
     """
     if not contributors:
         return {}
-    return max(contributors, key=lambda c: c.get("percent", 0))
+    return max(contributors, key=lambda c: c.get("commit_percent", 0))
 
 
 def format_list_with_and(items: List[str]) -> str:
@@ -114,7 +114,7 @@ def _build_ai_context(
 
     # Contributor stats
     main = pick_main_contributor(contributors)
-    percent = main.get("percent", 0) or 0
+    commit_percent = main.get("commit_percent", 0) or 0
     added = main.get("total_lines_added", 0) or 0
     commits = main.get("commits", 0) or 0
 
@@ -150,7 +150,7 @@ Project Metrics:
 - Maximum Cyclomatic Complexity: {max_cx}
 
 Contribution:
-- Contribution Percentage: {percent:.1f}%
+- Contribution Percentage: {commit_percent:.1f}%
 - Lines Added: {added:,}
 - Total Commits: {commits}
 - Total Contributors: {len(contributors)}
@@ -277,7 +277,7 @@ def _generate_template_based(
 
     # -------- Top contributor --------
     main = pick_main_contributor(contributors)
-    percent = main.get("percent", 0) or 0
+    commit_percent = main.get("commit_percent", 0) or 0
     added = main.get("total_lines_added", 0) or 0
 
     # -------- Project stats --------
@@ -301,9 +301,9 @@ def _generate_template_based(
             f"Analyzed {file_count} source files with an average cyclomatic complexity of {avg_cx:.1f} (max {max_cx})."
         )
 
-    if percent > 0 or added > 0:
+    if commit_percent > 0 or added > 0:
         highlights.append(
-            f"Owned {percent:.1f}% of project contributions with {added:,} lines added, demonstrating feature ownership and collaborative Git workflow."
+            f"Owned {commit_percent:.1f}% of project contributions with {added:,} lines added, demonstrating feature ownership and collaborative Git workflow."
         )
     else:
         highlights.append(

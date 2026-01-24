@@ -6,6 +6,10 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from src.models.schemas.project import ProjectSummary, ProjectDetail, ProjectList
+from src.models.schemas.contributor import (
+    ContributorAnalysisSchema,
+    ProjectContributorsAnalysisResponse,
+)
 from src.repositories.project_repository import ProjectRepository
 from src.repositories.file_repository import FileRepository
 from src.repositories.contributor_repository import ContributorRepository
@@ -153,6 +157,102 @@ class ProjectService:
 
         logger.info(f"Deleting project {project_id}: {project.name}")
         return self.project_repo.delete(project_id)
+
+    def get_contributor_analysis(self, project_id: int) -> Optional[ProjectContributorsAnalysisResponse]:
+        """
+        Get contributor analysis with contribution scores for a project.
+
+        Calculates contribution score for each contributor using:
+        - commits_percent (weight: 0.40)
+        - lines_changed_percent (weight: 0.40)
+        - files_touched_percent (weight: 0.20)
+
+        Args:
+            project_id: ID of the project
+
+        Returns:
+            ProjectContributorsAnalysisResponse with contribution analysis, or None if project not found
+        """
+        project = self.project_repo.get(project_id)
+        if not project:
+            return None
+
+        contributors = self.contributor_repo.get_by_project(project_id)
+        if not contributors:
+            return ProjectContributorsAnalysisResponse(
+                project_id=project_id,
+                project_name=project.name,
+                total_contributors=0,
+                contributors=[],
+            )
+
+        # Calculate totals
+        total_commits = sum(c.commits for c in contributors)
+        total_lines_added = sum(c.total_lines_added for c in contributors)
+        total_lines_deleted = sum(c.total_lines_deleted for c in contributors)
+        total_lines_changed = total_lines_added + total_lines_deleted
+        total_files = sum(len(c.files_modified) for c in contributors)
+
+        # First pass: calculate contribution scores for all contributors
+        scores_and_data = []
+        for c in contributors:
+            # Calculate normalized values (0.0 - 1.0)
+            commits_norm = c.commits / total_commits if total_commits > 0 else 0.0
+            lines_norm = (
+                (c.total_lines_added + c.total_lines_deleted) / total_lines_changed
+                if total_lines_changed > 0
+                else 0.0
+            )
+            files_norm = len(c.files_modified) / total_files if total_files > 0 else 0.0
+
+            # Apply weights (4:4:2 ratio)
+            weighted_score = (commits_norm * 0.40) + (lines_norm * 0.40) + (files_norm * 0.20)
+            contribution_score = round(weighted_score * 100, 2)
+
+            # Calculate net lines
+            net_lines = c.total_lines_added - c.total_lines_deleted
+
+            scores_and_data.append({
+                "contributor": c,
+                "contribution_score": contribution_score,
+                "net_lines": net_lines,
+                "files_touched": len(c.files_modified),
+            })
+
+        # Calculate total score for percentage calculation
+        total_score = sum(item["contribution_score"] for item in scores_and_data)
+
+        # Second pass: build analysis schema with percentages
+        analysis_list = []
+        for item in scores_and_data:
+            # Calculate contribution percentage
+            contribution_percentage = (
+                round((item["contribution_score"] / total_score) * 100, 2)
+                if total_score > 0
+                else 0.0
+            )
+
+            analysis_list.append(
+                ContributorAnalysisSchema(
+                    id=item["contributor"].id,
+                    name=item["contributor"].name,
+                    email=item["contributor"].email,
+                    commits=item["contributor"].commits,
+                    total_lines_added=item["contributor"].total_lines_added,
+                    total_lines_deleted=item["contributor"].total_lines_deleted,
+                    net_lines=item["net_lines"],
+                    files_touched=item["files_touched"],
+                    contribution_score=item["contribution_score"],
+                    contribution_percentage=contribution_percentage,
+                )
+            )
+
+        return ProjectContributorsAnalysisResponse(
+            project_id=project_id,
+            project_name=project.name,
+            total_contributors=len(contributors),
+            contributors=analysis_list,
+        )
 
     def project_exists(self, project_id: int) -> bool:
         """Check if a project exists."""

@@ -602,6 +602,9 @@ class AnalysisService:
 
     def _save_contributors(self, project_id: int, contributors: list) -> None:
         """Save contributor data to database."""
+        from datetime import datetime
+        from src.models.orm.contributor_commit import ContributorCommit
+        
         # Delete old contributors for this project
         self.contributor_repo.delete_by_project_id(project_id)
         
@@ -621,14 +624,35 @@ class AnalysisService:
                 "github_username": c.get("github_username"),
                 "github_email": c.get("github_email"),
                 "commits": c.get("commits", 0),
-                "percent": c.get("percent", 0.0),
+                "percent": c.get("commit_percent", 0.0),  # Map commit_percent to percent (DB field)
                 "total_lines_added": c.get("total_lines_added", 0),
                 "total_lines_deleted": c.get("total_lines_deleted", 0),
                 "files_modified": files_modified,
+                "commit_dates": c.get("commit_dates", []),  # Store for later use
             })
 
         if contributors_data:
-            self.contributor_repo.create_contributors_bulk(contributors_data)
+            created_contributors = self.contributor_repo.create_contributors_bulk(contributors_data)
+            
+            # Save commit history for each contributor
+            for i, contributor_orm in enumerate(created_contributors):
+                commit_dates = contributors_data[i].get("commit_dates", [])
+                if commit_dates:
+                    commit_objs = []
+                    for commit_date in commit_dates:
+                        if isinstance(commit_date, datetime):
+                            commit_objs.append(ContributorCommit(
+                                contributor_id=contributor_orm.id,
+                                commit_hash="",  # Not available in current data structure
+                                commit_date=commit_date,
+                                author_date=commit_date,
+                                commit_message="",
+                            ))
+                    
+                    if commit_objs:
+                        self.db.add_all(commit_objs)
+            
+            self.db.commit()
 
     def _save_skills(
         self,

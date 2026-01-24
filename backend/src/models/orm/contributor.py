@@ -9,6 +9,7 @@ from src.models.database import Base
 
 if TYPE_CHECKING:
     from src.models.orm.project import Project
+    from src.models.orm.contributor_commit import ContributorCommit
 
 
 class Contributor(Base):
@@ -33,6 +34,9 @@ class Contributor(Base):
     project: Mapped["Project"] = relationship("Project", back_populates="contributors")
     files_modified: Mapped[List["ContributorFile"]] = relationship(
         "ContributorFile", back_populates="contributor", cascade="all, delete-orphan"
+    )
+    commit_history: Mapped[List["ContributorCommit"]] = relationship(
+        "ContributorCommit", back_populates="contributor", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
