@@ -1300,7 +1300,111 @@ def get_skill_categories() -> Dict[str, List[str]]:
             if any(keyword in skill for keyword in ["Design", "Photo", "Video", "Audio", "3D", "Graphics"]):
                 categories["Design & Creative"].add(skill)
 
+    # Add library skills to categories
+    for skills in LIBRARY_SKILLS.values():
+        for skill in skills:
+            if any(keyword in skill for keyword in ["Machine Learning", "Data Science", "AI", "Deep Learning", "NLP", "Natural Language", "Data Analysis", "Data Processing", "Scientific Computing", "Statistical", "Computer Vision"]):
+                categories["Data Science & ML"].add(skill)
+            elif any(keyword in skill for keyword in ["Database", "SQL", "PostgreSQL", "MySQL", "MongoDB", "NoSQL", "Redis", "Caching", "ORM"]):
+                categories["Database & ORM"].add(skill)
+            elif any(keyword in skill for keyword in ["DevOps", "Docker", "CI/CD", "Container", "Cloud", "AWS", "Azure", "Google Cloud", "Infrastructure", "Monitoring", "Metrics"]):
+                categories["DevOps & Infrastructure"].add(skill)
+            elif any(keyword in skill for keyword in ["Testing", "Test-Driven", "QA", "Quality"]):
+                categories["Testing & QA"].add(skill)
+            elif any(keyword in skill for keyword in ["Frontend", "Backend", "Web", "API", "HTTP", "REST", "WebSocket", "Real-Time", "Authentication", "OAuth", "JWT", "Security"]):
+                categories["Web Development"].add(skill)
+            elif any(keyword in skill for keyword in ["Mobile", "iOS", "Android"]):
+                categories["Mobile Development"].add(skill)
+            elif any(keyword in skill for keyword in ["Design", "Photo", "Video", "Audio", "3D", "Graphics", "Image"]):
+                categories["Design & Creative"].add(skill)
+
+    # Add tool skills to categories
+    for skills in TOOL_SKILLS.values():
+        for skill in skills:
+            if any(keyword in skill for keyword in ["DevOps", "Docker", "CI/CD", "Container", "Containerization", "Orchestration", "Infrastructure", "Cloud", "Deployment", "Hosting", "Serverless"]):
+                categories["DevOps & Infrastructure"].add(skill)
+            elif any(keyword in skill for keyword in ["Testing", "Test", "QA", "Quality", "Linting", "Code Quality", "Formatting", "Type Checking", "Type Safety"]):
+                categories["Testing & QA"].add(skill)
+            elif any(keyword in skill for keyword in ["Database", "ORM", "Migration", "Schema"]):
+                categories["Database & ORM"].add(skill)
+            elif any(keyword in skill for keyword in ["API", "REST", "GraphQL", "Documentation"]):
+                categories["Web Development"].add(skill)
+            elif any(keyword in skill for keyword in ["Build", "Bundling", "Package", "Monorepo", "Version Control"]):
+                categories["DevOps & Infrastructure"].add(skill)
+
     return {k: sorted(list(v)) for k, v in categories.items() if v}
+
+
+def categorize_skill_by_keywords(skill: str) -> Optional[str]:
+    """
+    Categorize a skill by keyword matching.
+    Returns the category name or None if no match.
+    """
+    skill_lower = skill.lower()
+
+    # Data Science & ML keywords
+    if any(kw in skill_lower for kw in [
+        "machine learning", "data science", "ai", "deep learning", "nlp",
+        "natural language", "data analysis", "data processing", "scientific",
+        "statistical", "computer vision", "data manipulation", "numerical",
+        "neural", "model", "training", "prediction", "classification"
+    ]):
+        return "Data Science & ML"
+
+    # DevOps & Infrastructure keywords
+    if any(kw in skill_lower for kw in [
+        "devops", "docker", "ci/cd", "container", "cloud", "aws", "azure",
+        "google cloud", "infrastructure", "monitoring", "metrics", "deployment",
+        "hosting", "serverless", "orchestration", "pipeline", "automation",
+        "kubernetes", "terraform", "ansible", "build", "bundling", "package",
+        "monorepo", "version control", "git"
+    ]):
+        return "DevOps & Infrastructure"
+
+    # Testing & QA keywords
+    if any(kw in skill_lower for kw in [
+        "testing", "test-driven", "test driven", "qa", "quality", "linting",
+        "code quality", "formatting", "type checking", "type safety", "unit test",
+        "integration test", "e2e", "end-to-end", "coverage"
+    ]):
+        return "Testing & QA"
+
+    # Database & ORM keywords
+    if any(kw in skill_lower for kw in [
+        "database", "sql", "postgresql", "mysql", "mongodb", "nosql", "redis",
+        "caching", "orm", "migration", "schema", "query"
+    ]):
+        return "Database & ORM"
+
+    # Web Development keywords
+    if any(kw in skill_lower for kw in [
+        "frontend", "backend", "web", "api", "http", "rest", "websocket",
+        "real-time", "authentication", "oauth", "jwt", "security", "graphql",
+        "fullstack", "full-stack", "full stack", "component", "spa", "ssr",
+        "async", "server", "client", "request", "response"
+    ]):
+        return "Web Development"
+
+    # Mobile Development keywords
+    if any(kw in skill_lower for kw in [
+        "mobile", "ios", "android", "react native", "flutter", "swift", "kotlin"
+    ]):
+        return "Mobile Development"
+
+    # Design & Creative keywords
+    if any(kw in skill_lower for kw in [
+        "design", "photo", "video", "audio", "3d", "graphics", "image",
+        "ui", "ux", "animation", "illustration"
+    ]):
+        return "Design & Creative"
+
+    # Programming Languages keywords
+    if any(kw in skill_lower for kw in [
+        "programming", "development language", "scripting"
+    ]):
+        return "Programming Languages"
+
+    return None
 
 
 def analyze_project_skills(
@@ -1404,6 +1508,7 @@ def analyze_project_skills(
 
     for skill in all_skills:
         placed = False
+        # First try exact match from predefined categories
         for category, category_skills in categories.items():
             if skill in category_skills:
                 if category not in categorized_skills:
@@ -1412,6 +1517,16 @@ def analyze_project_skills(
                 placed = True
                 break
 
+        # If not found, try keyword-based categorization
+        if not placed:
+            keyword_category = categorize_skill_by_keywords(skill)
+            if keyword_category:
+                if keyword_category not in categorized_skills:
+                    categorized_skills[keyword_category] = []
+                categorized_skills[keyword_category].append(skill)
+                placed = True
+
+        # Fall back to "Other" only if no match found
         if not placed:
             if "Other" not in categorized_skills:
                 categorized_skills["Other"] = []
