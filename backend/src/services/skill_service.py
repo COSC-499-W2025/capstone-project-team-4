@@ -43,14 +43,14 @@ class SkillService:
         if not project:
             return None
 
-        skills = self.skill_repo.get_by_project(project_id)
-        skill_names = [s.skill for s in skills]
+        project_skills = self.skill_repo.get_by_project(project_id)
+        skill_names = [ps.skill.name for ps in project_skills]
 
         return ProjectSkillsResponse(
             project_id=project_id,
             project_name=project.name,
             skills=skill_names,
-            total_skills=len(skills),
+            total_skills=len(project_skills),
         )
 
     def get_skill_timeline(

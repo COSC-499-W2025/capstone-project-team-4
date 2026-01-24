@@ -18,11 +18,20 @@ class Skill(Base):
     __tablename__ = "skills"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     category: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
 
+    # Relationships
+    project_skills: Mapped[list["ProjectSkill"]] = relationship(
+        "ProjectSkill", back_populates="skill", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("name", "category", name="uq_skill_name_category"),
+    )
+
     def __repr__(self) -> str:
-        return f"<Skill(id={self.id}, name='{self.name}')>"
+        return f"<Skill(id={self.id}, name='{self.name}', category='{self.category}')>"
 
 
 class ProjectSkill(Base):
@@ -34,8 +43,9 @@ class ProjectSkill(Base):
     project_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    skill: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    category: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    skill_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("skills.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     frequency: Mapped[int] = mapped_column(Integer, default=1)
 
     # Source tracking for complementary detection system
@@ -44,13 +54,14 @@ class ProjectSkill(Base):
 
     # Relationships
     project: Mapped["Project"] = relationship("Project", back_populates="skills")
+    skill: Mapped["Skill"] = relationship("Skill", back_populates="project_skills")
 
     __table_args__ = (
-        UniqueConstraint("project_id", "skill", "category", name="uq_project_skill_category"),
+        UniqueConstraint("project_id", "skill_id", name="uq_project_skill"),
     )
 
     def __repr__(self) -> str:
-        return f"<ProjectSkill(id={self.id}, skill='{self.skill}', source='{self.source}')>"
+        return f"<ProjectSkill(id={self.id}, project_id={self.project_id}, skill_id={self.skill_id}, source='{self.source}')>"
 
 
 class ProjectSkillSummary(Base):

@@ -18,11 +18,12 @@ class SkillRepository(BaseRepository[ProjectSkill]):
         super().__init__(ProjectSkill, db)
 
     def get_by_project(self, project_id: int) -> List[ProjectSkill]:
-        """Get all skills for a project."""
+        """Get all skills for a project with skill details joined."""
         stmt = (
             select(ProjectSkill)
             .where(ProjectSkill.project_id == project_id)
-            .order_by(ProjectSkill.category, ProjectSkill.frequency.desc())
+            .join(Skill)
+            .order_by(Skill.category, ProjectSkill.frequency.desc())
         )
         return list(self.db.scalars(stmt).all())
 
@@ -31,7 +32,8 @@ class SkillRepository(BaseRepository[ProjectSkill]):
         stmt = (
             select(ProjectSkill)
             .where(ProjectSkill.project_id == project_id)
-            .where(ProjectSkill.category == category)
+            .join(Skill)
+            .where(Skill.category == category)
             .order_by(ProjectSkill.frequency.desc())
         )
         return list(self.db.scalars(stmt).all())
@@ -40,16 +42,18 @@ class SkillRepository(BaseRepository[ProjectSkill]):
         """Get skills grouped by category."""
         skills = self.get_by_project(project_id)
         grouped = {}
-        for skill in skills:
-            if skill.category not in grouped:
-                grouped[skill.category] = []
-            grouped[skill.category].append(skill)
+        for project_skill in skills:
+            category = project_skill.skill.category
+            if category not in grouped:
+                grouped[category] = []
+            grouped[category].append(project_skill)
         return grouped
 
     def get_categories(self, project_id: int) -> List[str]:
         """Get all unique categories for a project."""
         stmt = (
-            select(ProjectSkill.category)
+            select(Skill.category)
+            .join(ProjectSkill)
             .where(ProjectSkill.project_id == project_id)
             .distinct()
         )
@@ -58,17 +62,40 @@ class SkillRepository(BaseRepository[ProjectSkill]):
     def create_skill(
         self,
         project_id: int,
-        skill: str,
+        skill_name: str,
         category: str,
         frequency: int = 1,
+        source: Optional[str] = None,
     ) -> ProjectSkill:
-        """Create a new project skill."""
-        # Check if skill already exists for this project
+        """
+        Create a new project skill, using skill lookup table.
+        
+        Args:
+            project_id: Project ID
+            skill_name: Name of the skill
+            category: Category of the skill
+            frequency: Occurrence count
+            source: Detection source
+            
+        Returns:
+            ProjectSkill instance
+        """
+        # Get or create skill in lookup table
+        skill = self.db.scalar(
+            select(Skill)
+            .where(Skill.name == skill_name)
+            .where(Skill.category == category)
+        )
+        if not skill:
+            skill = Skill(name=skill_name, category=category)
+            self.db.add(skill)
+            self.db.flush()
+        
+        # Check if project skill already exists
         existing = self.db.scalar(
             select(ProjectSkill)
             .where(ProjectSkill.project_id == project_id)
-            .where(ProjectSkill.skill == skill)
-            .where(ProjectSkill.category == category)
+            .where(ProjectSkill.skill_id == skill.id)
         )
         if existing:
             existing.frequency += frequency
@@ -76,47 +103,84 @@ class SkillRepository(BaseRepository[ProjectSkill]):
             self.db.refresh(existing)
             return existing
 
+        # Create project skill
         project_skill = ProjectSkill(
             project_id=project_id,
-            skill=skill,
-            category=category,
+            skill_id=skill.id,
             frequency=frequency,
+            source=source,
         )
         return self.create(project_skill)
 
     def create_skills_bulk(self, skills_data: List[dict]) -> List[ProjectSkill]:
         """
-        Create multiple skills efficiently.
+        Create multiple skills efficiently using lookup table.
 
-        Supports source tracking:
-        - source: "language", "framework", "library", "tool", "contextual", "file_type"
+        Args:
+            skills_data: List of dicts with keys: project_id, skill, category, frequency, source
+
+        Returns:
+            List of created ProjectSkill instances
         """
-        # Group by project_id, skill, category to handle duplicates
-        skill_map = {}
+        from sqlalchemy.exc import IntegrityError
+        
+        # First, get or create all unique skills in lookup table
+        skill_lookup = {}  # Key: (skill_name, category) -> Skill
         for data in skills_data:
-            key = (data["project_id"], data["skill"], data["category"])
-            if key in skill_map:
-                skill_map[key]["frequency"] += data.get("frequency", 1)
+            key = (data["skill"], data["category"])
+            if key not in skill_lookup:
+                skill = self.db.scalar(
+                    select(Skill)
+                    .where(Skill.name == data["skill"])
+                    .where(Skill.category == data["category"])
+                )
+                if not skill:
+                    try:
+                        skill = Skill(name=data["skill"], category=data["category"])
+                        self.db.add(skill)
+                        self.db.flush()
+                    except IntegrityError:
+                        # Skill already exists (race condition or duplicate in batch)
+                        # Retry the query
+                        self.db.rollback()
+                        skill = self.db.scalar(
+                            select(Skill)
+                            .where(Skill.name == data["skill"])
+                            .where(Skill.category == data["category"])
+                        )
+                        if not skill:
+                            raise  # Re-raise if still not found
+                
+                skill_lookup[key] = skill
+
+        # Group by project_id, skill_id to handle duplicates
+        project_skill_map = {}
+        for data in skills_data:
+            skill = skill_lookup[(data["skill"], data["category"])]
+            key = (data["project_id"], skill.id)
+            
+            if key in project_skill_map:
+                project_skill_map[key]["frequency"] += data.get("frequency", 1)
             else:
-                skill_map[key] = {
+                project_skill_map[key] = {
                     "project_id": data["project_id"],
-                    "skill": data["skill"],
-                    "category": data["category"],
+                    "skill_id": skill.id,
                     "frequency": data.get("frequency", 1),
                     "source": data.get("source"),
                 }
 
-        skills = []
-        for data in skill_map.values():
-            skill = ProjectSkill(
+        # Create project skills
+        project_skills = []
+        for data in project_skill_map.values():
+            project_skill = ProjectSkill(
                 project_id=data["project_id"],
-                skill=data["skill"],
-                category=data["category"],
+                skill_id=data["skill_id"],
                 frequency=data["frequency"],
                 source=data.get("source"),
             )
-            skills.append(skill)
-        return self.create_many(skills)
+            project_skills.append(project_skill)
+
+        return self.create_many(project_skills)
 
     def count_by_project(self, project_id: int) -> int:
         """Count skills in a project."""
