@@ -1,12 +1,14 @@
 """Skill repository for database operations."""
 
 from datetime import date
+import json
 from typing import Dict, List, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from src.models.orm.skill import ProjectSkill, ProjectSkillSummary, ProjectSkillTimeline, Skill
+from src.models.orm.project import ProjectAnalysisSummary
+from src.models.orm.skill import ProjectSkill, ProjectSkillTimeline, Skill
 from src.repositories.base import BaseRepository
 
 
@@ -188,33 +190,40 @@ class SkillRepository(BaseRepository[ProjectSkill]):
         return self.db.scalar(stmt) or 0
 
     # Skill Summary operations
-    def get_summary(self, project_id: int) -> Optional[ProjectSkillSummary]:
-        """Get skill summary for a project."""
-        stmt = select(ProjectSkillSummary).where(ProjectSkillSummary.project_id == project_id)
+    def get_summary(self, project_id: int) -> Optional[ProjectAnalysisSummary]:
+        """Get analysis summary for a project."""
+        stmt = select(ProjectAnalysisSummary).where(ProjectAnalysisSummary.project_id == project_id)
         return self.db.scalar(stmt)
 
     def create_summary(
         self,
         project_id: int,
-        total_files: int = 0,
-        files_analyzed: int = 0,
-        files_skipped: int = 0,
-    ) -> ProjectSkillSummary:
-        """Create or update skill summary."""
+        total_files_processed: int = 0,
+        total_files_analyzed: int = 0,
+        total_files_skipped: int = 0,
+        analysis_duration_seconds: float = 0.0,
+        stage_durations: Optional[Dict[str, float]] = None,
+    ) -> ProjectAnalysisSummary:
+        """Create or update analysis summary, including timing metadata."""
         existing = self.get_summary(project_id)
         if existing:
-            existing.total_files = total_files
-            existing.files_analyzed = files_analyzed
-            existing.files_skipped = files_skipped
+            existing.total_files_processed = total_files_processed
+            existing.total_files_analyzed = total_files_analyzed
+            existing.total_files_skipped = total_files_skipped
+            existing.analysis_duration_seconds = analysis_duration_seconds
+            if stage_durations is not None:
+                existing.analysis_stage_durations = json.dumps(stage_durations)
             self.db.commit()
             self.db.refresh(existing)
             return existing
 
-        summary = ProjectSkillSummary(
+        summary = ProjectAnalysisSummary(
             project_id=project_id,
-            total_files=total_files,
-            files_analyzed=files_analyzed,
-            files_skipped=files_skipped,
+            total_files_processed=total_files_processed,
+            total_files_analyzed=total_files_analyzed,
+            total_files_skipped=total_files_skipped,
+            analysis_duration_seconds=analysis_duration_seconds,
+            analysis_stage_durations=json.dumps(stage_durations) if stage_durations else None,
         )
         self.db.add(summary)
         self.db.commit()

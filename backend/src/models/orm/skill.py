@@ -64,26 +64,6 @@ class ProjectSkill(Base):
         return f"<ProjectSkill(id={self.id}, project_id={self.project_id}, skill_id={self.skill_id}, source='{self.source}')>"
 
 
-class ProjectSkillSummary(Base):
-    """ProjectSkillSummary model for skill extraction statistics."""
-
-    __tablename__ = "project_skill_summaries"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    project_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
-    )
-    total_files: Mapped[int] = mapped_column(Integer, default=0)
-    files_analyzed: Mapped[int] = mapped_column(Integer, default=0)
-    files_skipped: Mapped[int] = mapped_column(Integer, default=0)
-
-    # Relationships
-    project: Mapped["Project"] = relationship("Project", back_populates="skill_summary")
-
-    def __repr__(self) -> str:
-        return f"<ProjectSkillSummary(project_id={self.project_id})>"
-
-
 class ProjectSkillTimeline(Base):
     """ProjectSkillTimeline model for skill heatmap/timeline."""
 
