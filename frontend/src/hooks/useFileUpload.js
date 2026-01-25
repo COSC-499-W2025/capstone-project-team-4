@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import axios from "axios";
 
 export const useFileUpload = () => {
   // Initialize state from localStorage if available
@@ -83,18 +84,12 @@ export const useFileUpload = () => {
         const formData = new FormData();
         formData.append("file", file);
 
-        // Your actual FastAPI endpoint
-        const response = await fetch("/api/projects/analyze/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.detail || `Failed to analyze ${file.name}`);
-        }
-
-        const data = await response.json();
+        // Use axios as it's much cleaner than fetch.
+        const response = await axios.post(
+          "/api/projects/analyze/upload",
+          formData,
+        );
+        const data = response.data;
 
         // Transform the API response to match our display format
         results.push({
