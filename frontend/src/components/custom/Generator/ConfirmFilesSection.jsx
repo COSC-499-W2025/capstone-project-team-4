@@ -15,7 +15,7 @@ const ConfirmFilesSection = ({
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-      <h2 className="text-xl font-semibold mb-4">Step 2: Confirm Files</h2>
+      <h2 className="text-xl font-semibold mb-4 text-center">Step 2: Confirm Files</h2>
       <FileList files={files} onDelete={onDelete} />
 
       <div className="mt-6 flex justify-center gap-8">

@@ -6,8 +6,8 @@ const FileList = ({ files, onDelete }) => {
   if (files.length === 0) return null;
 
   return (
-    <div className="w-full max-w-2xl mt-6">
-      <h3 className="text-lg font-semibold mb-3">Uploaded Files</h3>
+    <div className="w-full max-w-2xl mt-6 mx-auto">
+      <h3 className="text-lg font-semibold mb-3 text-center">Uploaded Files</h3>
       <div className="space-y-2">
         {files.map((file, index) => (
           <div
