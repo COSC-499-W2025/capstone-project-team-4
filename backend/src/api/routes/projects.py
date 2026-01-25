@@ -14,6 +14,7 @@ from src.models.schemas.contributor import (
     ContributorSchema,
     ProjectContributorsAnalysisResponse,
     ActivitySchema,
+    ChangeStatsSchema,
 )
 from src.models.schemas.complexity import ComplexityReport, ComplexityByFile, ComplexitySchema
 from src.services.project_service import ProjectService
@@ -202,6 +203,19 @@ async def get_project_contributors(
         commit_dates = [commit.commit_date for commit in c.commit_history]
         activity = _calculate_activity_metrics(commit_dates) if commit_dates else ActivitySchema()
         
+        # Calculate change statistics
+        total_lines_changed = c.total_lines_added + c.total_lines_deleted
+        lines_changed_per_commit = round(total_lines_changed / c.commits, 2) if c.commits > 0 else 0.0
+        files_changed = len(c.files_modified)
+        
+        changes = ChangeStatsSchema(
+            total_lines_added=c.total_lines_added,
+            total_lines_deleted=c.total_lines_deleted,
+            total_lines_changed=total_lines_changed,
+            lines_changed_per_commit=lines_changed_per_commit,
+            files_changed=files_changed,
+        )
+        
         # # [LEGACY] Get activity metrics - try multiple email addresses (from Git re-analysis)
         # activity = ActivitySchema()
         # 
@@ -231,6 +245,7 @@ async def get_project_contributors(
             total_lines_added=c.total_lines_added,
             total_lines_deleted=c.total_lines_deleted,
             activity=activity,
+            changes=changes,
         ))
         total_commits += c.commits
 

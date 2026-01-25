@@ -19,6 +19,18 @@ class ActivitySchema(BaseModel):
     active_weeks: int = 0  # Unique ISO weeks with commits
 
 
+class ChangeStatsSchema(BaseModel):
+    """Schema for contributor change statistics."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    total_lines_added: int = 0  # Total lines added across all commits
+    total_lines_deleted: int = 0  # Total lines deleted across all commits
+    total_lines_changed: int = 0  # added + deleted
+    lines_changed_per_commit: float = 0.0  # total_lines_changed / commits
+    files_changed: int = 0  # Number of unique files touched
+
+
 class ContributorFileSchema(BaseModel):
     """Schema for contributor file modifications."""
 
@@ -43,6 +55,7 @@ class ContributorSchema(BaseModel):
     total_lines_added: int = 0
     total_lines_deleted: int = 0
     activity: ActivitySchema = Field(default_factory=ActivitySchema)
+    changes: ChangeStatsSchema = Field(default_factory=ChangeStatsSchema)
 
 
 class ContributorDetailSchema(ContributorSchema):
@@ -77,6 +90,7 @@ class ContributorAnalysisSchema(BaseModel):
     files_touched: int = 0  # Number of files modified
     contribution_score: float = 0.0  # 0-100 score
     contribution_percentage: float = 0.0  # Graph visualization: percentage of total contribution
+    changes: ChangeStatsSchema = Field(default_factory=ChangeStatsSchema)
 
 
 class ProjectContributorsAnalysisResponse(BaseModel):

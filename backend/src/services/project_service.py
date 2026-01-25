@@ -9,6 +9,7 @@ from src.models.schemas.project import ProjectSummary, ProjectDetail, ProjectLis
 from src.models.schemas.contributor import (
     ContributorAnalysisSchema,
     ProjectContributorsAnalysisResponse,
+    ChangeStatsSchema,
 )
 from src.repositories.project_repository import ProjectRepository
 from src.repositories.file_repository import FileRepository
@@ -211,12 +212,22 @@ class ProjectService:
 
             # Calculate net lines
             net_lines = c.total_lines_added - c.total_lines_deleted
+            
+            # Calculate change statistics
+            contributor_total_lines_changed = c.total_lines_added + c.total_lines_deleted
+            lines_changed_per_commit = (
+                round(contributor_total_lines_changed / c.commits, 2) if c.commits > 0 else 0.0
+            )
+            files_changed = len(c.files_modified)
 
             scores_and_data.append({
                 "contributor": c,
                 "contribution_score": contribution_score,
                 "net_lines": net_lines,
                 "files_touched": len(c.files_modified),
+                "total_lines_changed": contributor_total_lines_changed,
+                "lines_changed_per_commit": lines_changed_per_commit,
+                "files_changed": files_changed,
             })
 
         # Calculate total score for percentage calculation
@@ -231,6 +242,15 @@ class ProjectService:
                 if total_score > 0
                 else 0.0
             )
+            
+            # Build change statistics
+            changes = ChangeStatsSchema(
+                total_lines_added=item["contributor"].total_lines_added,
+                total_lines_deleted=item["contributor"].total_lines_deleted,
+                total_lines_changed=item["total_lines_changed"],
+                lines_changed_per_commit=item["lines_changed_per_commit"],
+                files_changed=item["files_changed"],
+            )
 
             analysis_list.append(
                 ContributorAnalysisSchema(
@@ -244,6 +264,7 @@ class ProjectService:
                     files_touched=item["files_touched"],
                     contribution_score=item["contribution_score"],
                     contribution_percentage=contribution_percentage,
+                    changes=changes,
                 )
             )
 
