@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, date
 from typing import Optional, Set
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, Body
 from sqlalchemy.orm import Session
 
 from src.models.database import get_db
@@ -27,6 +27,29 @@ from src.core.analyzers.contributor import analyze_contributors
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+
+def _find_git_root(start_path: str) -> Optional[str]:
+    """Find nearest parent directory containing a .git folder.
+
+    Args:
+        start_path: Starting path to search upwards from
+
+    Returns:
+        String path of git root or None
+    """
+    try:
+        from pathlib import Path
+        p = Path(start_path).resolve()
+        # Walk up to 6 levels to be safe
+        for _ in range(6):
+            if (p / ".git").exists():
+                return str(p)
+            if p.parent == p:
+                break
+            p = p.parent
+        return None
+    except Exception:
+        return None
 
 
 def _calculate_activity_metrics(commit_dates: list) -> ActivitySchema:
@@ -154,46 +177,10 @@ async def get_project_contributors(
     if not project_detail:
         raise ProjectNotFoundError(project_id)
 
-    # # [LEGACY] Get the ORM model for path attribute (for Git re-analysis)
-    # project_repo = ProjectRepository(db)
-    # project_orm = project_repo.get(project_id)
-    # 
-    # if not project_orm:
-    #     raise ProjectNotFoundError(project_id)
-    # 
-    # logger.info(f"Project root_path: {project_orm.root_path}")
-    # logger.info(f"Project source_type: {project_orm.source_type}")
-    # logger.info(f"Project source_url: {project_orm.source_url}")
-
     contributor_repo = ContributorRepository(db)
     contributors = contributor_repo.get_by_project(project_id)
 
-    # # [LEGACY] Get activity metrics from Git analysis (re-analyzing on every request)
-    # git_contributors = analyze_contributors(project_orm.root_path)
-    # 
-    # # Debug: log what we're getting
-    # if git_contributors:
-    #     logger.info(f"First git contributor keys: {git_contributors[0].keys()}")
-    #     logger.info(f"Commit dates in first contributor: {git_contributors[0].get('commit_dates', [])[:3]}")
-    # 
-    # activity_by_email: dict = {}
-    # 
-    # # Build activity lookup by multiple email variants
-    # for git_contrib in git_contributors:
-    #     email = git_contrib.get("email", "")
-    #     github_email = git_contrib.get("github_email", "")
-    #     all_emails = git_contrib.get("all_emails", [])
-    #     
-    #     commit_dates = git_contrib.get("commit_dates", [])
-    #     activity = _calculate_activity_metrics(commit_dates)
-    #     
-    #     # Store activity by all known email addresses
-    #     if email:
-    #         activity_by_email[email] = activity
-    #     if github_email:
-    #         activity_by_email[github_email] = activity
-    #     for email_variant in all_emails:
-    #         activity_by_email[email_variant] = activity
+
 
     contributor_schemas = []
     total_commits = 0
@@ -203,10 +190,19 @@ async def get_project_contributors(
         commit_dates = [commit.commit_date for commit in c.commit_history]
         activity = _calculate_activity_metrics(commit_dates) if commit_dates else ActivitySchema()
         
-        # Calculate change statistics
+        # Filter out .json files from files_modified
+        all_files = c.files_modified or []
+        non_json_files = [fm for fm in all_files if not (fm.filename or "").lower().endswith(".json")]
+        json_count = len(all_files) - len(non_json_files)
+        
+        logger.debug(f"Contributor {c.name}: total={len(all_files)} files, json={json_count}, non_json={len(non_json_files)}")
+        if json_count > 0:
+            logger.debug(f"  JSON files: {[fm.filename for fm in all_files if (fm.filename or '').lower().endswith('.json')]}")
+        
+        # Calculate change statistics (excluding .json files)
         total_lines_changed = c.total_lines_added + c.total_lines_deleted
         lines_changed_per_commit = round(total_lines_changed / c.commits, 2) if c.commits > 0 else 0.0
-        files_changed = len(c.files_modified)
+        files_changed = len(non_json_files)
         
         changes = ChangeStatsSchema(
             total_lines_added=c.total_lines_added,
@@ -215,24 +211,6 @@ async def get_project_contributors(
             lines_changed_per_commit=lines_changed_per_commit,
             files_changed=files_changed,
         )
-        
-        # # [LEGACY] Get activity metrics - try multiple email addresses (from Git re-analysis)
-        # activity = ActivitySchema()
-        # 
-        # # Try primary email first
-        # if c.email and c.email in activity_by_email:
-        #     activity = activity_by_email[c.email]
-        # # Try github_email if available
-        # elif c.github_email and c.github_email in activity_by_email:
-        #     activity = activity_by_email[c.github_email]
-        # else:
-        #     # Try fuzzy matching: check if any git email contains the DB email username
-        #     for git_email, git_activity in activity_by_email.items():
-        #         if c.email and "@" in c.email:
-        #             db_username = c.email.split("@")[0].lower()
-        #             if "@" in git_email and db_username in git_email.lower():
-        #                 activity = git_activity
-        #                 break
         
         contributor_schemas.append(ContributorSchema(
             id=c.id,
@@ -258,104 +236,84 @@ async def get_project_contributors(
     )
 
 
-@router.get("/{project_id}/contributors/analysis", response_model=ProjectContributorsAnalysisResponse)
-async def get_contributor_analysis(
+
+
+@router.get("/{project_id}/complexity", response_model=ComplexityReport)
+async def get_project_complexity(
     project_id: int,
     db: Session = Depends(get_db),
 ):
     """
-    Get detailed contribution analysis for each contributor in a project.
+    Get code complexity metrics for a project.
 
-    - Returns contribution scores (0-100) for each contributor
-    - Scores are calculated using: commits (40%), lines changed (40%), files touched (20%)
-    - Also includes absolute metrics: commits, lines added/deleted, files touched
-    - Useful for understanding who contributed what to the project
+    - Returns complexity statistics and function-level metrics
+    - Includes high complexity functions for review
     """
     service = ProjectService(db)
-    result = service.get_contributor_analysis(project_id)
+    project = service.get_project(project_id)
 
-    if result is None:
+    if not project:
         raise ProjectNotFoundError(project_id)
 
-    return result
+    complexity_repo = ComplexityRepository(db)
 
+    # Get summary
+    summary = complexity_repo.get_summary(project_id)
 
-# @router.get("/{project_id}/complexity", response_model=ComplexityReport)
-# async def get_project_complexity(
-#     project_id: int,
-#     db: Session = Depends(get_db),
-# ):
-#     """
-#     Get code complexity metrics for a project.
+    # Get by file
+    grouped = complexity_repo.get_by_file_grouped(project_id)
+    by_file = []
 
-#     - Returns complexity statistics and function-level metrics
-#     - Includes high complexity functions for review
-#     """
-#     service = ProjectService(db)
-#     project = service.get_project(project_id)
+    for file_path, functions in grouped.items():
+        complexity_values = [f.cyclomatic_complexity for f in functions]
+        function_schemas = [
+            ComplexitySchema(
+                id=f.id,
+                file_path=f.file_path,
+                function_name=f.function_name,
+                start_line=f.start_line,
+                end_line=f.end_line,
+                cyclomatic_complexity=f.cyclomatic_complexity,
+            )
+            for f in functions
+        ]
 
-#     if not project:
-#         raise ProjectNotFoundError(project_id)
+        by_file.append(ComplexityByFile(
+            file_path=file_path,
+            function_count=len(functions),
+            avg_complexity=sum(complexity_values) / len(complexity_values) if complexity_values else 0,
+            max_complexity=max(complexity_values) if complexity_values else 0,
+            functions=function_schemas,
+        ))
 
-#     complexity_repo = ComplexityRepository(db)
+    # Get high complexity functions
+    high_complexity = complexity_repo.get_high_complexity(project_id, threshold=10)
+    high_complexity_schemas = [
+        ComplexitySchema(
+            id=f.id,
+            file_path=f.file_path,
+            function_name=f.function_name,
+            start_line=f.start_line,
+            end_line=f.end_line,
+            cyclomatic_complexity=f.cyclomatic_complexity,
+        )
+        for f in high_complexity
+    ]
 
-#     # Get summary
-#     summary = complexity_repo.get_summary(project_id)
+    from src.models.schemas.complexity import ComplexitySummary
 
-#     # Get by file
-#     grouped = complexity_repo.get_by_file_grouped(project_id)
-#     by_file = []
-
-#     for file_path, functions in grouped.items():
-#         complexity_values = [f.cyclomatic_complexity for f in functions]
-#         function_schemas = [
-#             ComplexitySchema(
-#                 id=f.id,
-#                 file_path=f.file_path,
-#                 function_name=f.function_name,
-#                 start_line=f.start_line,
-#                 end_line=f.end_line,
-#                 cyclomatic_complexity=f.cyclomatic_complexity,
-#             )
-#             for f in functions
-#         ]
-
-#         by_file.append(ComplexityByFile(
-#             file_path=file_path,
-#             function_count=len(functions),
-#             avg_complexity=sum(complexity_values) / len(complexity_values) if complexity_values else 0,
-#             max_complexity=max(complexity_values) if complexity_values else 0,
-#             functions=function_schemas,
-#         ))
-
-#     # Get high complexity functions
-#     high_complexity = complexity_repo.get_high_complexity(project_id, threshold=10)
-#     high_complexity_schemas = [
-#         ComplexitySchema(
-#             id=f.id,
-#             file_path=f.file_path,
-#             function_name=f.function_name,
-#             start_line=f.start_line,
-#             end_line=f.end_line,
-#             cyclomatic_complexity=f.cyclomatic_complexity,
-#         )
-#         for f in high_complexity
-#     ]
-
-#     from src.models.schemas.complexity import ComplexitySummary
-
-#     return ComplexityReport(
-#         project_id=project_id,
-#         project_name=project.name,
-#         summary=ComplexitySummary(
-#             total_functions=summary.get("total_functions", 0),
-#             avg_complexity=summary.get("avg_complexity", 0.0),
-#             max_complexity=summary.get("max_complexity", 0),
-#             min_complexity=summary.get("min_complexity", 0),
-#             high_complexity_count=summary.get("high_complexity_count", 0),
-#             medium_complexity_count=summary.get("medium_complexity_count", 0),
-#             low_complexity_count=summary.get("low_complexity_count", 0),
-#         ),
-#         by_file=by_file,
-#         high_complexity_functions=high_complexity_schemas,
-#     )
+    return ComplexityReport(
+        project_id=project_id,
+        project_name=project.name,
+        summary=ComplexitySummary(
+            total_functions=summary.get("total_functions", 0),
+            avg_complexity=summary.get("avg_complexity", 0.0),
+            max_complexity=summary.get("max_complexity", 0),
+            min_complexity=summary.get("min_complexity", 0),
+            high_complexity_count=summary.get("high_complexity_count", 0),
+            medium_complexity_count=summary.get("medium_complexity_count", 0),
+            low_complexity_count=summary.get("low_complexity_count", 0),
+        ),
+        by_file=by_file,
+        high_complexity_functions=high_complexity_schemas,
+    )

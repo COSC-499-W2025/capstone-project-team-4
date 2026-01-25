@@ -91,6 +91,9 @@ class ContributorAnalysisSchema(BaseModel):
     contribution_score: float = 0.0  # 0-100 score
     contribution_percentage: float = 0.0  # Graph visualization: percentage of total contribution
     changes: ChangeStatsSchema = Field(default_factory=ChangeStatsSchema)
+    area_scores: dict = Field(default_factory=dict)  # Domain -> percentage (0-100)
+    top_paths: List[str] = Field(default_factory=list)
+    top_frameworks: List[str] = Field(default_factory=list)
 
 
 class ProjectContributorsAnalysisResponse(BaseModel):
@@ -100,3 +103,4 @@ class ProjectContributorsAnalysisResponse(BaseModel):
     project_name: str
     total_contributors: int = 0
     contributors: List[ContributorAnalysisSchema] = []
+

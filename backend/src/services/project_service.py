@@ -1,8 +1,12 @@
 """Project service for project operations."""
 
 import logging
-from typing import List, Optional
+from collections import defaultdict
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
+import yaml
+from src.core.detectors.language import EXTENSION_MAP
 from sqlalchemy.orm import Session
 
 from src.models.schemas.project import ProjectSummary, ProjectDetail, ProjectList
@@ -31,6 +35,74 @@ class ProjectService:
         self.contributor_repo = ContributorRepository(db)
         self.complexity_repo = ComplexityRepository(db)
         self.skill_repo = SkillRepository(db)
+
+    @staticmethod
+    def _get_domain_mapping_path() -> Path:
+        """Return path to domain mapping config file."""
+        return Path(__file__).resolve().parent.parent / "config" / "domain_mapping.yaml"
+
+    @staticmethod
+    def _load_domain_mapping() -> Dict[str, dict]:
+        """Load domain mapping from config (cached in process)."""
+        path = ProjectService._get_domain_mapping_path()
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+                if isinstance(data, dict):
+                    return data
+        except FileNotFoundError:
+            logger.warning("Domain mapping config not found at %s", path)
+        except Exception as exc:  # pragma: no cover
+            logger.warning("Failed to load domain mapping: %s", exc)
+        return {}
+
+    @staticmethod
+    def _build_domain_index(mapping: Dict[str, dict]) -> Dict[str, dict]:
+        """Build reverse index for fast domain lookup."""
+        paths: List[Tuple[str, str]] = []
+        ext_map: Dict[str, str] = {}
+        lang_map: Dict[str, str] = {}
+        framework_map: Dict[str, str] = {}
+
+        for domain, rule in mapping.items():
+            for p in rule.get("paths", []) or []:
+                paths.append((p.lower(), domain))
+            for ext in rule.get("extensions", []) or []:
+                ext_map[ext.lower()] = domain
+            for lang in rule.get("languages", []) or []:
+                lang_map[lang.lower()] = domain
+            for fw in rule.get("frameworks", []) or []:
+                framework_map[fw.lower()] = domain
+
+        # Sort paths by length descending so deeper prefixes match first
+        paths.sort(key=lambda item: len(item[0]), reverse=True)
+
+        return {
+            "paths": paths,
+            "extensions": ext_map,
+            "languages": lang_map,
+            "frameworks": framework_map,
+        }
+
+    @staticmethod
+    def _normalize_path(path: str) -> str:
+        """Normalize paths for consistent matching."""
+        if not path:
+            return ""
+        return path.replace("\\", "/").lstrip("./").lstrip("/").lower()
+
+    @staticmethod
+    def _classify_domain(
+        path: str,
+        language: Optional[str],
+        domain_index: Dict[str, dict],
+    ) -> Optional[str]:
+        """Determine domain for a file using language only (paths/extensions ignored)."""
+        if language:
+            lang_key = language.lower()
+            if lang_key in domain_index["languages"]:
+                return domain_index["languages"][lang_key]
+        return None
 
     def list_projects(
         self,
@@ -187,6 +259,17 @@ class ProjectService:
                 contributors=[],
             )
 
+        domain_mapping = self._load_domain_mapping()
+        domain_index = self._build_domain_index(domain_mapping)
+
+        files = self.file_repo.get_by_project(project_id, limit=100000)
+        file_lang_map: Dict[str, Optional[str]] = {}
+        for f in files:
+            normalized = self._normalize_path(f.path)
+            file_lang_map[normalized] = f.language.name if f.language else None
+
+        project_frameworks = self.project_repo.get_frameworks(project_id) if hasattr(self.project_repo, "get_frameworks") else []
+
         # Calculate totals
         total_commits = sum(c.commits for c in contributors)
         total_lines_added = sum(c.total_lines_added for c in contributors)
@@ -219,6 +302,33 @@ class ProjectService:
                 round(contributor_total_lines_changed / c.commits, 2) if c.commits > 0 else 0.0
             )
             files_changed = len(c.files_modified)
+
+            domain_counts: Dict[str, int] = defaultdict(int)
+            debug_files = []
+            for fm in c.files_modified:
+                filename = fm.filename or ""
+                # Skip .json files
+                if filename.endswith(".json"):
+                    continue
+                weight = fm.modifications or 1
+                normalized = self._normalize_path(filename)
+                language = file_lang_map.get(normalized)
+                if not language:
+                    # Fallback: infer language from file extension when not stored
+                    language = EXTENSION_MAP.get(Path(filename).suffix.lower())
+                domain = self._classify_domain(filename, language, domain_index)
+                if not domain:
+                    debug_files.append((filename, language, "NO_DOMAIN"))
+                    continue
+                domain_counts[domain] += weight
+                debug_files.append((filename, language, domain))
+
+            logger.debug(f"Contributor {c.name}: domain_counts={dict(domain_counts)}, sample_files={debug_files[:3]}")
+            domain_total = sum(domain_counts.values())
+            area_scores = {}
+            if domain_total > 0:
+                for domain, count in domain_counts.items():
+                    area_scores[domain] = round((count / domain_total) * 100, 2)
 
             scores_and_data.append({
                 "contributor": c,
@@ -265,6 +375,9 @@ class ProjectService:
                     contribution_score=item["contribution_score"],
                     contribution_percentage=contribution_percentage,
                     changes=changes,
+                    area_scores=area_scores,
+                    top_paths=[],
+                    top_frameworks=[],
                 )
             )
 
