@@ -49,6 +49,9 @@ python-dotenv>=1.0.0
 # AI Integration
 openai>=1.12.0
 
+# Authentication
+bcrypt>=4.0.0
+
 # Testing
 pytest>=7.4.0
 pytest-cov>=4.1.0

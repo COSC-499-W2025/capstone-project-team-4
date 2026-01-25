@@ -1,13 +1,14 @@
 """Analysis service - main orchestration for project analysis pipeline."""
 
 import logging
+import time
 import zipfile
 import tempfile
 import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Dict
 from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
@@ -270,19 +271,27 @@ class AnalysisService:
             AnalysisResult with all analysis data
         """
         logger.info(f"Starting analysis for {project_name} at {project_path}")
+        
+        # Track timing for performance analysis
+        start_time = time.time()
+        stage_timings: Dict[str, float] = {}
 
         try:
             # Step 0: Single-pass file collection (OPTIMIZATION)
             logger.info("Step 0: Collecting file info (single pass)")
+            step_start = time.time()
             file_info_list = collect_all_file_info(project_path, show_progress=True)
             file_paths = [f.path for f in file_info_list]
-            logger.info(f"Step 0 complete: Collected info for {len(file_info_list)} files")
+            stage_timings['file_collection'] = time.time() - step_start
+            logger.info(f"Step 0 complete: Collected info for {len(file_info_list)} files in {stage_timings['file_collection']:.2f}s")
 
             # Step 1: Convert file info to metadata format
             logger.info("Step 1: Building metadata from collected files")
+            step_start = time.time()
             project_root = str(Path(project_path).resolve())
             file_list = [file_info_to_metadata_dict(f) for f in file_info_list]
-            logger.info(f"Step 1 complete: {len(file_list)} files")
+            stage_timings['metadata_conversion'] = time.time() - step_start
+            logger.info(f"Step 1 complete: {len(file_list)} files in {stage_timings['metadata_conversion']:.2f}s")
 
             # Step 2: Create project entry
             logger.info("Step 2: Creating project entry")
@@ -297,6 +306,7 @@ class AnalysisService:
 
             # Steps 3-6: PARALLEL ANALYSIS (Git, Complexity, Languages, Frameworks, Libraries, Tools)
             logger.info("Steps 3-6: Running parallel analysis")
+            step_start = time.time()
 
             # Default values in case of errors
             contributors = []
@@ -345,10 +355,12 @@ class AnalysisService:
                     except Exception as e:
                         logger.warning(f"{task_name} analysis failed: {e}")
 
-            logger.info("Steps 3-6 complete: Parallel analysis finished")
+            stage_timings['parallel_analysis'] = time.time() - step_start
+            logger.info(f"Steps 3-6 complete: Parallel analysis finished in {stage_timings['parallel_analysis']:.2f}s")
 
             # Step 5.5: Extract skills with pre-detected signals
             logger.info("Step 5.5: Extracting skills with library/tool context")
+            step_start = time.time()
             framework_names = [fw.get("name") for fw in frameworks_detected if fw.get("name")]
             skill_report = analyze_project_skills(
                 project_root,
@@ -357,10 +369,12 @@ class AnalysisService:
                 languages=languages_detected,
                 frameworks=framework_names,
             )
-            logger.info("Step 5.5 complete: Found %d skills", skill_report.get("total_skills", 0))
+            stage_timings['skill_extraction'] = time.time() - step_start
+            logger.info("Step 5.5 complete: Found %d skills in %.2fs", skill_report.get("total_skills", 0), stage_timings['skill_extraction'])
 
             # Step 5.6: Cross-validate detections
             logger.info("Step 5.6: Cross-validating detections")
+            step_start = time.time()
             validator = CrossValidator(
                 languages=languages_detected,
                 frameworks=frameworks_detected,
@@ -369,10 +383,12 @@ class AnalysisService:
             )
             enhanced_results = validator.get_enhanced_results()
             validation_summary = enhanced_results.validation_summary
+            stage_timings['cross_validation'] = time.time() - step_start
             logger.info(
-                "Step 5.6 complete: Cross-validation found %d boosted, %d gap-filled frameworks",
+                "Step 5.6 complete: Cross-validation found %d boosted, %d gap-filled frameworks in %.2fs",
                 validation_summary.get("frameworks_boosted", 0),
-                validation_summary.get("gap_filled_frameworks", 0)
+                validation_summary.get("gap_filled_frameworks", 0),
+                stage_timings['cross_validation']
             )
 
             # Merge enhanced frameworks with gap-filled ones
@@ -396,6 +412,7 @@ class AnalysisService:
 
             # Step 7: Save to database
             logger.info("Step 7: Saving to database")
+            step_start = time.time()
             self._save_files(project_id, file_list)
             self._save_complexity(project_id, complexity_dict.get("functions", []))
             if contributors:
@@ -404,14 +421,21 @@ class AnalysisService:
                 project_id,
                 skill_report.get("skill_categories", {}),
                 skill_sources=skill_report.get("skill_sources", {}),
+                skill_frequencies=skill_report.get("skill_frequencies", {}),
+                file_list=file_list,
+                detected_languages=languages,
+                detected_frameworks=frameworks,
+                project_path=project_root,
             )
             self._save_frameworks(project_id, all_enhanced_frameworks)
             self._save_libraries(project_id, library_report.get("libraries", []))
             self._save_tools(project_id, tool_report.get("tools", []))
-            logger.info("Step 7 complete: Database saves finished")
+            stage_timings['database_saves'] = time.time() - step_start
+            logger.info(f"Step 7 complete: Database saves finished in {stage_timings['database_saves']:.2f}s")
 
             # Step 8: Generate and save resume item
             logger.info("Step 8: Generating resume item")
+            step_start = time.time()
             resume_item = generate_resume_item(
                 project_name=project_name,
                 contributors=contributors,
@@ -428,6 +452,8 @@ class AnalysisService:
                 ai_max_tokens=settings.ai_max_tokens,
             )
             self._save_resume_item(project_id, resume_item)
+            stage_timings['resume_generation'] = time.time() - step_start
+            logger.info(f"Step 8 complete: Resume generated in {stage_timings['resume_generation']:.2f}s")
 
             # Build result
             complexity_summary = self.complexity_repo.get_summary(project_id)
@@ -459,6 +485,18 @@ class AnalysisService:
                 project_started_at = first_file_created
             
             logger.info(f"Project started at: {project_started_at}")
+            
+            # Step 9: Save analysis summary with timing data
+            total_duration = time.time() - start_time
+            self._save_analysis_summary(
+                project_id=project_id,
+                total_files_processed=len(file_list),
+                total_files_analyzed=len([f for f in file_list if f.get('lines_of_code', 0) > 0]),
+                total_files_skipped=len([f for f in file_list if f.get('lines_of_code', 0) == 0]),
+                analysis_duration_seconds=total_duration,
+                stage_durations=stage_timings,
+            )
+            logger.info(f"Analysis summary saved: Total duration {total_duration:.2f}s")
             
             return AnalysisResult(
                 project_id=project_id,
@@ -584,16 +622,27 @@ class AnalysisService:
         project_id: int,
         skill_categories: dict,
         skill_sources: Optional[dict] = None,
+        skill_frequencies: Optional[dict] = None,
+        file_list: Optional[List[dict]] = None,
+        detected_languages: Optional[List[str]] = None,
+        detected_frameworks: Optional[List[str]] = None,
+        project_path: Optional[str] = None,
     ) -> None:
         """
-        Save skills to database with source tracking.
+        Save skills to database with source tracking, frequency counts, and timeline entries.
 
         Args:
             project_id: Project ID
             skill_categories: Dict mapping category -> list of skill names
             skill_sources: Optional dict mapping skill name -> source type
+            skill_frequencies: Optional dict mapping skill name -> occurrence count
+            file_list: Optional list of file metadata for timeline generation
+            detected_languages: Optional list of detected language names
+            detected_frameworks: Optional list of detected framework names
+            project_path: Optional path to project for git history extraction
         """
         skill_sources = skill_sources or {}
+        skill_frequencies = skill_frequencies or {}
         skills_data = []
 
         for category, skills in skill_categories.items():
@@ -602,12 +651,166 @@ class AnalysisService:
                     "project_id": project_id,
                     "skill": skill,
                     "category": category,
-                    "frequency": 1,
+                    "frequency": skill_frequencies.get(skill, 1),
                     "source": skill_sources.get(skill),
                 })
 
         if skills_data:
             self.skill_repo.create_skills_bulk(skills_data)
+
+        # Generate timeline entries from git history or file dates
+        if file_list:
+            self._save_skill_timeline(
+                project_id,
+                skill_categories,
+                file_list,
+                detected_languages=detected_languages,
+                detected_frameworks=detected_frameworks,
+                project_path=project_path,
+            )
+
+    def _save_skill_timeline(
+        self,
+        project_id: int,
+        skill_categories: dict,
+        file_list: List[dict],
+        detected_languages: Optional[List[str]] = None,
+        detected_frameworks: Optional[List[str]] = None,
+        contributors: Optional[List[dict]] = None,
+        project_path: Optional[str] = None,
+    ) -> None:
+        """
+        Save skill timeline entries based on git commit history or file dates.
+
+        Uses git commit history when available (more accurate), falls back to
+        file modification timestamps otherwise. Only includes skills that are
+        already in skill_categories (the meaningful, resume-worthy skills).
+
+        Args:
+            project_id: Project ID
+            skill_categories: Dict mapping category -> list of skill names (from skill detector)
+            file_list: List of file metadata with last_modified timestamps
+            detected_languages: List of detected language names
+            detected_frameworks: List of detected framework names
+            contributors: List of contributor data with commit history
+            project_path: Path to project for git history extraction
+        """
+        from collections import defaultdict
+
+        # Only use skills from skill_categories - these are the meaningful skills
+        # detected by the skill detector (not raw file formats like JSON, YAML, etc.)
+        all_skills = set()
+        for skills in skill_categories.values():
+            all_skills.update(skills)
+
+        if not all_skills:
+            logger.info("No skills to create timeline for")
+            return
+
+        # Try to get dates from git commit history first (more accurate)
+        commit_dates = self._extract_commit_dates_from_git(project_path)
+
+        if commit_dates:
+            # Use git commit dates - add all skills to the date range
+            logger.info(f"Using {len(commit_dates)} git commit dates for timeline")
+            min_date = min(commit_dates)
+            max_date = max(commit_dates)
+
+            timeline_data = []
+            for skill in all_skills:
+                # Add entry for first occurrence
+                timeline_data.append({
+                    "project_id": project_id,
+                    "skill": skill,
+                    "date": min_date,
+                    "count": 1,
+                })
+                # Add entry for last occurrence if different
+                if max_date != min_date:
+                    timeline_data.append({
+                        "project_id": project_id,
+                        "skill": skill,
+                        "date": max_date,
+                        "count": 1,
+                    })
+        else:
+            # Fall back to file modification dates
+            logger.info("No git history available, using file modification dates")
+            file_dates = []
+            for file_meta in file_list:
+                last_modified = file_meta.get("last_modified")
+                if last_modified:
+                    try:
+                        file_date = datetime.fromtimestamp(last_modified).date()
+                        file_dates.append(file_date)
+                    except (ValueError, TypeError, OSError):
+                        continue
+
+            if not file_dates:
+                logger.info("No file dates available for timeline")
+                return
+
+            min_date = min(file_dates)
+            max_date = max(file_dates)
+
+            timeline_data = []
+            for skill in all_skills:
+                timeline_data.append({
+                    "project_id": project_id,
+                    "skill": skill,
+                    "date": min_date,
+                    "count": 1,
+                })
+                if max_date != min_date:
+                    timeline_data.append({
+                        "project_id": project_id,
+                        "skill": skill,
+                        "date": max_date,
+                        "count": 1,
+                    })
+
+        if timeline_data:
+            self.skill_repo.create_timeline_bulk(timeline_data)
+            logger.info(f"Saved {len(timeline_data)} skill timeline entries for project {project_id}")
+
+    def _extract_commit_dates_from_git(self, project_path: Optional[str]) -> List:
+        """
+        Extract unique commit dates from git history.
+
+        Args:
+            project_path: Path to the project directory
+
+        Returns:
+            List of date objects from git commits, or empty list if not a git repo
+        """
+        if not project_path:
+            return []
+
+        try:
+            from git import Repo, InvalidGitRepositoryError
+        except ImportError:
+            return []
+
+        try:
+            repo = Repo(project_path)
+            commit_dates = set()
+
+            # Get dates from recent commits (limit to avoid slow processing)
+            for commit in repo.iter_commits(max_count=500):
+                try:
+                    commit_date = datetime.fromtimestamp(commit.committed_date).date()
+                    commit_dates.add(commit_date)
+                except (ValueError, TypeError, OSError):
+                    continue
+
+            return sorted(commit_dates)
+
+        except InvalidGitRepositoryError:
+            logger.debug(f"Not a git repository: {project_path}")
+            return []
+        except Exception as e:
+            logger.debug(f"Error reading git history: {e}")
+            return []
 
     def _save_resume_item(self, project_id: int, resume_item: dict) -> None:
         """Save resume item to database."""
@@ -635,6 +838,49 @@ class AnalysisService:
             self.tool_repo.create_tools_bulk(tools, project_id)
             logger.info(f"Saved {len(tools)} tools for project {project_id}")
 
+    def _save_analysis_summary(
+        self,
+        project_id: int,
+        total_files_processed: int,
+        total_files_analyzed: int,
+        total_files_skipped: int,
+        analysis_duration_seconds: float,
+        stage_durations: Optional[Dict[str, float]] = None,
+    ) -> None:
+        """
+        Save project analysis summary with timing and statistics.
+        
+        This function populates the ProjectAnalysisSummary table with:
+        - File processing statistics (total, analyzed, skipped)
+        - Total analysis duration
+        - Per-stage timing breakdown for performance analysis
+        
+        Args:
+            project_id: Project ID
+            total_files_processed: Total number of files found in project
+            total_files_analyzed: Number of files with content analyzed
+            total_files_skipped: Number of files skipped (binary, empty, etc.)
+            analysis_duration_seconds: Total analysis time in seconds
+            stage_durations: Dict mapping stage name to duration in seconds
+        """
+        try:
+            self.skill_repo.create_summary(
+                project_id=project_id,
+                total_files_processed=total_files_processed,
+                total_files_analyzed=total_files_analyzed,
+                total_files_skipped=total_files_skipped,
+                analysis_duration_seconds=analysis_duration_seconds,
+                stage_durations=stage_durations,
+            )
+            
+            # Log performance insights
+            if stage_durations:
+                slowest_stage = max(stage_durations.items(), key=lambda x: x[1])
+                logger.info(f"Performance: Slowest stage was '{slowest_stage[0]}' at {slowest_stage[1]:.2f}s")
+                
+        except Exception as e:
+            logger.error(f"Failed to save analysis summary for project {project_id}: {e}")
+
     def get_analysis_result(self, project_id: int) -> Optional[AnalysisResult]:
         """Get analysis result for a project."""
         project = self.project_repo.get(project_id)
@@ -643,12 +889,10 @@ class AnalysisService:
 
         languages = self.project_repo.get_languages(project_id)
         frameworks = self.project_repo.get_frameworks(project_id)
+        libraries = self.project_repo.get_libraries(project_id)
         complexity_summary = self.complexity_repo.get_summary(project_id)
         tools_and_technologies = self.tool_repo.get_tool_names(project_id)
-        contextual_skills = sorted([
-            skill_obj.skill
-            for skill_obj in self.skill_repo.get_skills_by_source(project_id, "contextual")
-        ])
+        skills = self.skill_repo.get_by_project(project_id)
 
         # Get earliest file timestamp from files table (if available)
         first_file_created = self.file_repo.get_earliest_file_date(project_id) or datetime.utcnow()
@@ -661,8 +905,9 @@ class AnalysisService:
             source_url=project.source_url,
             languages=languages,
             frameworks=frameworks,
+            libraries=libraries,
             tools_and_technologies=tools_and_technologies,
-            contextual_skills=contextual_skills,
+            skills=skills,
             file_count=self.file_repo.count_by_project(project_id),
             contributor_count=self.contributor_repo.count_by_project(project_id),
             skill_count=self.skill_repo.count_by_project(project_id),

@@ -1,15 +1,28 @@
-"""Pydantic schemas for user profiles."""
+"""Pydantic schemas for user profiles and experiences."""
 
 from datetime import date, datetime
+from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field
 
 
-# Work Experience Schemas
-class WorkExperienceBase(BaseModel):
-    """Base work experience schema."""
+# Experience Type Enum
+class ExperienceTypeEnum(str, Enum):
+    """Enum for different types of experiences."""
 
+    WORK = "work"
+    EDUCATION = "education"
+    VOLUNTEER = "volunteer"
+    CERTIFICATION = "certification"
+    PROJECT = "project"
+
+
+# Experience Schemas
+class ExperienceBase(BaseModel):
+    """Base experience schema."""
+
+    experience_type: ExperienceTypeEnum = ExperienceTypeEnum.WORK
     company_name: str = Field(..., min_length=1, max_length=255)
     job_title: str = Field(..., min_length=1, max_length=255)
     employment_type: Optional[str] = Field(None, max_length=50)
@@ -23,15 +36,16 @@ class WorkExperienceBase(BaseModel):
     achievements: Optional[List[str]] = None
 
 
-class WorkExperienceCreate(WorkExperienceBase):
-    """Schema for creating a work experience entry."""
+class ExperienceCreate(ExperienceBase):
+    """Schema for creating an experience entry."""
 
     pass
 
 
-class WorkExperienceUpdate(BaseModel):
-    """Schema for updating a work experience entry."""
+class ExperienceUpdate(BaseModel):
+    """Schema for updating an experience entry."""
 
+    experience_type: Optional[ExperienceTypeEnum] = None
     company_name: Optional[str] = Field(None, min_length=1, max_length=255)
     job_title: Optional[str] = Field(None, min_length=1, max_length=255)
     employment_type: Optional[str] = Field(None, max_length=50)
@@ -45,13 +59,13 @@ class WorkExperienceUpdate(BaseModel):
     achievements: Optional[List[str]] = None
 
 
-class WorkExperienceResponse(WorkExperienceBase):
-    """Schema for work experience response."""
+class ExperienceResponse(ExperienceBase):
+    """Schema for experience response."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    user_profile_id: int
+    user_id: int
     created_at: datetime
     updated_at: datetime
 
@@ -62,7 +76,6 @@ class UserProfileBase(BaseModel):
 
     first_name: str = Field(..., min_length=1, max_length=100)
     last_name: str = Field(..., min_length=1, max_length=100)
-    email: EmailStr
     phone: Optional[str] = Field(None, max_length=50)
     city: Optional[str] = Field(None, max_length=100)
     state: Optional[str] = Field(None, max_length=100)
@@ -76,7 +89,7 @@ class UserProfileBase(BaseModel):
 class UserProfileCreate(UserProfileBase):
     """Schema for creating a user profile."""
 
-    work_experiences: Optional[List[WorkExperienceCreate]] = None
+    pass
 
 
 class UserProfileUpdate(BaseModel):
@@ -84,7 +97,6 @@ class UserProfileUpdate(BaseModel):
 
     first_name: Optional[str] = Field(None, min_length=1, max_length=100)
     last_name: Optional[str] = Field(None, min_length=1, max_length=100)
-    email: Optional[EmailStr] = None
     phone: Optional[str] = Field(None, max_length=50)
     city: Optional[str] = Field(None, max_length=100)
     state: Optional[str] = Field(None, max_length=100)
@@ -101,14 +113,14 @@ class UserProfileSummary(UserProfileBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    user_id: int
     created_at: datetime
 
 
 class UserProfileDetail(UserProfileSummary):
-    """Schema for detailed user profile view with work experiences."""
+    """Schema for detailed user profile view."""
 
     updated_at: datetime
-    work_experiences: List[WorkExperienceResponse] = []
 
 
 class UserProfileList(BaseModel):
