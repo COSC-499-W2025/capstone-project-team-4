@@ -6,7 +6,7 @@ import {
   within,
 } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import Dropzone from "../components/custom/Dropzone.jsx";
+import Dropzone from "../components/custom/Home/Dropzone.jsx/index.js";
 
 // Mock 'react-dropzone' to bypass JSDOM limitations
 // This ensures 'onDrop' is called immediately when we trigger the input

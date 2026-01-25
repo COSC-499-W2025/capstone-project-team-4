@@ -1,4 +1,4 @@
-import MainNav from "@/components/custom/MainNav";
+import MainNav from "@/components/custom/Home/MainNav";
 
 export default function AuthShell({
     title,
