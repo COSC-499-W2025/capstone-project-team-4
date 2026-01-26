@@ -83,10 +83,6 @@ IGNORE_DIRS = {
 logger = logging.getLogger(__name__)
 
 def _is_macos_junk_zip_name(name: str) -> bool:
-    """
-    True for macOS junk entries commonly found in zips:
-    __MACOSX/*, .DS_Store, and AppleDouble files like ._filename
-    """
     n = name.replace("\\", "/")
     base = Path(n).name
     return (
@@ -94,6 +90,53 @@ def _is_macos_junk_zip_name(name: str) -> bool:
         or base == ".DS_Store"
         or base.startswith("._")
     )
+
+def _extract_zip_skipping_macos_junk(zip_path: Path, dest: Path) -> None:
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        members = []
+        for info in zf.infolist():
+            name = info.filename.replace("\\", "/")
+            if info.is_dir():
+                continue
+            if _is_macos_junk_zip_name(name):
+                continue
+            members.append(info)
+        zf.extractall(dest, members=members)
+
+def _is_under_ignored_dir(rel_path: Union[str, Path]) -> bool:
+    
+    p = Path(str(rel_path).replace("\\", "/"))
+    return any(part in IGNORE_DIRS for part in p.parts)
+
+def _extract_inner_zips_recursively(root: Path, max_zip_depth: int = 2) -> None:
+    """
+    Finds *.zip inside extracted content and extracts them into folders next to them.
+    Skips zips located under ignored dirs (e.g., .venv).
+    """
+    if max_zip_depth <= 0:
+        return
+
+    inner_zips = [p for p in root.rglob("*.zip") if p.is_file()]
+
+    for z in inner_zips:
+        if _is_under_ignored_dir(z):
+            continue
+        # skip mac junk like ._something.zip
+        if _is_macos_junk_zip_name(z.name):
+            continue
+
+        extract_dir = z.with_suffix("")  # myproj.zip -> myproj/
+        extract_dir.mkdir(exist_ok=True)
+
+        try:
+            _extract_zip_skipping_macos_junk(z, extract_dir)
+            # optional: remove the zip so it doesn't re-trigger
+            # z.unlink()
+        except zipfile.BadZipFile:
+            continue
+
+    # recurse one level down
+    _extract_inner_zips_recursively(root, max_zip_depth=max_zip_depth - 1)
 
 def list_inner_zip_entries(zip_path: Path) -> list[str]:
     """
@@ -254,8 +297,18 @@ class AnalysisService:
         self,
         zip_path: Path,
         project_name: Optional[str] = None,
-    ) -> Union["AnalysisResult", List["AnalysisResult"]]:
+        *,
+        _depth: int = 0,
+        _max_depth: int = 5,
+    ) -> List["AnalysisResult"]:
+        """
+        Analyze one or more projects from a ZIP.
+        - Supports ZIPs inside ZIPs (recursively), but skips ones under ignored dirs (.venv, node_modules, etc.)
+        - Skips macOS junk entries (__MACOSX, .DS_Store, ._ files)
+        - Detects multiple projects per extracted zip and analyzes each root
 
+        Returns: always List[AnalysisResult]
+        """
         zip_path = Path(zip_path)
 
         if not zip_path.exists():
@@ -264,42 +317,51 @@ class AnalysisService:
         if not zipfile.is_zipfile(zip_path):
             raise ValueError(f"Invalid ZIP file: {zip_path}")
 
+        if _depth > _max_depth:
+            raise ValueError("ZIP nesting too deep. Please upload fewer nested ZIP layers.")
+
         base_name = project_name or zip_path.stem
 
-        inner_zip_entries = list_inner_zip_entries(zip_path)
-
-        if inner_zip_entries:
-            results = []
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_path = Path(temp_dir)
-                _extract_zip_skipping_macos_junk(zip_path, temp_path)
-
-                for inner_name in inner_zip_entries:
-                    inner_zip_path = temp_path / inner_name
-                    res = self.analyze_from_zip(inner_zip_path, f"{base_name} - {Path(inner_name).stem}")
-                    if isinstance(res, list):
-                        results.extend(res)
-                    else:
-                        results.append(res)
-
-            return results
-        
-        # 1) Earliest file date from ZIP metadata (mac junk skipped)
+        # Compute earliest date from this zip’s metadata
         earliest_file_date = get_earliest_file_date_from_zip(zip_path)
 
-        # 2) Extract safely (skip mac junk)
+        results: List["AnalysisResult"] = []
+
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            logger.info(f"Extracting ZIP to {temp_path}")
+
+            logger.info(f"[zip depth={_depth}] Extracting ZIP to {temp_path}")
             _extract_zip_skipping_macos_junk(zip_path, temp_path)
 
-            # 3) Detect one or multiple projects
-            project_roots = detect_project_roots(temp_path)
-            logger.info(f"Detected {len(project_roots)} project(s) in ZIP")
+            # 1) Recurse into nested zips (if any) — but only those not under ignored dirs
+            inner_zip_entries = list_inner_zip_entries(zip_path)
+            if inner_zip_entries:
+                for inner_name in sorted(inner_zip_entries):
+                    inner_zip_path = temp_path / inner_name  # extraction keeps relative paths
+                    if not inner_zip_path.exists():
+                        # Safety: some zips can store odd paths; skip if missing
+                        logger.warning(f"Inner zip listed but not extracted: {inner_name}")
+                        continue
 
-            results: List["AnalysisResult"] = []
+                    nested_name = f"{base_name} - {Path(inner_name).stem}"
+                    nested_results = self.analyze_from_zip(
+                        inner_zip_path,
+                        nested_name,
+                        _depth=_depth + 1,
+                        _max_depth=_max_depth,
+                    )
+                    results.extend(nested_results)
+
+            # 2) Also analyze projects contained directly in this extracted zip (folders/files)
+            #    This ensures you still analyze “real” project roots even if nested zips exist.
+            project_roots = detect_project_roots(temp_path)
+            logger.info(f"Detected {len(project_roots)} project(s) in extracted ZIP at depth {_depth}")
 
             for idx, root in enumerate(project_roots, start=1):
+                # Avoid analyzing extracted inner-zip dirs as “projects” if they live under ignored dirs
+                if _is_under_ignored_dir(str(root.relative_to(temp_path)).replace("\\", "/")):
+                    continue
+
                 derived_name = (
                     base_name
                     if len(project_roots) == 1
@@ -311,13 +373,15 @@ class AnalysisService:
                         project_path=root,
                         project_name=derived_name,
                         source_type="zip",
+                        
                         source_url=str(zip_path),
                         zip_upload_time=datetime.utcnow(),
                         earliest_file_date_in_zip=earliest_file_date,
                     )
                 )
 
-            return results[0] if len(results) == 1 else results
+        
+        return results
 
 
     def analyze_from_directory(
@@ -360,7 +424,7 @@ class AnalysisService:
         Supports monorepos / multi-project repositories.
         """
 
-        from src.core.utils.project_detection import detect_project_roots
+        from src.core.utils.project_detection import detect_project_roots, IGNORE_DIRS
 
         # Parse GitHub URL
         parsed = urlparse(github_url)
