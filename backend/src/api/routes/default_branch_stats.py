@@ -39,11 +39,11 @@ async def get_default_branch_stats(
         raise ProjectNotFoundError(project_id)
 
     root_path = project_orm.root_path
-    git_root = _find_git_root(root_path) or _find_git_root(__file__)
+    git_root = _find_git_root(root_path)
     if not git_root:
         raise HTTPException(
             status_code=400,
-            detail=f"Git repository not found for project root_path: {root_path}",
+            detail=f"Git repository not found for project. The project files may have been cleaned up. root_path: {root_path}",
         )
 
     # Resolve default branch - check environment variable first, then origin/HEAD
