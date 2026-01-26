@@ -1,3 +1,4 @@
+import AnalysisPage from "@/pages/AnalysisPage";
 import MainPage from "@/pages/Home/Home.jsx";
 import LoginPage from "@/pages/auth/login.jsx";
 import SignupPage from "@/pages/auth/signup.jsx";
@@ -16,6 +17,8 @@ function App() {
             <Route path="/signup" element={<SignupPage />} />
             {/* User Profiles */}
             <Route path="/profiles" element={<ProfilesPage />} />
+            {/* Analysis Page */}
+            <Route path="/analysis" element={<AnalysisPage />} />
         </Routes>
         </main>
     );

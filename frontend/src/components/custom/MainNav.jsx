@@ -39,6 +39,15 @@ export default function MainNav() {
                   Login
                 </NavigationMenuLink>
               </NavigationMenuItem>
+              {/* Analysis */}
+              <NavigationMenuItem>
+                <NavigationMenuLink
+                  href="/analysis"
+                  className="text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 hover:after:w-full after:bg-slate-900 after:transition-all"
+                >
+                  Analysis
+                </NavigationMenuLink>
+              </NavigationMenuItem>
             </NavigationMenuList>
           </NavigationMenu>
         </div>
