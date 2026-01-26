@@ -28,6 +28,10 @@ class ProjectSummary(ProjectBase):
     id: int
     source_type: str
     created_at: datetime
+    zip_uploaded_at: Optional[datetime] = None
+    first_file_created: Optional[datetime] = None
+    first_commit_date: Optional[datetime] = None
+    project_started_at: Optional[datetime] = None
     file_count: int = 0
     language_count: int = 0
     framework_count: int = 0
