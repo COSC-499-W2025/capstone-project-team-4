@@ -10,9 +10,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple, List, Dict
 from urllib.parse import urlparse
+from typing import Union, List
+import os 
+
 
 from sqlalchemy.orm import Session
 
+from src.core.utils.project_detection import detect_project_roots
 from src.models.schemas.analysis import AnalysisResult, AnalysisStatus, ComplexitySummary
 from src.config.settings import settings
 from src.repositories.project_repository import ProjectRepository
@@ -37,6 +41,7 @@ from src.core.analyzers.project_stats import (
     project_analysis_to_dict,
     calculate_project_stats,
 )
+from src.core.utils.project_detection import detect_project_roots
 from src.core.detectors.language import ProjectAnalyzer
 from src.core.detectors.skill import analyze_project_skills
 from src.core.validators.cross_validator import CrossValidator
@@ -50,8 +55,46 @@ from src.core.utils.file_walker import (
     FileInfo,
 )
 
+PROJECT_MARKERS = {
+    ".git",
+    "package.json",
+    "pyproject.toml",
+    "requirements.txt",
+    "Pipfile",
+    "poetry.lock",
+    "pom.xml",
+    "build.gradle",
+    "settings.gradle",
+    "Cargo.toml",
+    "go.mod",
+    "composer.json",
+    "Makefile",
+}
+
+CODE_EXTS = {
+    ".py", ".js", ".ts", ".tsx", ".jsx",
+    ".java", ".kt", ".c", ".cpp", ".h", ".hpp",
+    ".cs", ".go", ".rs", ".php", ".rb", ".swift",
+}
+
+IGNORE_DIRS = {
+    ".git", ".venv", "venv", "node_modules", "dist", "build", ".next",
+    "__pycache__", ".pytest_cache", ".mypy_cache", ".idea", ".vscode",
+}
+
 logger = logging.getLogger(__name__)
 
+def _zip_contains_inner_zips(zip_path: Path) -> List[str]:
+    """Return list of inner zip entry names found in zip_path."""
+    inner = []
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        for name in zf.namelist():
+            # ignore folders
+            if name.endswith("/"):
+                continue
+            if name.lower().endswith(".zip"):
+                inner.append(name)
+    return inner
 
 def get_earliest_file_date_from_zip(zip_path: Path) -> Optional[datetime]:
     """
@@ -89,6 +132,89 @@ def get_earliest_file_date_from_zip(zip_path: Path) -> Optional[datetime]:
     
     return None
 
+def _normalize_zip_root(extracted_root: Path) -> Path:
+    """
+    Many ZIPs contain a single top-level folder.
+    If so, treat that as the 'real' root.
+    """
+    top_dirs = [d for d in extracted_root.iterdir() if d.is_dir() and not d.name.startswith(".")]
+    return top_dirs[0] if len(top_dirs) == 1 else extracted_root
+
+
+def _looks_like_project_root(folder: Path, min_code_files: int = 2) -> bool:
+    """
+    Flexible heuristic:
+    - Strong marker files OR
+    - at least `min_code_files` source files in the folder subtree
+    """
+    if not folder.is_dir():
+        return False
+    if folder.name in IGNORE_DIRS:
+        return False
+
+    # Strong marker files
+    for marker in PROJECT_MARKERS:
+        if (folder / marker).exists():
+            return True
+
+    # Count code files (quick scan)
+    code_count = 0
+    for p in folder.rglob("*"):
+        if p.is_dir() and p.name in IGNORE_DIRS:
+            continue
+        if p.is_file() and p.suffix.lower() in CODE_EXTS:
+            code_count += 1
+            if code_count >= min_code_files:
+                return True
+
+    return False
+
+
+def detect_project_roots_in_zip(extracted_root: Path, max_depth: int = 4) -> list[Path]:
+    """
+    Detect multiple project roots inside an extracted ZIP.
+
+    Strategy (safe + general):
+    1) Normalize ZIP root (single top-level folder case)
+    2) If multiple top-level dirs look like projects → return them
+    3) Else do a bounded-depth recursive search for project roots
+       - once a project root is found, do NOT descend further into it
+    """
+    base = _normalize_zip_root(extracted_root)
+
+    # If the base itself is a project root, treat ZIP as a single project
+    if _looks_like_project_root(base):
+        return [base]
+
+    # Fast path: check each top-level directory as a separate project
+    top_dirs = [d for d in base.iterdir() if d.is_dir() and d.name not in IGNORE_DIRS]
+    top_level_projects = [d for d in top_dirs if _looks_like_project_root(d)]
+    if len(top_level_projects) >= 1:
+        # If we found at least one, return those (common multi-project ZIP format)
+        return sorted(top_level_projects, key=lambda p: p.name.lower())
+
+    # Recursive scan (bounded depth) with pruning
+    projects: list[Path] = []
+
+    # Use os.walk so we can prune descent once we accept a project root
+    for root, dirs, files in os.walk(base):
+        root_path = Path(root)
+
+        # depth guard
+        depth = len(root_path.relative_to(base).parts)
+        if depth > max_depth:
+            dirs.clear()
+            continue
+
+        # ignore junk dirs
+        dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+
+        if _looks_like_project_root(root_path):
+            projects.append(root_path)
+            dirs.clear()  # stop descending inside this project root
+
+    # Fallback: if we detect nothing, treat base as one project
+    return sorted(projects, key=lambda p: str(p).lower()) if projects else [base]
 
 class AnalysisService:
     """Service for orchestrating project analysis."""
@@ -110,43 +236,76 @@ class AnalysisService:
         self,
         zip_path: Path,
         project_name: Optional[str] = None,
-    ) -> AnalysisResult:
-        """
-        Analyze a project from a ZIP file.
+    ) -> Union["AnalysisResult", List["AnalysisResult"]]:
 
-        Args:
-            zip_path: Path to the ZIP file
-            project_name: Optional custom project name
-
-        Returns:
-            AnalysisResult with analysis data
-        """
         if not zip_path.exists():
             raise FileNotFoundError(f"ZIP file not found: {zip_path}")
-
         if not zipfile.is_zipfile(zip_path):
             raise ValueError(f"Invalid ZIP file: {zip_path}")
 
-        name = project_name or zip_path.stem
+        base_name = project_name or zip_path.stem
+        zip_upload_time = datetime.utcnow()
 
-        # Get the earliest file date from ZIP metadata
+        # ✅ 1) Detect "zip of zips"
+        inner_zip_entries = _zip_contains_inner_zips(zip_path)
+
+        if inner_zip_entries:
+            results: List[AnalysisResult] = []
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_dir = Path(temp_dir)
+
+                with zipfile.ZipFile(zip_path, "r") as outer:
+                    for i, entry in enumerate(sorted(inner_zip_entries), start=1):
+                        inner_path = temp_dir / Path(entry).name
+                        outer.extract(entry, temp_dir)
+
+                        # Each inner zip gets its own earliest date
+                        earliest_inner = get_earliest_file_date_from_zip(inner_path)
+
+                        derived_name = f"{base_name} - {inner_path.stem}"
+                        results.append(
+                            self.analyze_from_zip(
+                                inner_path,
+                                project_name=derived_name,
+                            )
+                        )
+
+            # analyze_from_zip recursion returns either single or list; flatten:
+            flat: List[AnalysisResult] = []
+            for r in results:
+                if isinstance(r, list):
+                    flat.extend(r)
+                else:
+                    flat.append(r)
+
+            return flat
+
+        # ✅ 2) Normal zip: extract and detect multiple project roots inside folders
         earliest_file_date = get_earliest_file_date_from_zip(zip_path)
-        logger.info(f"Earliest file date from ZIP: {earliest_file_date}")
 
-        # Extract to temporary directory
         with tempfile.TemporaryDirectory() as temp_dir:
-            logger.info(f"Extracting ZIP to {temp_dir}")
-            with zipfile.ZipFile(zip_path, "r") as zf:
-                zf.extractall(temp_dir)
+            temp_path = Path(temp_dir)
 
-            return self._run_analysis_pipeline(
-                project_path=Path(temp_dir),
-                project_name=name,
-                source_type="zip",
-                source_url=str(zip_path),
-                zip_upload_time=datetime.utcnow(),
-                earliest_file_date_in_zip=earliest_file_date,
-            )
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                zf.extractall(temp_path)
+
+            project_roots = detect_project_roots(temp_path)
+
+            results: List[AnalysisResult] = []
+            for idx, root in enumerate(project_roots, start=1):
+                derived_name = base_name if len(project_roots) == 1 else f"{base_name} - {root.name}"
+                results.append(
+                    self._run_analysis_pipeline(
+                        project_path=root,
+                        project_name=derived_name,
+                        source_type="zip",
+                        source_url=str(zip_path),
+                        zip_upload_time=zip_upload_time,
+                        earliest_file_date_in_zip=earliest_file_date,
+                    )
+                )
+
+            return results[0] if len(results) == 1 else results
 
     def analyze_from_directory(
         self,
@@ -182,40 +341,35 @@ class AnalysisService:
         self,
         github_url: str,
         branch: Optional[str] = None,
-    ) -> AnalysisResult:
+    ) -> List[AnalysisResult]:
         """
-        Analyze a project from a GitHub repository.
-
-        Args:
-            github_url: GitHub repository URL
-            branch: Optional branch to clone
-
-        Returns:
-            AnalysisResult with analysis data
+        Analyze one or more projects from a GitHub repository.
+        Supports monorepos / multi-project repositories.
         """
+
+        from src.core.utils.project_detection import detect_project_roots
+
         # Parse GitHub URL
         parsed = urlparse(github_url)
         if "github.com" not in parsed.netloc:
             raise ValueError(f"Invalid GitHub URL: {github_url}")
 
-        # Extract owner/repo from path
         path_parts = parsed.path.strip("/").split("/")
         if len(path_parts) < 2:
             raise ValueError(f"Invalid GitHub URL format: {github_url}")
 
-        owner, repo = path_parts[0], path_parts[1]
-        repo = repo.replace(".git", "")
+        owner, repo = path_parts[0], path_parts[1].replace(".git", "")
         project_name = repo
 
-        # Clone to temporary directory
         with tempfile.TemporaryDirectory() as temp_dir:
-            clone_url = f"https://github.com/{owner}/{repo}.git"
             clone_path = Path(temp_dir) / repo
+            clone_url = f"https://github.com/{owner}/{repo}.git"
 
             logger.info(f"Cloning {clone_url} to {clone_path}")
 
             try:
                 import subprocess
+
                 cmd = ["git", "clone", "--depth", "100"]
                 if branch:
                     cmd.extend(["--branch", branch])
@@ -236,12 +390,27 @@ class AnalysisService:
             except FileNotFoundError:
                 raise RuntimeError("Git is not installed or not in PATH")
 
-            return self._run_analysis_pipeline(
-                project_path=clone_path,
-                project_name=project_name,
-                source_type="github",
-                source_url=github_url,
-            )
+            # Detect projects inside the repo
+            project_roots = detect_project_roots(clone_path)
+
+            logger.info(f"Detected {len(project_roots)} project(s) in GitHub repo")
+
+            results: List[AnalysisResult] = []
+
+            for root in project_roots:
+                name = root.name if root != clone_path else project_name
+
+                result = self._run_analysis_pipeline(
+                    project_path=root,
+                    project_name=name,
+                    source_type="github",
+                    source_url=github_url,
+                )
+                results.append(result)
+
+            return results
+
+
 
     def _run_analysis_pipeline(
         self,
