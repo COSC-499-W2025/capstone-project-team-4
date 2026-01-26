@@ -19,6 +19,7 @@ This week, I focused on implementing frontend for the User Profiles Page. Additi
 - Reviewed:
   - https://github.com/COSC-499-W2025/capstone-project-team-4/pull/147#pullrequestreview-3676644113
   - https://github.com/COSC-499-W2025/capstone-project-team-4/pull/167
+  - https://github.com/COSC-499-W2025/capstone-project-team-4/pull/165#pullrequestreview-3704829681
 
 ## My PR: https://github.com/COSC-499-W2025/capstone-project-team-4/pull/168
 
