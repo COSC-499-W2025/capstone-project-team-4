@@ -1,0 +1,228 @@
+# Language detection configuration
+# Maps file extensions and special cases to programming languages
+
+# File extension mappings
+extensions:
+  # Programming Languages
+  .py: Python
+  .js: JavaScript
+  .ts: TypeScript
+  .jsx: JavaScript
+  .tsx: TypeScript
+  .java: Java
+  .cpp: C++
+  .cc: C++
+  .cxx: C++
+  .c: C
+  .h: C/C++
+  .hpp: C++
+  .cs: C#
+  .php: PHP
+  .rb: Ruby
+  .go: Go
+  .rs: Rust
+  .swift: Swift
+  .kt: Kotlin
+  .scala: Scala
+  .r: R
+  .R: R
+  .m: Objective-C
+  .mm: Objective-C++
+  .pl: Perl
+  .pm: Perl
+  .sh: Shell
+  .bash: Shell
+  .zsh: Shell
+  .fish: Shell
+  .ps1: PowerShell
+  .bat: Batch
+  .cmd: Batch
+  
+  # Web Technologies
+  .html: HTML
+  .htm: HTML
+  .css: CSS
+  .scss: SCSS
+  .sass: SASS
+  .less: LESS
+  .xml: XML
+  .json: JSON
+  .yaml: YAML
+  .yml: YAML
+  .toml: TOML
+  .ini: INI
+  
+  # Markup and Documentation
+  .md: Markdown
+  .markdown: Markdown
+  .rst: reStructuredText
+  .tex: LaTeX
+  .rtf: RTF
+  
+  # Database and Query Languages
+  .sql: SQL
+  .sqlite: SQLite
+  .psql: PostgreSQL
+  
+  # Configuration Files
+  .conf: Config
+  .cfg: Config
+  .properties: Properties
+  .env: Environment
+  .gitignore: Git
+  .dockerignore: Docker
+  .dockerfile: Dockerfile
+  
+  # Data Files
+  .csv: CSV
+  .tsv: TSV
+  .log: Log
+  .txt: Text
+  
+  # Build and Package Files
+  .makefile: Makefile
+  .cmake: CMake
+  .gradle: Gradle
+  .maven: Maven
+  .sbt: SBT
+
+# Special filename patterns (files without extensions or special names)
+special_files:
+  dockerfile: Dockerfile
+  makefile: Makefile
+  cmakelists.txt: CMake
+  vagrantfile: Vagrant
+  gemfile: Ruby
+  rakefile: Ruby
+  package.json: JSON
+  composer.json: JSON
+  cargo.toml: TOML
+  pyproject.toml: TOML
+
+# Filename prefixes to check
+filename_patterns:
+  readme: Markdown
+  license: Text
+  changelog: Markdown
+  authors: Text
+  contributors: Text
+  copying: Text
+  install: Text
+  news: Text
+
+# Files and extensions to skip during analysis
+skip_patterns:
+  # Hidden files (except important ones)
+  hidden_exceptions:
+    - .gitignore
+    - .env
+    - .dockerignore
+    - .editorconfig
+    - .eslintrc
+    - .prettierrc
+  
+  # Extensions to skip
+  skip_extensions:
+    # Images
+    - .png
+    - .jpg
+    - .jpeg
+    - .gif
+    - .bmp
+    - .svg
+    - .ico
+    - .webp
+    - .tiff
+    # Documents
+    - .pdf
+    - .doc
+    - .docx
+    - .xls
+    - .xlsx
+    - .ppt
+    - .pptx
+    # Archives
+    - .zip
+    - .tar
+    - .gz
+    - .rar
+    - .7z
+    - .bz2
+    - .xz
+    # Binary/Executable
+    - .exe
+    - .dll
+    - .so
+    - .dylib
+    - .bin
+    - .deb
+    - .rpm
+    - .msi
+    # Cache/Temp files
+    - .pyc
+    - .pyo
+    - .pyd
+    - .class
+    - .o
+    - .obj
+    - .tmp
+    - .temp
+    - .cache
+    # Log files
+    - .log
+    - .out
+    # Lock files
+    - .lock
+    - .pid
+    # Database files
+    - .db
+    - .sqlite
+    - .sqlite3
+    # Media
+    - .mp3
+    - .mp4
+    - .avi
+    - .mov
+    - .wav
+    - .flac
+    - .mkv
+    - .webm
+  
+  # Filenames to skip
+  skip_filenames:
+    - thumbs.db
+    - desktop.ini
+    - .ds_store
+    - package-lock.json
+    - yarn.lock
+    - poetry.lock
+    - pipfile.lock
+    - composer.lock
+    - cargo.lock
+  
+  # Directories to skip
+  skip_directories:
+    - .git
+    - __pycache__
+    - node_modules
+    - .venv
+    - venv
+    - .pytest_cache
+    - .mypy_cache
+    - .coverage
+    - htmlcov
+    - build
+    - dist
+    - .tox
+    - .nox
+    - target
+    - bin
+    - obj
+    - .idea
+    - .vscode
+    - .vs
+
+# File size limits
+limits:
+  max_file_size: 1048576  # 1MB in bytes
+  min_file_size: 1        # Skip empty files

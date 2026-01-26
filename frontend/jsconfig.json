@@ -1,0 +1,9 @@
+// This makes Tailwind work
+{ 
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  }
+}
