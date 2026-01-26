@@ -206,10 +206,6 @@ class ProjectService:
                 max_complexity=complexity_summary.get("max_complexity", 0),
                 high_complexity_count=complexity_summary.get("high_complexity_count", 0),
             ),
-            zip_uploaded_at=project.created_at,
-            first_file_created=project.created_at,
-            first_commit_date=None,
-            project_started_at=project.created_at,
         )
 
     def get_project_by_name(self, name: str) -> Optional[AnalysisResult]:

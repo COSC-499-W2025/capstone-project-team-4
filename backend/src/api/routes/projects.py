@@ -1,15 +1,16 @@
 """Projects API routes."""
 
 import logging
+import os
+import subprocess
 from datetime import datetime, date
 from typing import Optional, Set
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, Body
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from src.models.database import get_db
 from src.models.schemas.project import ProjectList, ProjectDetail
-from src.models.schemas.analysis import AnalysisResult
 from src.models.schemas.contributor import (
     ProjectContributorsResponse,
     ContributorSchema,
@@ -18,40 +19,87 @@ from src.models.schemas.contributor import (
     ChangeStatsSchema,
 )
 
-from src.models.schemas.complexity import ComplexityReport, ComplexityByFile, ComplexitySchema
+from src.models.schemas.complexity import ComplexityReport, ComplexityByFile, ComplexitySchema, ComplexitySummary
 from src.services.project_service import ProjectService
 from src.repositories.contributor_repository import ContributorRepository
 from src.repositories.project_repository import ProjectRepository
 from src.repositories.complexity_repository import ComplexityRepository
 from src.api.exceptions import ProjectNotFoundError
-from src.core.analyzers.contributor import analyze_contributors
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
+
 def _find_git_root(start_path: str) -> Optional[str]:
     """Find nearest parent directory containing a .git folder.
 
-    Args:
-        start_path: Starting path to search upwards from
-
-    Returns:
-        String path of git root or None
+    Walks up to 50 levels; if not found, fall back to `git rev-parse --show-toplevel`.
     """
     try:
         from pathlib import Path
+
         p = Path(start_path).resolve()
-        # Walk up to 6 levels to be safe
-        for _ in range(6):
+        for _ in range(50):
             if (p / ".git").exists():
                 return str(p)
             if p.parent == p:
                 break
             p = p.parent
+
+        proc = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if proc.returncode == 0:
+            git_root = proc.stdout.strip()
+            if git_root:
+                return git_root
         return None
     except Exception:
         return None
+
+
+def _resolve_default_branch(git_root: str) -> str:
+    """Resolve default branch ref honoring DEFAULT env var, then origin/HEAD, then main/master."""
+    default_branch_env = os.environ.get("DEFAULT")
+
+    if default_branch_env:
+        candidate = f"origin/{default_branch_env}"
+        proc = subprocess.run(
+            ["git", "-C", git_root, "rev-parse", candidate],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if proc.returncode == 0:
+            return candidate
+        logger.warning("DEFAULT branch not found: %s (root=%s). Falling back to origin/HEAD.", candidate, git_root)
+
+    cmd_head = ["git", "-C", git_root, "symbolic-ref", "refs/remotes/origin/HEAD"]
+    proc_head = subprocess.run(cmd_head, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if proc_head.returncode == 0:
+        ref_output = proc_head.stdout.strip()
+        if ref_output.startswith("ref: "):
+            return ref_output[5:]
+        return ref_output
+
+    for candidate in ["origin/main", "origin/master"]:
+        proc_test = subprocess.run(
+            ["git", "-C", git_root, "rev-parse", candidate],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if proc_test.returncode == 0:
+            return candidate
+
+    raise HTTPException(
+        status_code=400,
+        detail="Could not determine default branch. DEFAULT env var, origin/HEAD, origin/main, or origin/master not found.",
+    )
 
 
 def _calculate_activity_metrics(commit_dates: list) -> ActivitySchema:
@@ -125,25 +173,19 @@ async def list_projects(
     return service.list_projects(page=page, page_size=page_size)
 
 
-@router.get("/{project_id}", response_model=AnalysisResult)
+@router.get("/{project_id}", response_model=ProjectDetail)
 async def get_project(
     project_id: int,
     db: Session = Depends(get_db),
 ):
-    """
-    Get detailed information about a specific project.
-    """
+    """Get detailed information about a specific project."""
+    service = ProjectService(db)
+    project = service.get_project(project_id)
 
+    if not project:
+        raise ProjectNotFoundError(project_id)
 
-#     - Returns full project details including languages, frameworks, and metrics
-#     """
-#     service = ProjectService(db)
-#     project = service.get_project(project_id)
-
-#     if not project:
-#         raise ProjectNotFoundError(project_id)
-
-#     return project
+    return project
 
 
 @router.delete("/{project_id}", status_code=204)
@@ -233,13 +275,119 @@ async def get_project_contributors(
 
     return ProjectContributorsResponse(
         project_id=project_id,
-        project = project_repo.get_by_id(project_id)
+        project_name=project_detail.project_name,
         contributors=contributor_schemas,
         total_contributors=len(contributor_schemas),
         total_commits=total_commits,
     )
 
 
+@router.get("/{project_id}/contributors/analysis", response_model=ProjectContributorsAnalysisResponse)
+async def get_contributor_analysis(
+    project_id: int,
+    include_merges: bool = Query(False, description="Include merge commits"),
+    include_renames: bool = Query(False, description="Count renames as changes"),
+    db: Session = Depends(get_db),
+):
+    """
+    Get detailed contribution analysis for each contributor in a project.
+
+    - Returns contribution scores (0-100) for each contributor
+    - Scores are calculated using: commits (40%), lines changed (40%), files touched (20%)
+    - Also includes absolute metrics: commits, lines added/deleted, files touched
+    - Useful for understanding who contributed what to the project
+    """
+    service = ProjectService(db)
+    result = service.get_contributor_analysis(project_id)
+
+    if result is None:
+        raise ProjectNotFoundError(project_id)
+
+    return result
+
+
+@router.get("/{project_id}/contributors/default-branch-stats")
+async def get_default_branch_stats(
+    project_id: int,
+    include_merges: bool = Query(False, description="Include merge commits"),
+    include_renames: bool = Query(False, description="Count renames as changes"),
+    db: Session = Depends(get_db),
+):
+    """Return lines added/deleted per author on default branch (GitHub-like)."""
+    project_repo = ProjectRepository(db)
+    project = project_repo.get(project_id)
+    if not project:
+        raise ProjectNotFoundError(project_id)
+
+    git_root = _find_git_root(project.root_path)
+    if not git_root:
+        raise HTTPException(status_code=400, detail=f"Could not locate .git from path {project.root_path}")
+    default_branch_ref = _resolve_default_branch(git_root)
+
+    cmd = [
+        "git",
+        "-C",
+        git_root,
+        "log",
+        "--use-mailmap",
+        "--numstat",
+        "--pretty=format:%H\t%an <%ae>",
+        default_branch_ref,
+    ]
+    if not include_merges:
+        cmd.insert(6, "--no-merges")
+    if not include_renames:
+        cmd.insert(6, "--no-renames")
+
+    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if proc.returncode != 0:
+        logger.error("git log failed: %s", proc.stderr)
+        raise HTTPException(status_code=500, detail="Failed to read git history")
+
+    author_stats: dict[str, dict[str, int]] = {}
+    current_author: Optional[str] = None
+
+    for line in proc.stdout.splitlines():
+        if "\t" not in line:
+            continue
+        parts = line.split("\t")
+        if len(parts) == 2:
+            current_author = parts[1].strip()
+            author_stats.setdefault(current_author, {"added": 0, "deleted": 0})
+            continue
+        if len(parts) == 3 and current_author:
+            added_raw, deleted_raw, _ = parts
+            try:
+                added = 0 if added_raw == "-" else int(added_raw)
+                deleted = 0 if deleted_raw == "-" else int(deleted_raw)
+            except ValueError:
+                continue
+            stats = author_stats[current_author]
+            stats["added"] += added
+            stats["deleted"] += deleted
+
+    items = [
+        {
+            "author": author,
+            "total_lines_changed": data["added"] + data["deleted"],
+            "total_lines_added": data["added"],
+            "total_lines_deleted": data["deleted"],
+        }
+        for author, data in author_stats.items()
+    ]
+    items.sort(key=lambda i: i["total_lines_changed"], reverse=True)
+
+    return {
+        "project_id": project.id,
+        "project_name": project.name,
+        "root_path": project.root_path,
+        "git_root": git_root,
+        "default_branch_ref": default_branch_ref,
+        "include_merges": include_merges,
+        "include_renames": include_renames,
+        "total_contributors": len(items),
+        "items": items,
+    }
 
 
 @router.get("/{project_id}/complexity", response_model=ComplexityReport)
@@ -261,10 +409,7 @@ async def get_project_complexity(
 
     complexity_repo = ComplexityRepository(db)
 
-    # Get summary
     summary = complexity_repo.get_summary(project_id)
-
-    # Get by file
     grouped = complexity_repo.get_by_file_grouped(project_id)
     by_file = []
 
@@ -290,7 +435,6 @@ async def get_project_complexity(
             functions=function_schemas,
         ))
 
-    # Get high complexity functions
     high_complexity = complexity_repo.get_high_complexity(project_id, threshold=10)
     high_complexity_schemas = [
         ComplexitySchema(
@@ -303,8 +447,6 @@ async def get_project_complexity(
         )
         for f in high_complexity
     ]
-
-    from src.models.schemas.complexity import ComplexitySummary
 
     return ComplexityReport(
         project_id=project_id,
