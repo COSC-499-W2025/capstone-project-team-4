@@ -24,12 +24,8 @@ class Settings(BaseSettings):
     base_dir: Path = Path(__file__).resolve().parent.parent.parent
     data_dir: Path = base_dir / "data"
 
-    # Database - use absolute path
-    @property
-    def database_url(self) -> str:
-        db_path = self.data_dir / "workmine.db"
-        return f"sqlite:///{db_path}"
-
+    # Database - PostgreSQL connection from environment
+    database_url: str
     database_echo: bool = False
     rules_dir: Path = base_dir / "src" / "core" / "rules"
     temp_dir: Path = base_dir / "temp"

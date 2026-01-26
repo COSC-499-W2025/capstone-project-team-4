@@ -14,26 +14,14 @@ Base = declarative_base()
 # Ensure data directory exists
 settings.data_dir.mkdir(parents=True, exist_ok=True)
 
-# Get database URL
-_database_url = settings.database_url
-
-# Create engine with connection pooling
+# Create engine with connection pooling for PostgreSQL
 engine = create_engine(
-    _database_url,
+    settings.database_url,
     echo=settings.database_echo,
-    connect_args={"check_same_thread": False},  # Required for SQLite
     pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
 )
-
-
-# Enable foreign key support for SQLite
-@event.listens_for(engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    """Enable foreign key constraints for SQLite."""
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
-
 
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
