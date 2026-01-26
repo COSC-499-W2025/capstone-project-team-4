@@ -42,6 +42,7 @@ class FileInfo:
     (metadata parsing, skill extraction, complexity analysis)
     without redundant file system traversals.
     """
+
     path: Path
     relative_path: str
     filename: str
@@ -91,9 +92,17 @@ class UnifiedFileWalker:
             min_file_size: Minimum file size in bytes (default: MIN_FILE_SIZE)
         """
         self.skip_dirs = skip_dirs if skip_dirs is not None else SKIP_DIRECTORIES
-        self.skip_extensions = skip_extensions if skip_extensions is not None else SKIP_EXTENSIONS
-        self.skip_filenames = skip_filenames if skip_filenames is not None else SKIP_FILENAMES
-        self.hidden_exceptions = hidden_exceptions if hidden_exceptions is not None else HIDDEN_FILE_EXCEPTIONS
+        self.skip_extensions = (
+            skip_extensions if skip_extensions is not None else SKIP_EXTENSIONS
+        )
+        self.skip_filenames = (
+            skip_filenames if skip_filenames is not None else SKIP_FILENAMES
+        )
+        self.hidden_exceptions = (
+            hidden_exceptions
+            if hidden_exceptions is not None
+            else HIDDEN_FILE_EXCEPTIONS
+        )
         self.max_file_size = max_file_size
         self.min_file_size = min_file_size
 
@@ -171,18 +180,12 @@ class UnifiedFileWalker:
     def should_skip_file(self, file_path: Path) -> Tuple[bool, str]:
         """
         Determine if a file should be skipped and why.
-
-        Args:
-            file_path: Path to the file
-
-        Returns:
-            Tuple of (should_skip: bool, reason: str)
         """
         filename = file_path.name
         extension = file_path.suffix.lower()
 
         # Check hidden files (except allowed ones)
-        if filename.startswith('.') and filename not in self.hidden_exceptions:
+        if filename.startswith(".") and filename not in self.hidden_exceptions:
             return True, f"hidden file: {filename}"
 
         # Check file extension
@@ -193,21 +196,20 @@ class UnifiedFileWalker:
         if filename in self.skip_filenames:
             return True, f"skipped filename: {filename}"
 
-        # Check if file is in a skipped directory (for nested checks)
-        for part in file_path.parts:
-            if part in self.skip_dirs:
-                return True, f"in skipped directory: {part}"
+        # --- REMOVED THE file_path.parts CHECK HERE ---
+        # The os.walk loop already filters directories, so we don't need
+        # to check if parents are in skip_dirs.
 
         # Check file size
         try:
+            # (Keep existing size check logic)
             file_size = file_path.stat().st_size
             if file_size > self.max_file_size:
-                return True, f"file too large: {file_size} bytes (max: {self.max_file_size})"
+                return (True, f"file too large: {file_size}")
             if file_size < self.min_file_size:
-                return True, f"file too small: {file_size} bytes (min: {self.min_file_size})"
+                return (True, f"file too small: {file_size}")
         except OSError as e:
             logger.warning("Could not get file size for %s: %s", file_path, e)
-            # Let it through if we can't get the size
 
         return False, ""
 
@@ -291,7 +293,10 @@ def collect_all_file_info(
     Returns:
         List of FileInfo objects with all metadata
     """
-    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+    from concurrent.futures import (
+        ThreadPoolExecutor,
+        TimeoutError as FuturesTimeoutError,
+    )
     from tqdm import tqdm
     import mimetypes
     import magic
@@ -317,7 +322,14 @@ def collect_all_file_info(
         try:
             with ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(magic.from_file, file_path, mime=True)
-                return future.result(timeout=timeout)
+                mime_type = future.result(timeout=timeout)
+
+                # NOTE: THIS MAY BE THE REASON WHY IT WON'T WORK ON LINUX!!
+                # If Linux/Docker calls it 'application/x-python', force it to be 'text'
+                if mime_type and "python" in mime_type.lower():
+                    return "text/x-python"
+
+                return mime_type
         except (FuturesTimeoutError, Exception):
             mime_type, _ = mimetypes.guess_type(file_path)
             return mime_type or "application/octet-stream"
@@ -325,7 +337,11 @@ def collect_all_file_info(
     walker = UnifiedFileWalker()
     file_paths = list(walker.walk(root))
 
-    iterator = tqdm(file_paths, desc="Collecting file info", unit=" files") if show_progress else file_paths
+    iterator = (
+        tqdm(file_paths, desc="Collecting file info", unit=" files")
+        if show_progress
+        else file_paths
+    )
 
     for file_path in iterator:
         try:
