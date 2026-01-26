@@ -1,6 +1,20 @@
-import React from 'react';
-import { X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import React from "react";
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+// Helper function to format bytes automatically
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return "0 Bytes";
+  if (!bytes || isNaN(bytes)) return "Unknown Size"; // Handle the NaN case gracefully
+
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+
+  // Calculate which unit to use (0 = Bytes, 1 = KB, 2 = MB, etc.)
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+};
 
 const FileList = ({ files, onDelete }) => {
   if (files.length === 0) return null;
@@ -22,8 +36,9 @@ const FileList = ({ files, onDelete }) => {
                 <p className="text-sm font-medium text-gray-900 truncate">
                   {file.name}
                 </p>
+                {/* Use the helper function here */}
                 <p className="text-xs text-gray-500">
-                  {(file.size / 1024).toFixed(2)} KB
+                  {formatFileSize(file.size)}
                 </p>
               </div>
             </div>
