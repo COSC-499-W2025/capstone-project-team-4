@@ -1,0 +1,557 @@
+rules_version: 0.1
+
+# Skill mappings for the skill extraction module
+# Each section maps detected items (languages, frameworks, etc.) to professional skills
+
+language_skills:
+  # General Purpose Languages
+  Python: []
+  Java: ["Object-Oriented Programming"]
+  "C#": ["Object-Oriented Programming"]
+  Go: []
+  Rust: []
+  PHP: []
+  Ruby: []
+  Kotlin: ["Object-Oriented Programming"]
+  Scala: ["Functional Programming"]
+  Elixir: ["Functional Programming"]
+  Erlang: ["Functional Programming"]
+  # Frontend Languages
+  JavaScript: []
+  TypeScript: []
+  HTML: []
+  CSS: []
+  # Mobile Languages
+  Swift: ["iOS Development"]
+  Dart: []
+  # Systems & Low-Level
+  C: []
+  "C++": ["Object-Oriented Programming"]
+  Assembly: []
+  # Data & Scientific
+  R: ["Statistical Analysis"]
+  Julia: ["Scientific Computing"]
+  MATLAB: ["Scientific Computing"]
+  # Scripting Languages
+  Shell: ["Automation"]
+  PowerShell: ["Automation"]
+  Batch: ["Automation"]
+  Perl: []
+  Lua: []
+  Groovy: []
+  # Functional Languages
+  Haskell: ["Functional Programming"]
+  "F#": ["Functional Programming"]
+  # Query Language
+  SQL: ["Database Querying"]
+  # Markup/Data Formats
+  JSON: []
+  XML: []
+  YAML: []
+  # Notebooks
+  Jupyter Notebook: ["Data Analysis"]
+
+framework_skills:
+  # Python Web Frameworks
+  Django: ["RESTful APIs", "ORM", "MVC Architecture"]
+  Flask: ["RESTful APIs"]
+  FastAPI: ["RESTful APIs", "Async Programming", "API Documentation"]
+  # Python Data Science & ML
+  TensorFlow: ["Machine Learning", "Deep Learning", "Neural Networks"]
+  PyTorch: ["Machine Learning", "Deep Learning", "Neural Networks"]
+  Keras: ["Machine Learning", "Deep Learning", "Neural Networks"]
+  Scikit-learn: ["Machine Learning", "Statistical Modeling"]
+  Pandas: ["Data Analysis", "Data Manipulation"]
+  NumPy: ["Numerical Computing", "Scientific Computing"]
+  Streamlit: ["Data Visualization", "Interactive Dashboards"]
+  Gradio: ["Machine Learning Interfaces", "Interactive Demos"]
+  # Python Tools
+  Celery: ["Task Queue Management", "Asynchronous Processing"]
+  Scrapy: ["Web Scraping", "Data Extraction"]
+  SQLAlchemy: ["ORM"]
+  Pytest: ["Unit Testing", "Test-Driven Development"]
+  Poetry: ["Dependency Management"]
+  # JavaScript Frontend Frameworks
+  React: ["Component-Based Architecture"]
+  Vue: ["Reactive UI"]
+  Angular: ["Dependency Injection", "RxJS"]
+  Svelte: ["Compiled Components", "Reactive UI"]
+  Solid.js: ["Fine-Grained Reactivity"]
+  Preact: []
+  # Meta-Frameworks
+  Next.js: ["Server-Side Rendering", "Static Site Generation"]
+  Nuxt.js: ["Server-Side Rendering"]
+  Gatsby: ["Static Site Generation", "JAMstack", "GraphQL"]
+  Remix: ["Nested Routing", "Progressive Enhancement"]
+  Astro: ["Static Site Generation", "Partial Hydration"]
+  SvelteKit: ["Server-Side Rendering"]
+  # Backend JavaScript/Node.js
+  Express: ["RESTful APIs", "Middleware"]
+  Koa: ["RESTful APIs", "Async/Await"]
+  Fastify: ["High-Performance APIs", "Schema Validation"]
+  Hapi: ["Enterprise APIs", "Plugin Architecture"]
+  NestJS: ["Enterprise Architecture", "Dependency Injection"]
+  Apollo Server: ["GraphQL Server", "Schema Design"]
+  # State Management
+  Redux: ["State Management", "Predictable State Container"]
+  MobX: ["State Management", "Observable State"]
+  Zustand: ["State Management"]
+  Recoil: ["State Management", "Atomic State"]
+  Vuex: ["State Management"]
+  Pinia: ["State Management"]
+  # UI Component Libraries
+  Material-UI: []
+  Ant Design: ["Enterprise UI"]
+  Chakra UI: ["Accessible Design", "Design System"]
+  Semantic UI: ["Theming"]
+  Headless UI: ["Accessible Components"]
+  React Bootstrap: []
+  Vuetify: []
+  Mantine: []
+  # CSS Frameworks
+  Tailwind CSS: ["Utility-First CSS", "Responsive Design"]
+  Bootstrap: ["Responsive Design", "Grid System"]
+  Bulma: ["Responsive Design"]
+  Sass: ["CSS Preprocessing"]
+  Less: ["CSS Preprocessing"]
+  Emotion: ["CSS-in-JS"]
+  Styled Components: ["CSS-in-JS"]
+  # Testing Frameworks
+  Jest: ["Unit Testing", "Test-Driven Development"]
+  Vitest: ["Unit Testing"]
+  Mocha: ["Unit Testing", "Test-Driven Development"]
+  Jasmine: ["Unit Testing", "Behavior-Driven Development"]
+  Cypress: ["End-to-End Testing", "Test Automation"]
+  Playwright: ["End-to-End Testing", "Cross-Browser Testing"]
+  Testing Library: ["Component Testing", "User-Centric Testing"]
+  # Build Tools
+  Webpack: ["Build Optimization"]
+  Vite: []
+  Rollup: []
+  Parcel: []
+  esbuild: []
+  Turbopack: []
+  # GraphQL
+  GraphQL: ["GraphQL", "API Design", "Data Fetching"]
+  Apollo Client: ["GraphQL", "State Management", "Data Fetching"]
+  Relay: ["GraphQL", "Data Management"]
+  URQL: ["GraphQL", "Data Fetching"]
+  # ORM & Database
+  Prisma: ["ORM"]
+  TypeORM: ["ORM"]
+  Sequelize: ["ORM"]
+  Mongoose: ["ODM", "NoSQL"]
+  Drizzle ORM: ["ORM"]
+  # Mobile Frameworks
+  React Native: ["Mobile Development", "Cross-Platform Development"]
+  Expo: ["Mobile Development"]
+  Ionic: ["Hybrid Mobile Apps", "Cross-Platform Development"]
+  NativeScript: ["Cross-Platform Development"]
+  Flutter: ["Mobile Development", "Cross-Platform Development"]
+  # Desktop Frameworks
+  Electron: ["Desktop Application Development", "Cross-Platform Desktop"]
+  Tauri: ["Desktop Application Development"]
+  # Java Frameworks
+  Spring Boot: ["Enterprise Java", "Microservices", "RESTful APIs"]
+  Spring: ["Enterprise Java", "Dependency Injection"]
+  Hibernate: ["ORM", "Java Persistence"]
+  JUnit: ["Unit Testing", "Test-Driven Development"]
+  Mockito: ["Mocking", "Unit Testing"]
+  Ktor: ["Asynchronous APIs"]
+  # Ruby Frameworks
+  Rails: ["MVC Architecture", "RESTful APIs", "Convention over Configuration"]
+  Sinatra: ["Lightweight Web Apps"]
+  Hanami: []
+  RSpec: ["Behavior-Driven Development"]
+  Capybara: ["Integration Testing", "Web Testing"]
+  # PHP Frameworks
+  Laravel: ["MVC Architecture", "Eloquent ORM"]
+  Symfony: ["Component-Based Architecture", "Enterprise Development"]
+  CodeIgniter: []
+  CakePHP: ["Rapid Development"]
+  Yii: ["High-Performance Applications"]
+  Slim: []
+  PHPUnit: ["Unit Testing", "Test-Driven Development"]
+  # Go Frameworks
+  Gin: ["RESTful APIs", "High-Performance Web"]
+  Echo: ["RESTful APIs"]
+  Fiber: ["High-Performance APIs"]
+  Beego: ["MVC Architecture"]
+  Chi: ["RESTful APIs", "HTTP Routing"]
+  Gorilla: ["HTTP Routing"]
+  GORM: ["ORM"]
+  # Rust Frameworks
+  Actix: ["High-Performance Web", "Actor Model"]
+  Rocket: ["Type-Safe APIs"]
+  Axum: ["Async APIs"]
+  Warp: []
+  Tokio: ["Async Programming", "Concurrency"]
+  Serde: ["Serialization"]
+  # .NET Frameworks
+  ASP.NET Core: ["Cross-Platform Web", "Enterprise Development"]
+  Entity Framework: ["ORM"]
+  Blazor: ["WebAssembly", "Interactive Web"]
+  xUnit: ["Unit Testing", "Test-Driven Development"]
+  NUnit: ["Unit Testing", "Test-Driven Development"]
+  # Other Libraries
+  Three.js: ["3D Graphics", "WebGL", "Interactive Visualization"]
+  D3.js: ["Data Visualization", "Interactive Charts"]
+  Socket.IO: ["Real-Time Communication", "WebSockets"]
+  Axios: []
+  Docker: ["Containerization"]
+
+library_skills:
+  # HTTP Clients
+  axios: ["HTTP Client", "RESTful APIs", "Async Programming"]
+  fetch: ["HTTP Client", "RESTful APIs"]
+  httpx: ["HTTP Client", "RESTful APIs", "Async Programming"]
+  requests: ["HTTP Client", "RESTful APIs"]
+  aiohttp: ["HTTP Client", "Async Programming"]
+  got: ["HTTP Client", "RESTful APIs"]
+  superagent: ["HTTP Client", "RESTful APIs"]
+  # Utility Libraries
+  lodash: ["Utility Libraries", "Functional Programming"]
+  underscore: ["Utility Libraries", "Functional Programming"]
+  ramda: ["Functional Programming"]
+  date-fns: ["Date/Time Manipulation"]
+  moment: ["Date/Time Manipulation"]
+  dayjs: ["Date/Time Manipulation"]
+  uuid: ["Unique ID Generation"]
+  # Data Processing
+  pandas: ["Data Analysis", "Data Manipulation", "Data Processing"]
+  numpy: ["Numerical Computing", "Scientific Computing", "Data Processing"]
+  scipy: ["Scientific Computing", "Statistical Analysis"]
+  polars: ["Data Analysis", "Data Processing"]
+  dask: ["Distributed Computing", "Big Data Processing"]
+  vaex: ["Big Data Processing", "Data Analysis"]
+  # Validation
+  zod: ["Schema Validation", "Type Safety"]
+  yup: ["Schema Validation", "Form Validation"]
+  joi: ["Schema Validation", "API Validation"]
+  pydantic: ["Data Validation", "Type Safety"]
+  cerberus: ["Data Validation"]
+  marshmallow: ["Data Serialization", "Schema Validation"]
+  # Authentication
+  passport: ["Authentication", "OAuth"]
+  jsonwebtoken: ["JWT Authentication", "Security"]
+  bcrypt: ["Password Hashing", "Security"]
+  argon2: ["Password Hashing", "Security"]
+  pyjwt: ["JWT Authentication", "Security"]
+  # Logging
+  winston: ["Logging", "Application Monitoring"]
+  pino: ["Logging", "Application Monitoring"]
+  bunyan: ["Logging"]
+  loguru: ["Logging", "Application Monitoring"]
+  # Database Clients
+  pg: ["PostgreSQL", "Database Management"]
+  mysql2: ["MySQL", "Database Management"]
+  redis: ["Redis", "Caching", "In-Memory Database"]
+  mongodb: ["MongoDB", "NoSQL"]
+  psycopg2: ["PostgreSQL", "Database Management"]
+  pymongo: ["MongoDB", "NoSQL"]
+  asyncpg: ["PostgreSQL", "Async Programming", "Database Management"]
+  # Message Queues
+  amqplib: ["Message Queues", "RabbitMQ"]
+  bull: ["Job Queues", "Background Processing"]
+  celery: ["Task Queue Management", "Background Processing"]
+  rq: ["Job Queues", "Background Processing"]
+  kafka-python: ["Apache Kafka", "Event Streaming"]
+  # Image Processing
+  sharp: ["Image Processing", "Image Optimization"]
+  jimp: ["Image Processing"]
+  pillow: ["Image Processing", "Computer Vision"]
+  opencv-python: ["Computer Vision", "Image Processing"]
+  # File Processing
+  multer: ["File Upload Handling"]
+  formidable: ["File Upload Handling"]
+  python-magic: ["File Type Detection"]
+  # PDF Processing
+  pdfkit: ["PDF Generation"]
+  puppeteer: ["Browser Automation", "PDF Generation", "Web Scraping"]
+  reportlab: ["PDF Generation"]
+  pypdf2: ["PDF Processing"]
+  # Email
+  nodemailer: ["Email Integration", "SMTP"]
+  sendgrid: ["Email Integration", "Email API"]
+  # WebSockets
+  socket.io: ["Real-Time Communication", "WebSockets"]
+  ws: ["WebSockets", "Real-Time Communication"]
+  websockets: ["WebSockets", "Real-Time Communication"]
+  # CLI
+  commander: ["CLI Development"]
+  yargs: ["CLI Development"]
+  inquirer: ["CLI Development", "Interactive CLI"]
+  click: ["CLI Development"]
+  typer: ["CLI Development"]
+  # ML/AI Libraries
+  transformers: ["Natural Language Processing", "Machine Learning"]
+  huggingface: ["Natural Language Processing", "Machine Learning"]
+  openai: ["AI Integration", "GPT API"]
+  langchain: ["LLM Applications", "AI Integration"]
+  spacy: ["Natural Language Processing"]
+  nltk: ["Natural Language Processing"]
+  gensim: ["Natural Language Processing", "Topic Modeling"]
+  # Web Scraping
+  cheerio: ["Web Scraping", "HTML Parsing"]
+  beautifulsoup4: ["Web Scraping", "HTML Parsing"]
+  scrapy: ["Web Scraping", "Data Extraction"]
+  selenium: ["Browser Automation", "Web Scraping"]
+  # Visualization
+  chart.js: ["Data Visualization", "Charts"]
+  d3: ["Data Visualization", "Interactive Charts"]
+  plotly: ["Data Visualization", "Interactive Charts"]
+  matplotlib: ["Data Visualization", "Charts"]
+  seaborn: ["Data Visualization", "Statistical Graphics"]
+  bokeh: ["Data Visualization", "Interactive Charts"]
+  altair: ["Data Visualization", "Declarative Charts"]
+  # Cloud SDKs
+  aws-sdk: ["AWS", "Cloud Infrastructure"]
+  boto3: ["AWS", "Cloud Infrastructure"]
+  "@google-cloud": ["Google Cloud", "Cloud Infrastructure"]
+  google-cloud: ["Google Cloud", "Cloud Infrastructure"]
+  "@azure": ["Azure", "Cloud Infrastructure"]
+  azure: ["Azure", "Cloud Infrastructure"]
+  # Monitoring
+  prometheus-client: ["Monitoring", "Metrics"]
+  prom-client: ["Monitoring", "Metrics"]
+  sentry: ["Error Tracking", "Application Monitoring"]
+  "@sentry/node": ["Error Tracking", "Application Monitoring"]
+  newrelic: ["Application Performance Monitoring"]
+  datadog: ["Application Performance Monitoring", "Monitoring"]
+
+tool_skills:
+  # Build Tools
+  Webpack: ["Build Optimization", "Module Bundling"]
+  Vite: ["Modern Build Tools", "Fast Development"]
+  Rollup: ["Module Bundling", "Library Packaging"]
+  esbuild: ["Fast Build Tools", "TypeScript Compilation"]
+  Parcel: ["Zero-Config Bundling"]
+  Turbopack: ["Fast Build Tools"]
+  # CI/CD
+  GitHub Actions: ["CI/CD", "DevOps", "Automation"]
+  GitLab CI: ["CI/CD", "DevOps"]
+  Jenkins: ["CI/CD", "Build Automation"]
+  CircleCI: ["CI/CD", "DevOps"]
+  Travis CI: ["CI/CD"]
+  Azure DevOps: ["CI/CD", "DevOps"]
+  # Containerization
+  Docker: ["Containerization", "DevOps"]
+  Docker Compose: ["Container Orchestration", "Multi-Container Applications"]
+  Kubernetes: ["Container Orchestration", "Cloud-Native"]
+  Helm: ["Kubernetes Package Management"]
+  Podman: ["Containerization"]
+  # Infrastructure as Code
+  Terraform: ["Infrastructure as Code", "Cloud Infrastructure"]
+  Pulumi: ["Infrastructure as Code"]
+  AWS CDK: ["Infrastructure as Code", "AWS"]
+  Ansible: ["Configuration Management", "DevOps"]
+  CloudFormation: ["Infrastructure as Code", "AWS"]
+  # Testing
+  Jest: ["Unit Testing", "Test-Driven Development"]
+  Vitest: ["Unit Testing", "Fast Testing"]
+  Pytest: ["Unit Testing", "Test-Driven Development"]
+  JUnit: ["Unit Testing", "Java Testing"]
+  Mocha: ["Unit Testing"]
+  Cypress: ["End-to-End Testing", "Test Automation"]
+  Playwright: ["End-to-End Testing", "Cross-Browser Testing"]
+  Selenium: ["Browser Automation", "Test Automation"]
+  Testing Library: ["Component Testing", "User-Centric Testing"]
+  # Linting/Formatting
+  ESLint: ["Code Quality", "JavaScript Linting"]
+  Prettier: ["Code Formatting", "Code Quality"]
+  Black: ["Code Formatting", "Python"]
+  Ruff: ["Python Linting", "Code Quality"]
+  Flake8: ["Python Linting"]
+  Pylint: ["Python Linting", "Code Analysis"]
+  Mypy: ["Type Checking", "Python"]
+  TypeScript: ["Type Safety", "Static Typing"]
+  Biome: ["Code Quality", "Fast Linting"]
+  # Package Managers
+  npm: ["Package Management", "Node.js"]
+  Yarn: ["Package Management", "Node.js"]
+  pnpm: ["Package Management", "Efficient Dependencies"]
+  Poetry: ["Dependency Management", "Python"]
+  pip: ["Package Management", "Python"]
+  Cargo: ["Package Management", "Rust"]
+  # Documentation
+  Storybook: ["Component Documentation", "UI Development"]
+  Swagger: ["API Documentation", "OpenAPI"]
+  Sphinx: ["Documentation Generation", "Python Documentation"]
+  JSDoc: ["JavaScript Documentation"]
+  TypeDoc: ["TypeScript Documentation"]
+  # Deployment Platforms
+  Vercel: ["Serverless Deployment", "Frontend Hosting"]
+  Netlify: ["Static Site Hosting", "JAMstack"]
+  Heroku: ["PaaS Deployment", "Cloud Hosting"]
+  Railway: ["Cloud Deployment"]
+  Fly.io: ["Edge Deployment", "Container Hosting"]
+  # Monorepo Tools
+  Lerna: ["Monorepo Management"]
+  Nx: ["Monorepo Management", "Build System"]
+  Turborepo: ["Monorepo Management", "Build Caching"]
+  Rush: ["Monorepo Management"]
+  # Version Control
+  Git: ["Version Control", "Collaboration"]
+  Git Flow: ["Branching Strategy"]
+  Husky: ["Git Hooks", "Pre-commit Automation"]
+  Commitlint: ["Commit Standards"]
+  # Database Tools
+  Prisma: ["ORM", "Database Schema Management"]
+  Alembic: ["Database Migrations", "Schema Management"]
+  Flyway: ["Database Migrations"]
+  Liquibase: ["Database Change Management"]
+  # API Development
+  Postman: ["API Testing", "API Development"]
+  Insomnia: ["API Testing"]
+  GraphQL Playground: ["GraphQL Development"]
+  Apollo Studio: ["GraphQL Development", "API Monitoring"]
+
+file_type_skills:
+  # Design Files - Adobe Creative Suite
+  ".psd": ["Adobe Photoshop", "Photo Editing", "Graphic Design", "Digital Art"]
+  ".ai": ["Adobe Illustrator", "Vector Graphics", "Graphic Design", "Logo Design"]
+  ".eps": ["Vector Graphics", "Print Design", "Adobe Illustrator"]
+  # Design Files - Modern Tools
+  ".sketch": ["Sketch", "UI/UX Design", "Interface Design", "Prototyping"]
+  ".fig": ["Figma", "UI/UX Design", "Collaborative Design", "Prototyping"]
+  # Photography - RAW Formats
+  ".raw": ["Photography", "RAW Photo Processing", "Professional Photography"]
+  ".cr2": ["Photography", "Canon RAW Processing", "Professional Photography"]
+  ".nef": ["Photography", "Nikon RAW Processing", "Professional Photography"]
+  ".arw": ["Photography", "Sony RAW Processing", "Professional Photography"]
+  # Standard Image Formats
+  ".jpg": ["Photography", "Image Editing"]
+  ".jpeg": ["Photography", "Image Editing"]
+  ".png": ["Image Editing", "Digital Graphics"]
+  ".webp": ["Modern Web Graphics", "Image Optimization"]
+  # Vector & Scalable Graphics
+  ".svg": ["Vector Graphics", "Scalable Design", "Web Graphics"]
+  # Video Files
+  ".mp4": ["Video Editing", "Multimedia Production"]
+  ".avi": ["Video Editing", "Multimedia Production"]
+  ".mov": ["Video Editing", "Multimedia Production"]
+  ".wmv": ["Video Editing", "Multimedia Production"]
+  ".flv": ["Video Editing", "Streaming Media"]
+  ".webm": ["Web Video", "Modern Video Formats"]
+  # Audio Files
+  ".mp3": ["Audio Editing", "Music Production"]
+  ".wav": ["Audio Editing", "Professional Audio", "Music Production"]
+  ".flac": ["Audio Engineering", "Lossless Audio", "Music Production"]
+  ".aac": ["Audio Editing", "Audio Compression"]
+  ".ogg": ["Audio Editing", "Open-Source Audio"]
+  # 3D & CAD
+  ".blend": ["Blender", "3D Modeling", "3D Animation"]
+  ".obj": ["3D Modeling", "3D Graphics"]
+  ".fbx": ["3D Modeling", "3D Animation", "Game Development"]
+  ".stl": ["3D Modeling", "3D Printing", "CAD"]
+  ".dwg": ["AutoCAD", "CAD", "Technical Drawing"]
+  # Documents & Technical Writing
+  ".tex": ["LaTeX", "Technical Writing", "Document Preparation"]
+  ".bib": ["Bibliography Management", "Academic Writing", "LaTeX"]
+  ".md": ["Markdown", "Documentation", "Technical Writing"]
+  ".rst": ["reStructuredText", "Documentation", "Python Documentation"]
+  # Configuration & DevOps
+  ".dockerfile": ["Containerization"]
+  ".dockerignore": ["Containerization"]
+  "docker-compose.yml": ["Containerization", "Multi-Container Applications"]
+  ".gitlab-ci.yml": ["Continuous Integration", "DevOps"]
+  ".travis.yml": ["Continuous Integration", "DevOps"]
+  "jenkinsfile": ["CI/CD", "Build Automation", "DevOps"]
+  ".circleci/config.yml": ["Continuous Integration", "DevOps"]
+  # Database
+  ".sql": ["SQL", "Database Design", "Query Optimization"]
+  ".db": ["Database Management", "SQLite"]
+  ".sqlite": ["SQLite", "Database Management"]
+  # Jupyter & Data Science
+  ".ipynb": ["Jupyter Notebooks", "Data Analysis", "Interactive Computing", "Data Science"]
+
+# Composite skill rules - inferred from combinations
+composite_rules:
+  libraries:
+    - skill: "Data Science"
+      requires: ["pandas", "numpy", "scipy", "matplotlib", "seaborn"]
+      min_count: 3
+    - skill: "Machine Learning Engineering"
+      requires: ["tensorflow", "pytorch", "torch", "keras", "scikit-learn", "sklearn", "transformers"]
+      min_count: 2
+    - skill: "Web Scraping & Data Extraction"
+      requires: ["beautifulsoup4", "scrapy", "selenium", "puppeteer", "cheerio"]
+      min_count: 2
+    - skill: "API Integration"
+      requires: ["axios", "requests", "httpx", "aiohttp", "got"]
+      min_count: 1
+    - skill: "Authentication & Security"
+      requires: ["passport", "jsonwebtoken", "bcrypt", "argon2", "pyjwt"]
+      min_count: 2
+    - skill: "Database Integration"
+      requires: ["pg", "mysql2", "mongodb", "pymongo", "psycopg2", "asyncpg", "redis"]
+      min_count: 1
+    - skill: "Cloud Services Integration"
+      requires: ["boto3", "aws-sdk", "google-cloud", "@google-cloud", "azure"]
+      min_count: 1
+
+  tools:
+    - skill: "DevOps & Infrastructure"
+      requires: ["Docker", "Kubernetes", "GitHub Actions", "GitLab CI", "Jenkins", "Terraform", "Ansible"]
+      min_count: 3
+    - skill: "Comprehensive Testing Strategy"
+      requires: ["Jest", "Pytest", "Cypress", "Playwright", "Vitest", "JUnit"]
+      min_count: 2
+    - skill: "Code Quality Automation"
+      requires: ["ESLint", "Prettier", "Black", "Ruff", "Mypy", "TypeScript"]
+      min_count: 2
+    - skill: "Modern Build Systems"
+      requires: ["Vite", "Webpack", "esbuild", "Turbopack", "Rollup"]
+      min_count: 1
+    - skill: "Technical Documentation"
+      requires: ["Storybook", "Swagger", "Sphinx", "JSDoc", "TypeDoc"]
+      min_count: 1
+    - skill: "Monorepo Architecture"
+      requires: ["Lerna", "Nx", "Turborepo", "Rush"]
+      min_count: 1
+
+  frameworks:
+    - skill: "Machine Learning Engineering"
+      requires: ["TensorFlow", "PyTorch", "Keras", "Scikit-learn"]
+      min_count: 2
+    - skill: "Test Automation"
+      requires: ["Jest", "Pytest", "Cypress", "Playwright", "JUnit", "Vitest", "Mocha", "RSpec"]
+      min_count: 2
+
+# Tool category to skill mapping
+tool_category_skills:
+  cicd: "CI/CD Pipeline Configuration"
+  container: "Containerization"
+  infrastructure: "Infrastructure as Code"
+  testing: "Test Automation"
+  linting: "Code Quality & Standards"
+
+# File-based threshold rules
+file_threshold_rules:
+  - skills: ["Photography", "RAW Photo Processing"]
+    extensions: [".raw", ".cr2", ".nef", ".arw"]
+    min_count: 3
+  - skills: ["Photography"]
+    extensions: [".jpg", ".jpeg"]
+    min_count: 10
+  - skills: ["Video Editing", "Multimedia Production"]
+    extensions: [".mp4", ".avi", ".mov", ".wmv"]
+    min_count: 2
+  - skills: ["Audio Editing", "Music Production"]
+    extensions: [".wav", ".flac", ".aac"]
+    min_count: 3
+  - skills: ["3D Modeling"]
+    extensions: [".blend", ".obj", ".fbx", ".stl"]
+    min_count: 1
+  - skills: ["Documentation", "Technical Writing"]
+    extensions: [".md"]
+    min_count: 5
+
+# Extensions that trigger skills with just 1 file
+single_file_triggers:
+  - ".psd"
+  - ".ai"
+  - ".sketch"
+  - ".fig"
+  - ".tex"
+  - ".ipynb"

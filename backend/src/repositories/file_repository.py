@@ -1,5 +1,6 @@
 """File repository for database operations."""
 
+from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy import func, select
@@ -110,6 +111,18 @@ class FileRepository(BaseRepository[File]):
         """Count files in a project."""
         stmt = select(func.count(File.id)).where(File.project_id == project_id)
         return self.db.scalar(stmt) or 0
+
+    def get_earliest_file_date(self, project_id: int) -> Optional[datetime]:
+        """Return earliest created_timestamp for a project's files as datetime."""
+        ts = self.db.scalar(
+            select(func.min(File.created_timestamp)).where(File.project_id == project_id)
+        )
+        if ts is None:
+            return None
+        try:
+            return datetime.fromtimestamp(ts)
+        except Exception:
+            return None
 
     def delete_by_project(self, project_id: int) -> int:
         """Delete all files for a project."""

@@ -12,7 +12,6 @@ from src.models.schemas.skill import (
     SkillTimelineResponse,
     SkillSourceResponse,
     SkillsBySourceResponse,
-    CrossValidationResponse,
 )
 from src.services.skill_service import SkillService
 from src.services.project_service import ProjectService
@@ -46,6 +45,25 @@ async def get_project_skills(
     return result
 
 
+@router.get("/categories", response_model=list)
+async def get_skill_categories(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Get all skill categories for a project.
+
+    - Returns list of unique skill categories
+    """
+    # First check if project exists
+    project_service = ProjectService(db)
+    if not project_service.project_exists(project_id):
+        raise ProjectNotFoundError(project_id)
+
+    service = SkillService(db)
+    return service.get_skill_categories(project_id)
+
+
 @router.get("/timeline", response_model=SkillTimelineResponse)
 async def get_skill_timeline(
     project_id: int,
@@ -65,25 +83,6 @@ async def get_skill_timeline(
         raise ProjectNotFoundError(project_id)
 
     return result
-
-
-@router.get("/categories", response_model=list)
-async def get_skill_categories(
-    project_id: int,
-    db: Session = Depends(get_db),
-):
-    """
-    Get all skill categories for a project.
-
-    - Returns list of unique skill categories
-    """
-    # First check if project exists
-    project_service = ProjectService(db)
-    if not project_service.project_exists(project_id):
-        raise ProjectNotFoundError(project_id)
-
-    service = SkillService(db)
-    return service.get_skill_categories(project_id)
 
 
 @router.get("/sources", response_model=SkillSourceResponse)
@@ -142,28 +141,3 @@ async def get_skills_by_source(
 
     service = SkillService(db)
     return service.get_skills_by_source(project_id, source)
-
-
-@router.get("/cross-validation", response_model=CrossValidationResponse)
-async def get_cross_validation_results(
-    project_id: int,
-    db: Session = Depends(get_db),
-):
-    """
-    Get cross-validation results for the project.
-
-    Returns metadata about how the complementary detection system
-    validated and enhanced framework detections:
-    - summary: Statistics about cross-validation results
-    - enhanced_frameworks: Frameworks with boosted confidence scores
-    - gap_filled_frameworks: Frameworks detected via library/tool signals
-
-    This endpoint is useful for understanding the detection confidence
-    and seeing which frameworks were enhanced by multi-signal agreement.
-    """
-    project_service = ProjectService(db)
-    if not project_service.project_exists(project_id):
-        raise ProjectNotFoundError(project_id)
-
-    service = SkillService(db)
-    return service.get_cross_validation_results(project_id)

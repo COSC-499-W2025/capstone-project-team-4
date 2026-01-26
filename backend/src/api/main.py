@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.config.settings import settings
 from src.models.database import init_db
-from src.api.routes import analysis, projects, skills, resume, user_profiles
+
+from src.api.routes import analysis, projects, skills, resume, user_profiles, auth, privacy_settings, experience, default_branch_stats
 
 # Configure logging
 logging.basicConfig(
@@ -46,17 +47,22 @@ app = FastAPI(
     * **Code Complexity** - Calculate cyclomatic complexity metrics
     * **Skill Extraction** - Extract technical skills from code patterns
     * **Resume Generation** - Generate professional resume bullet points
-    * **User Profiles** - Manage user personal information and work experience
+    * **User Profiles** - Manage user personal information and experiences
+    * **Authentication** - User registration and login
+    * **Privacy Settings** - Manage AI consent preferences
 
     ## API Endpoints
 
+    * `/api/auth/register` - Register new user
+    * `/api/auth/login` - Authenticate user
     * `/api/projects/analyze/upload` - Upload ZIP file for analysis
     * `/api/projects/analyze/github` - Analyze GitHub repository
     * `/api/projects` - List and manage analyzed projects
     * `/api/projects/{id}/skills` - Get extracted skills
     * `/api/projects/{id}/complexity` - Get complexity metrics
     * `/api/projects/{id}/resume` - Get/regenerate resume items
-    * `/api/user-profiles` - Manage user profiles and work experiences
+    * `/api/user-profiles` - Manage user profiles and experiences
+    * `/api/privacy-settings` - Manage AI consent settings
     """,
     lifespan=lifespan,
     docs_url="/docs",
@@ -73,11 +79,17 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(analysis.router, prefix=settings.api_prefix)
 app.include_router(projects.router, prefix=settings.api_prefix)
 app.include_router(skills.router, prefix=settings.api_prefix)
 app.include_router(resume.router, prefix=settings.api_prefix)
 app.include_router(user_profiles.router, prefix=settings.api_prefix)
+
+
+app.include_router(default_branch_stats.router, prefix=settings.api_prefix)
+app.include_router(experience.router, prefix=settings.api_prefix)
+app.include_router(privacy_settings.router, prefix=settings.api_prefix)
 
 
 @app.get("/")

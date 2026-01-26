@@ -1,0 +1,31 @@
+# Domain mapping for contribution area estimation
+# Adjust as needed per project
+frontend:
+  paths: ["frontend/", "client/", "ui/", "public/", "static/"]
+  extensions: [".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte", ".css", ".scss", ".less", ".html"]
+  languages: ["JavaScript", "TypeScript", "HTML", "CSS", "SCSS", "Sass", "LESS", "Vue", "Svelte"]
+  frameworks: ["React", "Next.js", "Vue.js", "Nuxt.js", "Angular", "Svelte", "SolidJS"]
+
+backend:
+  paths: ["backend/", "server/", "api/", "services/"]
+  extensions: [".py", ".java", ".kt", ".go", ".rb", ".php", ".rs", ".cs"]
+  languages: ["Python", "Java", "Kotlin", "Go", "Ruby", "PHP", "Rust", "C#"]
+  frameworks: ["FastAPI", "Django", "Flask", "Spring", "Express", "NestJS", "Rails", "Laravel", "Gin", "Fiber"]
+
+infra:
+  paths: ["infra/", "infrastructure/", "deploy/", "helm/", "k8s/", "charts/", "terraform/", "ansible/", "ops/"]
+  extensions: [".tf", ".yaml", ".yml", ".json", ".sh", ".ps1", ".dockerfile", ".toml"]
+  languages: ["YAML", "Shell", "PowerShell", "Dockerfile", "TOML"]
+  frameworks: ["Terraform", "Helm", "Kubernetes"]
+
+docs:
+  paths: ["docs/", "documentation/", "specs/", "design/", "minutes/"]
+  extensions: [".md", ".markdown", ".mdx", ".rst", ".txt"]
+  languages: ["Markdown", "reStructuredText"]
+  frameworks: []
+
+devex:
+  paths: [".github/", "ci/", "scripts/", "tools/", "build/", "config/", "pipelines/", "automation/"]
+  extensions: [".yaml", ".yml", ".sh", ".ps1", ".cfg", ".ini", ".toml"]
+  languages: ["YAML", "Shell", "PowerShell", "TOML", "INI"]
+  frameworks: ["GitHub Actions", "CircleCI", "Jenkins"]

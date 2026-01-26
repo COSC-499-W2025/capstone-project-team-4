@@ -10,6 +10,8 @@ from src.models.orm.project import Project
 from src.models.orm.file import File, Language
 from src.models.orm.skill import ProjectSkill
 from src.models.orm.framework import ProjectFramework, Framework
+from src.models.orm.library import ProjectLibrary, Library
+from src.models.orm.tool import ProjectTool, Tool
 from src.models.orm.contributor import Contributor
 from src.repositories.base import BaseRepository
 
@@ -70,17 +72,31 @@ class ProjectRepository(BaseRepository[Project]):
             .where(File.project_id == project_id)
             .where(File.language_id.isnot(None))
         ) or 0
+        
+        tool_count = self.db.scalar(
+            select(func.count(ProjectTool.id)).where(ProjectTool.project_id == project_id)
+        ) or 0
+        
+        library_count = self.db.scalar(
+            select(func.count(ProjectLibrary.id)).where(ProjectLibrary.project_id == project_id)
+        ) or 0
 
         return {
             "id": project.id,
             "name": project.name,
             "source_type": project.source_type,
             "created_at": project.created_at,
+            "zip_uploaded_at": project.zip_uploaded_at,
+            "first_file_created": project.first_file_created,
+            "first_commit_date": project.first_commit_date,
+            "project_started_at": project.project_started_at,
             "file_count": file_count,
             "contributor_count": contributor_count,
             "skill_count": skill_count,
             "framework_count": framework_count,
             "language_count": language_count,
+            "tool_count": tool_count,
+            "library_count": library_count,
         }
 
     def get_all_summaries(self, skip: int = 0, limit: int = 100) -> List[dict]:
@@ -94,6 +110,10 @@ class ProjectRepository(BaseRepository[Project]):
         root_path: str,
         source_type: str = "local",
         source_url: Optional[str] = None,
+        zip_uploaded_at: Optional[datetime] = None,
+        first_file_created: Optional[datetime] = None,
+        first_commit_date: Optional[datetime] = None,
+        project_started_at: Optional[datetime] = None,
     ) -> Project:
         """Create a new project."""
         project = Project(
@@ -103,6 +123,10 @@ class ProjectRepository(BaseRepository[Project]):
             source_url=source_url,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
+            zip_uploaded_at=zip_uploaded_at,
+            first_file_created=first_file_created,
+            first_commit_date=first_commit_date,
+            project_started_at=project_started_at,
         )
         return self.create(project)
 
@@ -116,12 +140,49 @@ class ProjectRepository(BaseRepository[Project]):
         )
         return list(self.db.scalars(stmt).all())
 
+    def update_timestamps(
+        self,
+        project_id: int,
+        zip_uploaded_at: Optional[datetime],
+        first_file_created: Optional[datetime],
+        first_commit_date: Optional[datetime],
+        project_started_at: Optional[datetime],
+    ) -> Optional[Project]:
+        """Persist timestamp fields on project."""
+        project = self.get(project_id)
+        if not project:
+            return None
+
+        project.zip_uploaded_at = zip_uploaded_at
+        project.first_file_created = first_file_created
+        project.first_commit_date = first_commit_date
+        project.project_started_at = project_started_at
+        return self.update(project)
+
     def get_frameworks(self, project_id: int) -> List[str]:
         """Get all frameworks for a project."""
         stmt = (
             select(Framework.name)
             .join(ProjectFramework, ProjectFramework.framework_id == Framework.id)
             .where(ProjectFramework.project_id == project_id)
+        )
+        return list(self.db.scalars(stmt).all())
+
+    def get_libraries(self, project_id: int) -> List[str]:
+        """Get all libraries for a project."""
+        stmt = (
+            select(Library.name)
+            .join(ProjectLibrary, ProjectLibrary.library_id == Library.id)
+            .where(ProjectLibrary.project_id == project_id)
+        )
+        return list(self.db.scalars(stmt).all())
+
+    def get_tools(self, project_id: int) -> List[str]:
+        """Get all tools for a project."""
+        stmt = (
+            select(Tool.name)
+            .join(ProjectTool, ProjectTool.tool_id == Tool.id)
+            .where(ProjectTool.project_id == project_id)
         )
         return list(self.db.scalars(stmt).all())
 

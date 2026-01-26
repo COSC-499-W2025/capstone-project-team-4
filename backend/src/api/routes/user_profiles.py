@@ -12,20 +12,20 @@ from src.models.schemas.user_profile import (
     UserProfileUpdate,
     UserProfileDetail,
     UserProfileList,
-    WorkExperienceCreate,
-    WorkExperienceUpdate,
-    WorkExperienceResponse,
 )
 from src.services.user_profile_service import UserProfileService
+from src.repositories.user_repository import UserRepository
 from src.api.exceptions import (
     UserProfileNotFoundError,
-    UserProfileEmailExistsError,
-    WorkExperienceNotFoundError,
+    UserNotFoundError,
 )
+
+from .experience import router as experience_router
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/user-profiles", tags=["user-profiles"])
+
 
 
 # User Profile Endpoints
@@ -45,184 +45,74 @@ async def list_user_profiles(
     return service.list_profiles(page=page, page_size=page_size)
 
 
-@router.get("/{profile_id}", response_model=UserProfileDetail)
-async def get_user_profile(
-    profile_id: int,
+@router.get("/user/{user_id}", response_model=UserProfileDetail)
+async def get_user_profile_by_user_id(
+    user_id: int,
     db: Session = Depends(get_db),
 ):
     """
-    Get detailed information about a specific user profile.
+    Get detailed information about a specific user profile using user ID.
 
-    - Returns full profile details including work experiences
+    - Returns full profile details
     """
     service = UserProfileService(db)
-    profile = service.get_profile(profile_id)
-
+    profile = service.get_profile_by_user_id(user_id)
     if not profile:
-        raise UserProfileNotFoundError(profile_id)
-
+        raise UserProfileNotFoundError(user_id)
     return profile
 
 
-@router.post("", response_model=UserProfileDetail, status_code=201)
+@router.post("/user/{user_id}", response_model=UserProfileDetail, status_code=201)
 async def create_user_profile(
+    user_id: int,
     data: UserProfileCreate,
     db: Session = Depends(get_db),
 ):
     """
-    Create a new user profile.
+    Create a new user profile for a user.
 
     - Creates a new user profile with personal information
-    - Optionally includes work experiences
-    - Email must be unique
+    - User must exist
     """
     service = UserProfileService(db)
+    user_repo = UserRepository(db)
 
-    # Check if email already exists
-    existing = service.get_profile_by_email(data.email)
-    if existing:
-        raise UserProfileEmailExistsError(data.email)
+    # Verify user exists
+    user = user_repo.get(user_id)
+    if not user:
+        raise UserNotFoundError(user_id)
 
-    return service.create_profile(data)
+    return service.create_profile(user_id, data)
 
 
-@router.put("/{profile_id}", response_model=UserProfileDetail)
-async def update_user_profile(
-    profile_id: int,
+@router.put("/user/{user_id}", response_model=UserProfileDetail)
+async def update_user_profile_by_user_id(
+    user_id: int,
     data: UserProfileUpdate,
     db: Session = Depends(get_db),
 ):
     """
-    Update an existing user profile.
+    Update a user profile using user ID.
 
-    - Updates personal information fields
-    - Only provided fields will be updated
+    - Returns updated profile details
     """
     service = UserProfileService(db)
-
-    # Check if email is being changed and if new email already exists
-    if data.email:
-        existing = service.get_profile_by_email(data.email)
-        if existing and existing.id != profile_id:
-            raise UserProfileEmailExistsError(data.email)
-
-    profile = service.update_profile(profile_id, data)
-
+    profile = service.update_profile_by_user_id(user_id, data)
     if not profile:
-        raise UserProfileNotFoundError(profile_id)
-
+        raise UserProfileNotFoundError(user_id)
     return profile
 
 
-@router.delete("/{profile_id}", status_code=204)
-async def delete_user_profile(
-    profile_id: int,
+@router.delete("/user/{user_id}", status_code=204)
+async def delete_user_profile_by_user_id(
+    user_id: int,
     db: Session = Depends(get_db),
 ):
     """
-    Delete a user profile and all associated work experiences.
-
-    - Permanently deletes the profile and all work experiences
-    - This action cannot be undone
+    Delete a user profile using user ID.
     """
     service = UserProfileService(db)
-    deleted = service.delete_profile(profile_id)
-
-    if not deleted:
-        raise UserProfileNotFoundError(profile_id)
-
-
-# Work Experience Endpoints
-@router.get("/{profile_id}/work-experiences", response_model=List[WorkExperienceResponse])
-async def get_work_experiences(
-    profile_id: int,
-    db: Session = Depends(get_db),
-):
-    """
-    Get all work experiences for a user profile.
-
-    - Returns list of work experiences ordered by start date (most recent first)
-    """
-    service = UserProfileService(db)
-
-    # Verify profile exists
-    profile = service.get_profile(profile_id)
-    if not profile:
-        raise UserProfileNotFoundError(profile_id)
-
-    return service.get_work_experiences(profile_id)
-
-
-@router.post("/{profile_id}/work-experiences", response_model=WorkExperienceResponse, status_code=201)
-async def create_work_experience(
-    profile_id: int,
-    data: WorkExperienceCreate,
-    db: Session = Depends(get_db),
-):
-    """
-    Add a new work experience to a user profile.
-
-    - Creates a new work experience entry
-    - Associates it with the specified user profile
-    """
-    service = UserProfileService(db)
-
-    experience = service.create_work_experience(profile_id, data)
-
-    if not experience:
-        raise UserProfileNotFoundError(profile_id)
-
-    return experience
-
-
-@router.put("/{profile_id}/work-experiences/{experience_id}", response_model=WorkExperienceResponse)
-async def update_work_experience(
-    profile_id: int,
-    experience_id: int,
-    data: WorkExperienceUpdate,
-    db: Session = Depends(get_db),
-):
-    """
-    Update an existing work experience.
-
-    - Updates work experience fields
-    - Only provided fields will be updated
-    """
-    service = UserProfileService(db)
-
-    # Verify profile exists
-    profile = service.get_profile(profile_id)
-    if not profile:
-        raise UserProfileNotFoundError(profile_id)
-
-    experience = service.update_work_experience(experience_id, data)
-
-    if not experience:
-        raise WorkExperienceNotFoundError(experience_id)
-
-    return experience
-
-
-@router.delete("/{profile_id}/work-experiences/{experience_id}", status_code=204)
-async def delete_work_experience(
-    profile_id: int,
-    experience_id: int,
-    db: Session = Depends(get_db),
-):
-    """
-    Delete a work experience.
-
-    - Permanently deletes the work experience entry
-    - This action cannot be undone
-    """
-    service = UserProfileService(db)
-
-    # Verify profile exists
-    profile = service.get_profile(profile_id)
-    if not profile:
-        raise UserProfileNotFoundError(profile_id)
-
-    deleted = service.delete_work_experience(experience_id)
-
-    if not deleted:
-        raise WorkExperienceNotFoundError(experience_id)
+    success = service.delete_profile_by_user_id(user_id)
+    if not success:
+        raise UserProfileNotFoundError(user_id)
+    return
