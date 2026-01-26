@@ -89,30 +89,21 @@ export const useFileUpload = () => {
           "/api/projects/analyze/upload",
           formData,
         );
-        const data = response.data;
+        const responseData = response.data;
 
-        // IMPORTANT: Fetch contributor data IMMEDIATELY after upload
-        // while the temporary files still exist on the server
-        let contributorDetails = null;
-        if (data.project_id) {
-          try {
-            const contributorResponse = await axios.get(
-              `/api/projects/${data.project_id}/contributors/default-branch-stats`
-            );
-            contributorDetails = contributorResponse.data;
-          } catch (contributorError) {
-            console.warn('Could not fetch contributor details:', contributorError);
-            // Continue without contributor details - they can still see the count
-          }
-        }
+        // FIX: API returns List[AnalysisResult], so extract first item
+        const data = Array.isArray(responseData) ? responseData[0] : responseData;
+
+        // NOTE: Contributor details are fetched on-demand when user clicks on the
+        // contributor count in the UI. The count is already available from the
+        // analysis response, and details are stored in the database.
 
         // Transform the API response to match our display format
-        // Now properly mapping contributor_count, project_started_at, and other fields
         results.push({
           name: data.project_name || file.name.replace(".zip", ""),
           contributions: data.file_count || 0,
-          date: data.zip_uploaded_at || new Date().toISOString(), // When analyzed/uploaded
-          projectStartedAt: data.project_started_at || null, // When project actually began
+          date: data.zip_uploaded_at || new Date().toISOString(),
+          projectStartedAt: data.project_started_at || null,
           firstCommitDate: data.first_commit_date || null,
           firstFileCreated: data.first_file_created || null,
           description: `Languages: ${data.languages?.join(", ") || "N/A"}`,
@@ -120,9 +111,9 @@ export const useFileUpload = () => {
           frameworks: data.frameworks || [],
           skills: data.contextual_skills || data.skills || [],
           complexity: data.complexity_summary || {},
-          // Contributor data - now stored from immediate fetch
+          // Contributor count from analysis - details fetched on-demand
           contributorCount: data.contributor_count || 0,
-          contributorDetails: contributorDetails, // Store the full contributor data
+          contributorDetails: null,
           // Additional metadata
           projectId: data.project_id,
           totalLinesOfCode: data.total_lines_of_code || 0,

@@ -136,11 +136,31 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
     setContributorData(null);
 
     try {
-      // Fetch contributor details using THIS project's specific projectId
+      // FIX: Use /contributors endpoint which reads from database
+      // instead of /contributors/default-branch-stats which requires git files
       const response = await axios.get(
-        `/api/projects/${project.projectId}/contributors/default-branch-stats`
+        `/api/projects/${project.projectId}/contributors`
       );
-      setContributorData(response.data);
+      
+      // Transform the response to match the expected format
+      const data = response.data;
+      const transformedData = {
+        project_id: data.project_id,
+        project_name: data.project_name,
+        total_contributors: data.total_contributors,
+        total_commits: data.total_commits,
+        items: (data.contributors || []).map(c => ({
+          author: c.email ? `${c.name || 'Unknown'} <${c.email}>` : (c.name || 'Unknown'),
+          display_name: c.name || 'Unknown',
+          primary_email: c.email || '',
+          total_lines_changed: (c.total_lines_added || 0) + (c.total_lines_deleted || 0),
+          total_lines_added: c.total_lines_added || 0,
+          total_lines_deleted: c.total_lines_deleted || 0,
+          commits: c.commits || 0,
+        })).sort((a, b) => b.total_lines_changed - a.total_lines_changed)
+      };
+      
+      setContributorData(transformedData);
     } catch (error) {
       console.error('Error fetching contributor data:', error);
       setContributorError(
@@ -435,7 +455,7 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
               Contributors - {selectedProjectForContributors?.name}
             </DialogTitle>
             <DialogDescription>
-              Contribution statistics from git history on the default branch
+              Contribution statistics from git history
             </DialogDescription>
           </DialogHeader>
 
@@ -474,10 +494,10 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-gray-900 truncate">
-                            {parseAuthorName(contributor.author)}
+                            {contributor.display_name || parseAuthorName(contributor.author)}
                           </p>
                           <p className="text-xs text-gray-500 truncate">
-                            {contributor.author}
+                            {contributor.primary_email || contributor.author}
                           </p>
                         </div>
                         <div className="text-right ml-4">
