@@ -4,7 +4,7 @@ import logging
 import tempfile
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union, List
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
 from sqlalchemy.orm import Session
@@ -22,124 +22,138 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/projects/analyze", tags=["analysis"])
 
 
-@router.post("/upload", response_model=AnalysisResult, status_code=201)
+@router.post("/upload", response_model=List[AnalysisResult], status_code=201)
 async def analyze_upload(
     file: UploadFile = File(..., description="ZIP file to analyze"),
     project_name: Optional[str] = Form(None, description="Custom project name"),
     db: Session = Depends(get_db),
 ):
-    """
-    Analyze a project from an uploaded ZIP file.
-
-    - Upload a ZIP file containing the project source code
-    - Optionally specify a custom project name
-    - Returns analysis results including languages, frameworks, skills, and complexity metrics
-    """
-    # Validate file type
+    # Validate filename and extension
     if not file.filename:
         raise InvalidFileError("No filename provided")
 
-    if not file.filename.lower().endswith(".zip"):
+    # Normalize to just the base name (some clients include paths)
+    filename = Path(file.filename).name
+
+    #  Always return list to match response_model=List[AnalysisResult]
+    if filename.startswith("._") or filename == ".DS_Store":
+        raise InvalidFileError(
+            "macOS metadata file detected (._*). Upload the real .zip file, not the sidecar."
+        )
+
+    if not filename.lower().endswith(".zip"):
         raise InvalidFileError("File must be a ZIP archive")
 
-    # Save uploaded file to temp location
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
-        try:
-            # Read and write in chunks to handle large files
+    tmp_path: Optional[Path] = None
+
+    # Save uploaded file to temp location 
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
             contents = await file.read()
+            if not contents:
+                raise InvalidFileError("Uploaded file is empty")
+
             tmp.write(contents)
             tmp_path = Path(tmp.name)
-        except Exception as e:
-            logger.error(f"Failed to save uploaded file: {e}")
-            raise InvalidFileError(f"Failed to save file: {str(e)}")
 
-    try:
-        # Run analysis
+        # Run analysis 
         service = AnalysisService(db)
-        name = project_name or Path(file.filename).stem
+        name = project_name or Path(filename).stem
         result = service.analyze_from_zip(tmp_path, name)
-        return result
 
-    except FileNotFoundError as e:
+        #  Always return list to match response_model=List[AnalysisResult]
+        return result if isinstance(result, list) else [result]
+
+    except (FileNotFoundError, ValueError) as e:
+        # FileNotFoundError: temp file missing (rare)
+        # ValueError: invalid zip, etc.
         raise InvalidFileError(str(e))
-    except ValueError as e:
-        raise InvalidFileError(str(e))
+    except InvalidFileError:
+        # Re-raise as-is
+        raise
     except Exception as e:
-        logger.error(f"Analysis failed: {e}")
+        logger.exception("Analysis failed")
         raise AnalysisError(str(e))
     finally:
-        # Clean up temp file
-        try:
-            tmp_path.unlink()
-        except Exception:
-            pass
+        # --- Clean up temp file ---
+        if tmp_path:
+            try:
+                tmp_path.unlink(missing_ok=True)  
+            except TypeError:
+          
+                try:
+                    tmp_path.unlink()
+                except Exception:
+                    pass
+            except Exception:
+                pass
 
 
-# @router.post("/github", response_model=AnalysisResult, status_code=201)
-# async def analyze_github(
-#     request: GitHubAnalysisRequest,
-#     db: Session = Depends(get_db),
-# ):
-#     """
-#     Analyze a project from a GitHub repository URL.
+@router.post("/github", response_model=Union[AnalysisResult, List[AnalysisResult]], status_code=201)
+async def analyze_github(
+    request: GitHubAnalysisRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Analyze a project from a GitHub repository URL.
 
-#     - Provide a GitHub repository URL (public repos only)
-#     - Optionally specify a branch to analyze
-#     - The repository will be cloned and analyzed
-#     - Returns analysis results including languages, frameworks, skills, and complexity metrics
-#     """
-#     github_url = str(request.github_url)
+    - Provide a GitHub repository URL (public repos only)
+    - Optionally specify a branch to analyze
+    - The repository will be cloned and analyzed
+    - Returns analysis results including languages, frameworks, skills, and complexity metrics
+    """
+    github_url = str(request.github_url)
 
-#     # Validate GitHub URL
-#     if "github.com" not in github_url:
-#         raise InvalidGitHubURLError(github_url)
+    # Validate GitHub URL
+    if "github.com" not in github_url:
+        raise InvalidGitHubURLError(github_url)
 
-#     try:
-#         service = AnalysisService(db)
-#         result = service.analyze_from_github(
-#             github_url=github_url,
-#             branch=request.branch,
-#         )
-#         return result
+    try:
+        service = AnalysisService(db)
+        result = service.analyze_from_github(
+            github_url=github_url,
+            branch=request.branch,
+        )
+        return result
 
-#     except ValueError as e:
-#         raise InvalidGitHubURLError(str(e))
-#     except RuntimeError as e:
-#         raise AnalysisError(str(e))
-#     except Exception as e:
-#         logger.error(f"GitHub analysis failed: {e}")
-#         raise AnalysisError(str(e))
+    except ValueError as e:
+        raise InvalidGitHubURLError(str(e))
+    except RuntimeError as e:
+        raise AnalysisError(str(e))
+    except Exception as e:
+        logger.error(f"GitHub analysis failed: {e}")
+        raise AnalysisError(str(e))
 
 
-# @router.post("/directory", response_model=AnalysisResult, status_code=201)
-# async def analyze_directory(
-#     directory_path: str = Form(..., description="Path to local directory"),
-#     project_name: Optional[str] = Form(None, description="Custom project name"),
-#     db: Session = Depends(get_db),
-# ):
-#     """
-#     Analyze a project from a local directory.
+@router.post("/directory", response_model=AnalysisResult, status_code=201)
+async def analyze_directory(
+    directory_path: str = Form(..., description="Path to local directory"),
+    project_name: Optional[str] = Form(None, description="Custom project name"),
+    db: Session = Depends(get_db),
+):
+    """
+    Analyze a project from a local directory.
 
-#     - Provide the absolute path to a local project directory
-#     - Optionally specify a custom project name
-#     - Returns analysis results including languages, frameworks, skills, and complexity metrics
+    - Provide the absolute path to a local project directory
+    - Optionally specify a custom project name
+    - Returns analysis results including languages, frameworks, skills, and complexity metrics
 
-#     Note: This endpoint is intended for local/development use.
-#     """
-#     path = Path(directory_path)
+    Note: This endpoint is intended for local/development use.
+    """
+    path = Path(directory_path)
 
-#     if not path.exists():
-#         raise HTTPException(status_code=404, detail=f"Directory not found: {directory_path}")
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"Directory not found: {directory_path}")
 
-#     if not path.is_dir():
-#         raise HTTPException(status_code=400, detail=f"Path is not a directory: {directory_path}")
+    if not path.is_dir():
+        raise HTTPException(status_code=400, detail=f"Path is not a directory: {directory_path}")
 
-#     try:
-#         service = AnalysisService(db)
-#         name = project_name or path.name
-#         result = service.analyze_from_directory(path, name)
-#         return result
+    try:
+        service = AnalysisService(db)
+        name = project_name or path.name
+        result = service.analyze_from_directory(path, name)
+        return result
 
-#     except Exception as e:
-#         logger.error(f"Directory analysis failed: {e}")
-#         raise AnalysisError(str(e))
+    except Exception as e:
+        logger.error(f"Directory analysis failed: {e}")
+        raise AnalysisError(str(e))
