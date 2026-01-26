@@ -35,6 +35,10 @@ class Project(Base):
     source_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    zip_uploaded_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    first_file_created: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    first_commit_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    project_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     # Relationships
     files: Mapped[List["File"]] = relationship(

@@ -139,8 +139,17 @@ class AnalysisService:
             with zipfile.ZipFile(zip_path, "r") as zf:
                 zf.extractall(temp_dir)
 
+            # Detect actual project root with fallback strategy
+            temp_path = Path(temp_dir)
+            project_path = self._detect_project_root(temp_path)
+            
+            if project_path != temp_path:
+                logger.info(f"Detected project root: {project_path.relative_to(temp_path)}")
+            else:
+                logger.info(f"Using extraction root as project path")
+
             return self._run_analysis_pipeline(
-                project_path=Path(temp_dir),
+                project_path=project_path,
                 project_name=name,
                 source_type="zip",
                 source_url=str(zip_path),
@@ -485,6 +494,15 @@ class AnalysisService:
                 project_started_at = first_file_created
             
             logger.info(f"Project started at: {project_started_at}")
+
+            # Persist timestamps on project record for downstream consumers
+            self.project_repo.update_timestamps(
+                project_id=project_id,
+                zip_uploaded_at=zip_uploaded_at,
+                first_file_created=first_file_created,
+                first_commit_date=first_commit_date,
+                project_started_at=project_started_at,
+            )
             
             # Step 9: Save analysis summary with timing data
             total_duration = time.time() - start_time
@@ -529,6 +547,39 @@ class AnalysisService:
         except Exception as e:
             logger.error(f"Analysis failed for {project_name}: {e}")
             raise
+
+    def _detect_project_root(self, base_path: Path) -> Path:
+        """
+        Detect the actual project root using multiple strategies:
+        1. Single subdirectory (most common ZIP structure)
+        2. Directory containing .git folder (excluding __MACOSX)
+        3. Fall back to base_path
+        
+        Args:
+            base_path: Root path to search
+            
+        Returns:
+            Path to detected project root
+        """
+        # Strategy 1: Check for single subdirectory (exclude __MACOSX and hidden)
+        subdirs = [d for d in base_path.iterdir() 
+                   if d.is_dir() and not d.name.startswith('.') and d.name != '__MACOSX']
+        if len(subdirs) == 1:
+            return subdirs[0]
+        
+        # Strategy 2: Search for .git directory (excluding __MACOSX)
+        git_dirs = list(base_path.glob('**/.git'))
+        # Filter out any .git directories in __MACOSX folder
+        git_dirs = [gd for gd in git_dirs if '__MACOSX' not in str(gd)]
+        if git_dirs:
+            # Return parent of the first .git found
+            project_root = git_dirs[0].parent
+            logger.info(f"Found .git directory at {project_root.relative_to(base_path)}")
+            return project_root
+        
+        # Strategy 3: Fall back to base path
+        logger.debug(f"No single subdirectory or .git found, using base path")
+        return base_path
 
     def _detect_frameworks_best(self, project_path: Path) -> List[dict]:
         """Detect frameworks and return best-confidence unique list."""
@@ -589,6 +640,9 @@ class AnalysisService:
 
     def _save_contributors(self, project_id: int, contributors: list) -> None:
         """Save contributor data to database."""
+        from datetime import datetime
+        from src.models.orm.contributor_commit import ContributorCommit
+        
         # Delete old contributors for this project
         self.contributor_repo.delete_by_project_id(project_id)
         
@@ -608,14 +662,35 @@ class AnalysisService:
                 "github_username": c.get("github_username"),
                 "github_email": c.get("github_email"),
                 "commits": c.get("commits", 0),
-                "percent": c.get("percent", 0.0),
+                "percent": c.get("commit_percent", 0.0),  # Map commit_percent to percent (DB field)
                 "total_lines_added": c.get("total_lines_added", 0),
                 "total_lines_deleted": c.get("total_lines_deleted", 0),
                 "files_modified": files_modified,
+                "commit_dates": c.get("commit_dates", []),  # Store for later use
             })
 
         if contributors_data:
-            self.contributor_repo.create_contributors_bulk(contributors_data)
+            created_contributors = self.contributor_repo.create_contributors_bulk(contributors_data)
+            
+            # Save commit history for each contributor
+            for i, contributor_orm in enumerate(created_contributors):
+                commit_dates = contributors_data[i].get("commit_dates", [])
+                if commit_dates:
+                    commit_objs = []
+                    for commit_date in commit_dates:
+                        if isinstance(commit_date, datetime):
+                            commit_objs.append(ContributorCommit(
+                                contributor_id=contributor_orm.id,
+                                commit_hash="",  # Not available in current data structure
+                                commit_date=commit_date,
+                                author_date=commit_date,
+                                commit_message="",
+                            ))
+                    
+                    if commit_objs:
+                        self.db.add_all(commit_objs)
+            
+            self.db.commit()
 
     def _save_skills(
         self,
@@ -894,8 +969,11 @@ class AnalysisService:
         tools_and_technologies = self.tool_repo.get_tool_names(project_id)
         skills = self.skill_repo.get_by_project(project_id)
 
-        # Get earliest file timestamp from files table (if available)
-        first_file_created = self.file_repo.get_earliest_file_date(project_id) or datetime.utcnow()
+        # Get stored timestamps with fallbacks
+        zip_uploaded_at = project.zip_uploaded_at or project.created_at or datetime.utcnow()
+        first_file_created = project.first_file_created or self.file_repo.get_earliest_file_date(project_id) or datetime.utcnow()
+        first_commit_date = project.first_commit_date
+        project_started_at = project.project_started_at or first_commit_date or first_file_created
 
         return AnalysisResult(
             project_id=project_id,
@@ -920,8 +998,8 @@ class AnalysisService:
                 max_complexity=complexity_summary.get("max_complexity", 0),
                 high_complexity_count=complexity_summary.get("high_complexity_count", 0),
             ),
-            zip_uploaded_at=project.created_at or datetime.utcnow(),
+            zip_uploaded_at=zip_uploaded_at,
             first_file_created=first_file_created,
-            first_commit_date=None,  # TODO: Store in database
-            project_started_at=first_file_created,  # TODO: Calculate from DB values
+            first_commit_date=first_commit_date,
+            project_started_at=project_started_at,
         )

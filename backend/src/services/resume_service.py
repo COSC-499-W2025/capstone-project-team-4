@@ -200,7 +200,7 @@ class ResumeService:
                 "name": c.name,
                 "email": c.email,
                 "commits": c.commits,
-                "percent": c.percent,
+                "commit_percent": c.commit_percent,
                 "total_lines_added": c.total_lines_added,
                 "total_lines_deleted": c.total_lines_deleted,
                 "files_modified": files_modified,

@@ -75,71 +75,71 @@ async def analyze_upload(
             pass
 
 
-@router.post("/github", response_model=AnalysisResult, status_code=201)
-async def analyze_github(
-    request: GitHubAnalysisRequest,
-    db: Session = Depends(get_db),
-):
-    """
-    Analyze a project from a GitHub repository URL.
+# @router.post("/github", response_model=AnalysisResult, status_code=201)
+# async def analyze_github(
+#     request: GitHubAnalysisRequest,
+#     db: Session = Depends(get_db),
+# ):
+#     """
+#     Analyze a project from a GitHub repository URL.
 
-    - Provide a GitHub repository URL (public repos only)
-    - Optionally specify a branch to analyze
-    - The repository will be cloned and analyzed
-    - Returns analysis results including languages, frameworks, skills, and complexity metrics
-    """
-    github_url = str(request.github_url)
+#     - Provide a GitHub repository URL (public repos only)
+#     - Optionally specify a branch to analyze
+#     - The repository will be cloned and analyzed
+#     - Returns analysis results including languages, frameworks, skills, and complexity metrics
+#     """
+#     github_url = str(request.github_url)
 
-    # Validate GitHub URL
-    if "github.com" not in github_url:
-        raise InvalidGitHubURLError(github_url)
+#     # Validate GitHub URL
+#     if "github.com" not in github_url:
+#         raise InvalidGitHubURLError(github_url)
 
-    try:
-        service = AnalysisService(db)
-        result = service.analyze_from_github(
-            github_url=github_url,
-            branch=request.branch,
-        )
-        return result
+#     try:
+#         service = AnalysisService(db)
+#         result = service.analyze_from_github(
+#             github_url=github_url,
+#             branch=request.branch,
+#         )
+#         return result
 
-    except ValueError as e:
-        raise InvalidGitHubURLError(str(e))
-    except RuntimeError as e:
-        raise AnalysisError(str(e))
-    except Exception as e:
-        logger.error(f"GitHub analysis failed: {e}")
-        raise AnalysisError(str(e))
+#     except ValueError as e:
+#         raise InvalidGitHubURLError(str(e))
+#     except RuntimeError as e:
+#         raise AnalysisError(str(e))
+#     except Exception as e:
+#         logger.error(f"GitHub analysis failed: {e}")
+#         raise AnalysisError(str(e))
 
 
-@router.post("/directory", response_model=AnalysisResult, status_code=201)
-async def analyze_directory(
-    directory_path: str = Form(..., description="Path to local directory"),
-    project_name: Optional[str] = Form(None, description="Custom project name"),
-    db: Session = Depends(get_db),
-):
-    """
-    Analyze a project from a local directory.
+# @router.post("/directory", response_model=AnalysisResult, status_code=201)
+# async def analyze_directory(
+#     directory_path: str = Form(..., description="Path to local directory"),
+#     project_name: Optional[str] = Form(None, description="Custom project name"),
+#     db: Session = Depends(get_db),
+# ):
+#     """
+#     Analyze a project from a local directory.
 
-    - Provide the absolute path to a local project directory
-    - Optionally specify a custom project name
-    - Returns analysis results including languages, frameworks, skills, and complexity metrics
+#     - Provide the absolute path to a local project directory
+#     - Optionally specify a custom project name
+#     - Returns analysis results including languages, frameworks, skills, and complexity metrics
 
-    Note: This endpoint is intended for local/development use.
-    """
-    path = Path(directory_path)
+#     Note: This endpoint is intended for local/development use.
+#     """
+#     path = Path(directory_path)
 
-    if not path.exists():
-        raise HTTPException(status_code=404, detail=f"Directory not found: {directory_path}")
+#     if not path.exists():
+#         raise HTTPException(status_code=404, detail=f"Directory not found: {directory_path}")
 
-    if not path.is_dir():
-        raise HTTPException(status_code=400, detail=f"Path is not a directory: {directory_path}")
+#     if not path.is_dir():
+#         raise HTTPException(status_code=400, detail=f"Path is not a directory: {directory_path}")
 
-    try:
-        service = AnalysisService(db)
-        name = project_name or path.name
-        result = service.analyze_from_directory(path, name)
-        return result
+#     try:
+#         service = AnalysisService(db)
+#         name = project_name or path.name
+#         result = service.analyze_from_directory(path, name)
+#         return result
 
-    except Exception as e:
-        logger.error(f"Directory analysis failed: {e}")
-        raise AnalysisError(str(e))
+#     except Exception as e:
+#         logger.error(f"Directory analysis failed: {e}")
+#         raise AnalysisError(str(e))

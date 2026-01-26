@@ -161,6 +161,17 @@ def analyze_contributors(
 
     # Collect raw contributor identities
     raw_identities: List[Dict[str, Any]] = []
+
+    # Aggregate stats per canonical author (commits, lines, files)
+    stats_by_author: Dict[Tuple[str, str], Dict[str, Any]] = defaultdict(
+        lambda: {
+            "commits": 0,
+            "total_lines_added": 0,
+            "total_lines_deleted": 0,
+            "files_modified": defaultdict(int),
+            "commit_dates": [],  # List of commit timestamps for activity metrics
+        }
+    )
     
     try:
         commit_iter = repo.iter_commits("--all" if use_all_branches else None)
@@ -188,6 +199,29 @@ def analyze_contributors(
             # Apply mailmap if available
             canonical_name, canonical_email = _apply_mailmap(mailmap, raw_name, raw_email)
 
+            # Aggregate stats per author
+            author_key = (canonical_name or raw_name, _normalize_email(canonical_email or raw_email))
+
+            stats_by_author[author_key]["commits"] += 1
+
+            try:
+                commit_stats = commit.stats
+                stats_by_author[author_key]["total_lines_added"] += commit_stats.total.get("insertions", 0)
+                stats_by_author[author_key]["total_lines_deleted"] += commit_stats.total.get("deletions", 0)
+
+                # Count touched files; add 1 per file per commit
+                for fname in commit_stats.files.keys():
+                    stats_by_author[author_key]["files_modified"][fname] += 1
+            except Exception as e:
+                logger.debug(f"Error collecting stats for commit {commit.hexsha[:8]}: {e}")
+
+            # Collect commit dates for activity metrics
+            try:
+                commit_date = datetime.fromtimestamp(commit.committed_date)
+                stats_by_author[author_key]["commit_dates"].append(commit_date)
+            except Exception as e:
+                logger.debug(f"Error collecting commit date: {e}")
+
             raw_identities.append({
                 "name": raw_name,
                 "email": _normalize_email(raw_email),
@@ -205,7 +239,7 @@ def analyze_contributors(
         return []
 
     # Cluster contributors using similarity matching
-    contributors = _cluster_contributors(raw_identities)
+    contributors = _cluster_contributors(raw_identities, stats_by_author)
     
     logger.info(f"Found {len(contributors)} unique contributors after clustering")
 
@@ -215,9 +249,9 @@ def analyze_contributors(
 
     for contributor in contributors:
         if total_commits > 0:
-            contributor["percent"] = round((contributor["commits"] / total_commits) * 100, 2)
+            contributor["commit_percent"] = round((contributor["commits"] / total_commits) * 100, 2)
         else:
-            contributor["percent"] = 0
+            contributor["commit_percent"] = 0
 
         result.append(contributor)
 
@@ -320,7 +354,10 @@ def _apply_mailmap(
     return name, email
 
 
-def _cluster_contributors(identities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _cluster_contributors(
+    identities: List[Dict[str, Any]],
+    stats_by_author: Dict[Tuple[str, str], Dict[str, Any]]
+) -> List[Dict[str, Any]]:
     """
     Cluster contributor identities using similarity matching.
     
@@ -329,6 +366,10 @@ def _cluster_contributors(identities: List[Dict[str, Any]]) -> List[Dict[str, An
     - GitHub username from noreply emails
     - Email username similarity (e.g., jaidenlo@gmail.com and jaidenlo from noreply)
     - Name similarity within same email domain
+    
+    Args:
+        identities: List of raw commit identities
+        stats_by_author: Aggregated stats keyed by (canonical_name, canonical_email)
     """
     if not identities:
         return []
@@ -449,19 +490,29 @@ def _cluster_contributors(identities: List[Dict[str, Any]]) -> List[Dict[str, An
         github_username = sorted(all_github_usernames)[0] if all_github_usernames else None
         github_email = next((e for e in sorted(all_emails) if "github" in e), None)
         
+        # Get aggregated stats for this contributor's canonical identity
+        # Use the first identity's canonical info to look up stats
+        first_identity = cluster_identities[0]
+        author_key = (
+            first_identity.get("canonical_name") or first_identity.get("name"),
+            _normalize_email(first_identity.get("canonical_email") or first_identity.get("email")),
+        )
+        author_stats = stats_by_author.get(author_key, {})
+        
         contributors.append({
             "name": display_name,
             "email": primary_email,
             "primary_email": primary_email,
             "github_username": github_username,
             "github_email": github_email,
-            "commits": len(cluster_identities),
+            "commits": author_stats.get("commits", len(cluster_identities)),
             "history": history,
-            "total_lines_added": 0,
-            "total_lines_deleted": 0,
-            "files_modified": {},
+            "total_lines_added": author_stats.get("total_lines_added", 0),
+            "total_lines_deleted": author_stats.get("total_lines_deleted", 0),
+            "files_modified": dict(author_stats.get("files_modified", {})),
             "all_emails": sorted(e for e in all_emails if e),
             "all_names": sorted(n for n in all_names if n),
+            "commit_dates": author_stats.get("commit_dates", []),
         })
     
     return contributors
