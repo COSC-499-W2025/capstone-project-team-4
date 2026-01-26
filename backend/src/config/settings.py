@@ -20,13 +20,14 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     debug: bool = False
 
-    # File paths - computed first
+    # File paths
     base_dir: Path = Path(__file__).resolve().parent.parent.parent
     data_dir: Path = base_dir / "data"
 
-    # Database - PostgreSQL connection from environment
-    database_url: str
+    # Database - PostgreSQL only (required)
+    database_url: str = "postgresql://student:capstoneteam4@5.78.88.162:5434/capstone_db_dev"
     database_echo: bool = False
+
     rules_dir: Path = base_dir / "src" / "core" / "rules"
     temp_dir: Path = base_dir / "temp"
     outputs_dir: Path = base_dir / "outputs"

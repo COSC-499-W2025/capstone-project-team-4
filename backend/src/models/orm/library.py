@@ -17,8 +17,12 @@ class Library(Base):
     __tablename__ = "libraries"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     ecosystem: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+
+    __table_args__ = (
+        UniqueConstraint("name", "ecosystem", name="uq_library_name_ecosystem"),
+    )
 
     def __repr__(self) -> str:
         return f"<Library(id={self.id}, name='{self.name}', ecosystem='{self.ecosystem}')>"
