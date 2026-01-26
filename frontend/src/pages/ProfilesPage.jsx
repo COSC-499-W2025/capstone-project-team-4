@@ -1,5 +1,5 @@
 // src/pages/ProfilesPage.jsx
-import MainNav from "@/components/custom/MainNav";
+import MainNav from "@/components/Navigation";
 import EmptyProfilesState from "@/components/custom/profiles/EmptyProfilesState";
 import ProfilesGrid from "@/components/custom/profiles/ProfilesGrid";
 import ProfilesHeader from "@/components/custom/profiles/ProfilesHeader";
