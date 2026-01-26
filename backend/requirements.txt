@@ -8,6 +8,8 @@ python-multipart>=0.0.6
 # Database
 sqlalchemy>=2.0.0
 alembic>=1.13.0
+# This is for Postgres
+psycopg2-binary>=2.9.9
 
 # Validation & Settings
 pydantic>=2.0.0
