@@ -11,11 +11,16 @@ from src.config.settings import settings
 # Create SQLAlchemy base class
 Base = declarative_base()
 
+# Ensure data directory exists
+settings.data_dir.mkdir(parents=True, exist_ok=True)
+
 # Create engine with connection pooling for PostgreSQL
 engine = create_engine(
     settings.database_url,
     echo=settings.database_echo,
     pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
 )
 
 

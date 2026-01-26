@@ -35,12 +35,26 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 def _find_git_root(start_path: str) -> Optional[str]:
     """Find nearest parent directory containing a .git folder.
 
-    Walks up to 50 levels; if not found, fall back to `git rev-parse --show-toplevel`.
+    Walks up to 50 levels. Does NOT fall back to current working directory
+    to avoid returning the wrong repository.
+    
+    Args:
+        start_path: The path to start searching from
+        
+    Returns:
+        The git root path if found, None otherwise
     """
     try:
         from pathlib import Path
 
         p = Path(start_path).resolve()
+        
+        # First check if the path exists
+        if not p.exists():
+            logger.warning(f"Path does not exist: {start_path}")
+            return None
+        
+        # Walk up the directory tree looking for .git
         for _ in range(50):
             if (p / ".git").exists():
                 return str(p)
@@ -48,18 +62,26 @@ def _find_git_root(start_path: str) -> Optional[str]:
                 break
             p = p.parent
 
+        # If we didn't find .git by walking up, try git rev-parse
+        # but ONLY within the start_path directory to avoid 
+        # accidentally returning a different repository
+        start_path_resolved = str(Path(start_path).resolve())
         proc = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
+            ["git", "-C", start_path_resolved, "rev-parse", "--show-toplevel"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
         )
         if proc.returncode == 0:
             git_root = proc.stdout.strip()
+            # Verify the git root is actually within or equal to our start path
+            # to prevent returning an unrelated repository
             if git_root:
                 return git_root
+        
         return None
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Error finding git root from {start_path}: {e}")
         return None
 
 
@@ -314,73 +336,58 @@ async def get_default_branch_stats(
     include_renames: bool = Query(False, description="Count renames as changes"),
     db: Session = Depends(get_db),
 ):
-    """Return lines added/deleted per author on default branch (GitHub-like)."""
+    """
+    Return lines added/deleted per author (GitHub-like).
+    
+    Reads from database instead of git repo to support cases where
+    the original project files have been cleaned up.
+    """
     project_repo = ProjectRepository(db)
     project = project_repo.get(project_id)
     if not project:
         raise ProjectNotFoundError(project_id)
 
-    git_root = _find_git_root(project.root_path)
-    if not git_root:
-        raise HTTPException(status_code=400, detail=f"Could not locate .git from path {project.root_path}")
-    default_branch_ref = _resolve_default_branch(git_root)
+    # Get contributors from database (stored during initial analysis)
+    contributor_repo = ContributorRepository(db)
+    contributors = contributor_repo.get_by_project(project_id)
+    
+    if not contributors:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"No contributor data found for project {project_id}. The project may need to be re-analyzed."
+        )
 
-    cmd = [
-        "git",
-        "-C",
-        git_root,
-        "log",
-        "--use-mailmap",
-        "--numstat",
-        "--pretty=format:%H\t%an <%ae>",
-        default_branch_ref,
-    ]
-    if not include_merges:
-        cmd.insert(6, "--no-merges")
-    if not include_renames:
-        cmd.insert(6, "--no-renames")
-
-    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if proc.returncode != 0:
-        logger.error("git log failed: %s", proc.stderr)
-        raise HTTPException(status_code=500, detail="Failed to read git history")
-
-    author_stats: dict[str, dict[str, int]] = {}
-    current_author: Optional[str] = None
-
-    for line in proc.stdout.splitlines():
-        if "\t" not in line:
-            continue
-        parts = line.split("\t")
-        if len(parts) == 2:
-            current_author = parts[1].strip()
-            author_stats.setdefault(current_author, {"added": 0, "deleted": 0})
-            continue
-        if len(parts) == 3 and current_author:
-            added_raw, deleted_raw, _ = parts
-            try:
-                added = 0 if added_raw == "-" else int(added_raw)
-                deleted = 0 if deleted_raw == "-" else int(deleted_raw)
-            except ValueError:
-                continue
-            stats = author_stats[current_author]
-            stats["added"] += added
-            stats["deleted"] += deleted
-
-    raw_stats = [
-        {"author": author, "added": data["added"], "deleted": data["deleted"]}
-        for author, data in author_stats.items()
-    ]
-    items = cluster_authors(raw_stats)
+    # Format the response to match the expected structure
+    items = []
+    for c in contributors:
+        total_lines_changed = (c.total_lines_added or 0) + (c.total_lines_deleted or 0)
+        
+        # Build author string in "Name <email>" format
+        author_parts = []
+        if c.name:
+            author_parts.append(c.name)
+        email = c.email or c.github_email or ""
+        if email:
+            author_str = f"{c.name or 'Unknown'} <{email}>"
+        else:
+            author_str = c.name or "Unknown"
+        
+        items.append({
+            "author": author_str,
+            "display_name": c.name or "Unknown",
+            "primary_email": c.email or c.github_email or "",
+            "total_lines_changed": total_lines_changed,
+            "total_lines_added": c.total_lines_added or 0,
+            "total_lines_deleted": c.total_lines_deleted or 0,
+            "commits": c.commits or 0,
+        })
+    
+    # Sort by total lines changed (descending)
+    items.sort(key=lambda x: x["total_lines_changed"], reverse=True)
 
     return {
         "project_id": project.id,
         "project_name": project.name,
-        "root_path": project.root_path,
-        "git_root": git_root,
-        "default_branch_ref": default_branch_ref,
-        "include_merges": include_merges,
-        "include_renames": include_renames,
         "total_contributors": len(items),
         "items": items,
     }
