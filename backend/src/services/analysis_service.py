@@ -5,18 +5,15 @@ import time
 import zipfile
 import tempfile
 import shutil
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple, List, Dict
+from typing import Optional, Tuple, List, Dict, Union
 from urllib.parse import urlparse
-from typing import Union, List
-import os 
-
 
 from sqlalchemy.orm import Session
 
-from src.core.utils.project_detection import detect_project_roots
 from src.models.schemas.analysis import AnalysisResult, AnalysisStatus, ComplexitySummary
 from src.config.settings import settings
 from src.repositories.project_repository import ProjectRepository
@@ -28,6 +25,7 @@ from src.repositories.resume_repository import ResumeRepository
 from src.repositories.library_repository import LibraryRepository
 from src.repositories.tool_repository import ToolRepository
 from src.repositories.framework_repository import FrameworkRepository
+from src.core.utils.project_detection import detect_project_roots
 
 # Core analyzers
 from src.core.detectors.metadata import parse_metadata
@@ -41,7 +39,7 @@ from src.core.analyzers.project_stats import (
     project_analysis_to_dict,
     calculate_project_stats,
 )
-from src.core.utils.project_detection import detect_project_roots
+
 from src.core.detectors.language import ProjectAnalyzer
 from src.core.detectors.skill import analyze_project_skills
 from src.core.validators.cross_validator import CrossValidator
@@ -84,80 +82,110 @@ IGNORE_DIRS = {
 
 logger = logging.getLogger(__name__)
 
-def _zip_contains_inner_zips(zip_path: Path) -> List[str]:
-    """Return list of inner zip entry names found in zip_path."""
-    inner = []
+def _is_macos_junk_zip_name(name: str) -> bool:
+    """
+    True for macOS junk entries commonly found in zips:
+    __MACOSX/*, .DS_Store, and AppleDouble files like ._filename
+    """
+    n = name.replace("\\", "/")
+    base = Path(n).name
+    return (
+        n.startswith("__MACOSX/") or "/__MACOSX/" in n
+        or base == ".DS_Store"
+        or base.startswith("._")
+    )
+
+def list_inner_zip_entries(zip_path: Path) -> list[str]:
+    """
+    Return a list of nested .zip entries inside zip_path.
+    Skips macOS junk entries.
+    """
+    zip_path = Path(zip_path)
+    if not zip_path.exists() or not zipfile.is_zipfile(zip_path):
+        return []
+
+    inner: list[str] = []
     with zipfile.ZipFile(zip_path, "r") as zf:
-        for name in zf.namelist():
-            # ignore folders
-            if name.endswith("/"):
+        for info in zf.infolist():
+            name = info.filename.replace("\\", "/")
+
+            # skip directories + mac junk
+            if name.endswith("/") or info.is_dir():
                 continue
+            if _is_macos_junk_zip_name(name):
+                continue
+
             if name.lower().endswith(".zip"):
                 inner.append(name)
+
     return inner
+
 
 def get_earliest_file_date_from_zip(zip_path: Path) -> Optional[datetime]:
     """
-    Extract the earliest file creation/modification date from a ZIP file.
-    
-    Reads ZIP internal metadata to find the oldest file date.
-    
-    Args:
-        zip_path: Path to the ZIP file
-        
-    Returns:
-        datetime object of earliest file in ZIP, or None if error
+    Extract earliest file date from ZIP *metadata* (not filesystem).
+    Skips macOS junk entries.
     """
+    zip_path = Path(zip_path)
+
+    if not zip_path.exists() or not zipfile.is_zipfile(zip_path):
+        return None
+
+    earliest: Optional[datetime] = None
+
     try:
-        with zipfile.ZipFile(zip_path, 'r') as zf:
-            earliest_time = None
-            
+        with zipfile.ZipFile(zip_path, "r") as zf:
             for info in zf.infolist():
-                # ZIP files store dates as (year, month, day, hour, minute, second)
+                name = info.filename.replace("\\", "/")
+
+                # skip dirs + mac junk
+                if info.is_dir() or name.endswith("/"):
+                    continue
+                if _is_macos_junk_zip_name(name):
+                    continue
+
                 try:
                     file_time = datetime(*info.date_time)
-                    
-                    if earliest_time is None or file_time < earliest_time:
-                        earliest_time = file_time
-                except (ValueError, TypeError) as e:
-                    logger.debug(f"Error parsing date for {info.filename}: {e}")
+                except (ValueError, TypeError):
                     continue
-            
-            if earliest_time:
-                logger.info(f"Earliest file date in ZIP: {earliest_time}")
-                return earliest_time
-                
-    except Exception as e:
-        logger.warning(f"Error extracting file dates from ZIP: {e}")
-    
-    return None
+
+                if earliest is None or file_time < earliest:
+                    earliest = file_time
+
+        return earliest
+    except Exception:
+        return None
+
+def _extract_zip_skipping_macos_junk(zip_path: Path, dest: Path) -> None:
+    """
+    Extract all members except macOS junk.
+    Keeps directory structure intact.
+    """
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        for info in zf.infolist():
+            name = info.filename.replace("\\", "/")
+            if _is_macos_junk_zip_name(name):
+                continue
+            zf.extract(info, dest)
 
 def _normalize_zip_root(extracted_root: Path) -> Path:
     """
-    Many ZIPs contain a single top-level folder.
-    If so, treat that as the 'real' root.
+    If ZIP has exactly one visible top-level folder, treat that as the root.
     """
-    top_dirs = [d for d in extracted_root.iterdir() if d.is_dir() and not d.name.startswith(".")]
-    return top_dirs[0] if len(top_dirs) == 1 else extracted_root
-
+    children = [p for p in extracted_root.iterdir() if p.is_dir() and not p.name.startswith(".")]
+    return children[0] if len(children) == 1 else extracted_root
 
 def _looks_like_project_root(folder: Path, min_code_files: int = 2) -> bool:
-    """
-    Flexible heuristic:
-    - Strong marker files OR
-    - at least `min_code_files` source files in the folder subtree
-    """
     if not folder.is_dir():
         return False
     if folder.name in IGNORE_DIRS:
         return False
 
-    # Strong marker files
     for marker in PROJECT_MARKERS:
         if (folder / marker).exists():
             return True
 
-    # Count code files (quick scan)
+    # fallback: count code files
     code_count = 0
     for p in folder.rglob("*"):
         if p.is_dir() and p.name in IGNORE_DIRS:
@@ -172,48 +200,38 @@ def _looks_like_project_root(folder: Path, min_code_files: int = 2) -> bool:
 
 def detect_project_roots_in_zip(extracted_root: Path, max_depth: int = 4) -> list[Path]:
     """
-    Detect multiple project roots inside an extracted ZIP.
+    Detect multiple project roots inside extracted ZIP.
 
-    Strategy (safe + general):
-    1) Normalize ZIP root (single top-level folder case)
-    2) If multiple top-level dirs look like projects → return them
-    3) Else do a bounded-depth recursive search for project roots
-       - once a project root is found, do NOT descend further into it
+    - Normalize single-folder zips
+    - Prefer top-level subfolders that look like projects
+    - Else bounded recursive search
     """
     base = _normalize_zip_root(extracted_root)
 
-    # If the base itself is a project root, treat ZIP as a single project
     if _looks_like_project_root(base):
         return [base]
 
-    # Fast path: check each top-level directory as a separate project
-    top_dirs = [d for d in base.iterdir() if d.is_dir() and d.name not in IGNORE_DIRS]
-    top_level_projects = [d for d in top_dirs if _looks_like_project_root(d)]
-    if len(top_level_projects) >= 1:
-        # If we found at least one, return those (common multi-project ZIP format)
-        return sorted(top_level_projects, key=lambda p: p.name.lower())
+    top_dirs = [d for d in base.iterdir() if d.is_dir() and d.name not in IGNORE_DIRS and not d.name.startswith(".")]
+    top_projects = [d for d in top_dirs if _looks_like_project_root(d)]
+    if top_projects:
+        return sorted(top_projects, key=lambda p: p.name.lower())
 
-    # Recursive scan (bounded depth) with pruning
     projects: list[Path] = []
 
-    # Use os.walk so we can prune descent once we accept a project root
     for root, dirs, files in os.walk(base):
         root_path = Path(root)
 
-        # depth guard
         depth = len(root_path.relative_to(base).parts)
         if depth > max_depth:
             dirs.clear()
             continue
 
-        # ignore junk dirs
-        dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+        dirs[:] = [d for d in dirs if d not in IGNORE_DIRS and not d.startswith(".")]
 
         if _looks_like_project_root(root_path):
             projects.append(root_path)
-            dirs.clear()  # stop descending inside this project root
+            dirs.clear()  # don't descend into a detected project
 
-    # Fallback: if we detect nothing, treat base as one project
     return sorted(projects, key=lambda p: str(p).lower()) if projects else [base]
 
 class AnalysisService:
@@ -238,74 +256,69 @@ class AnalysisService:
         project_name: Optional[str] = None,
     ) -> Union["AnalysisResult", List["AnalysisResult"]]:
 
+        zip_path = Path(zip_path)
+
         if not zip_path.exists():
             raise FileNotFoundError(f"ZIP file not found: {zip_path}")
+
         if not zipfile.is_zipfile(zip_path):
             raise ValueError(f"Invalid ZIP file: {zip_path}")
 
         base_name = project_name or zip_path.stem
-        zip_upload_time = datetime.utcnow()
 
-        # ✅ 1) Detect "zip of zips"
-        inner_zip_entries = _zip_contains_inner_zips(zip_path)
+        inner_zip_entries = list_inner_zip_entries(zip_path)
 
         if inner_zip_entries:
-            results: List[AnalysisResult] = []
+            results = []
             with tempfile.TemporaryDirectory() as temp_dir:
-                temp_dir = Path(temp_dir)
+                temp_path = Path(temp_dir)
+                _extract_zip_skipping_macos_junk(zip_path, temp_path)
 
-                with zipfile.ZipFile(zip_path, "r") as outer:
-                    for i, entry in enumerate(sorted(inner_zip_entries), start=1):
-                        inner_path = temp_dir / Path(entry).name
-                        outer.extract(entry, temp_dir)
+                for inner_name in inner_zip_entries:
+                    inner_zip_path = temp_path / inner_name
+                    res = self.analyze_from_zip(inner_zip_path, f"{base_name} - {Path(inner_name).stem}")
+                    if isinstance(res, list):
+                        results.extend(res)
+                    else:
+                        results.append(res)
 
-                        # Each inner zip gets its own earliest date
-                        earliest_inner = get_earliest_file_date_from_zip(inner_path)
-
-                        derived_name = f"{base_name} - {inner_path.stem}"
-                        results.append(
-                            self.analyze_from_zip(
-                                inner_path,
-                                project_name=derived_name,
-                            )
-                        )
-
-            # analyze_from_zip recursion returns either single or list; flatten:
-            flat: List[AnalysisResult] = []
-            for r in results:
-                if isinstance(r, list):
-                    flat.extend(r)
-                else:
-                    flat.append(r)
-
-            return flat
-
-        # ✅ 2) Normal zip: extract and detect multiple project roots inside folders
+            return results
+        
+        # 1) Earliest file date from ZIP metadata (mac junk skipped)
         earliest_file_date = get_earliest_file_date_from_zip(zip_path)
 
+        # 2) Extract safely (skip mac junk)
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
+            logger.info(f"Extracting ZIP to {temp_path}")
+            _extract_zip_skipping_macos_junk(zip_path, temp_path)
 
-            with zipfile.ZipFile(zip_path, "r") as zf:
-                zf.extractall(temp_path)
-
+            # 3) Detect one or multiple projects
             project_roots = detect_project_roots(temp_path)
+            logger.info(f"Detected {len(project_roots)} project(s) in ZIP")
 
-            results: List[AnalysisResult] = []
+            results: List["AnalysisResult"] = []
+
             for idx, root in enumerate(project_roots, start=1):
-                derived_name = base_name if len(project_roots) == 1 else f"{base_name} - {root.name}"
+                derived_name = (
+                    base_name
+                    if len(project_roots) == 1
+                    else f"{base_name} - {root.name or f'project-{idx}'}"
+                )
+
                 results.append(
                     self._run_analysis_pipeline(
                         project_path=root,
                         project_name=derived_name,
                         source_type="zip",
                         source_url=str(zip_path),
-                        zip_upload_time=zip_upload_time,
+                        zip_upload_time=datetime.utcnow(),
                         earliest_file_date_in_zip=earliest_file_date,
                     )
                 )
 
             return results[0] if len(results) == 1 else results
+
 
     def analyze_from_directory(
         self,

@@ -28,47 +28,63 @@ async def analyze_upload(
     project_name: Optional[str] = Form(None, description="Custom project name"),
     db: Session = Depends(get_db),
 ):
-    # Validate file type
+    # Validate filename and extension
     if not file.filename:
         raise InvalidFileError("No filename provided")
 
-    if not file.filename.lower().endswith(".zip"):
+    # Normalize to just the base name (some clients include paths)
+    filename = Path(file.filename).name
+
+    #  Always return list to match response_model=List[AnalysisResult]
+    if filename.startswith("._") or filename == ".DS_Store":
+        raise InvalidFileError(
+            "macOS metadata file detected (._*). Upload the real .zip file, not the sidecar."
+        )
+
+    if not filename.lower().endswith(".zip"):
         raise InvalidFileError("File must be a ZIP archive")
 
-    tmp_path: Path | None = None
+    tmp_path: Optional[Path] = None
 
-    # Save uploaded file to temp location
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
-        try:
+    # Save uploaded file to temp location 
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
             contents = await file.read()
+            if not contents:
+                raise InvalidFileError("Uploaded file is empty")
+
             tmp.write(contents)
             tmp_path = Path(tmp.name)
-        except Exception as e:
-            logger.error(f"Failed to save uploaded file: {e}")
-            raise InvalidFileError(f"Failed to save file: {str(e)}")
 
-    try:
+        # Run analysis 
         service = AnalysisService(db)
-        name = project_name or Path(file.filename).stem
-
+        name = project_name or Path(filename).stem
         result = service.analyze_from_zip(tmp_path, name)
 
-        # ✅ Always return a list to match response_model=List[AnalysisResult]
-        if isinstance(result, list):
-            return result
-        return [result]
+        #  Always return list to match response_model=List[AnalysisResult]
+        return result if isinstance(result, list) else [result]
 
-    except FileNotFoundError as e:
+    except (FileNotFoundError, ValueError) as e:
+        # FileNotFoundError: temp file missing (rare)
+        # ValueError: invalid zip, etc.
         raise InvalidFileError(str(e))
-    except ValueError as e:
-        raise InvalidFileError(str(e))
+    except InvalidFileError:
+        # Re-raise as-is
+        raise
     except Exception as e:
-        logger.error(f"Analysis failed: {e}")
+        logger.exception("Analysis failed")
         raise AnalysisError(str(e))
     finally:
+        # --- Clean up temp file ---
         if tmp_path:
             try:
-                tmp_path.unlink()
+                tmp_path.unlink(missing_ok=True)  
+            except TypeError:
+          
+                try:
+                    tmp_path.unlink()
+                except Exception:
+                    pass
             except Exception:
                 pass
 
