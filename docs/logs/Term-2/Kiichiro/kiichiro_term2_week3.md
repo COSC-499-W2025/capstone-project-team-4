@@ -26,6 +26,8 @@ https://github.com/COSC-499-W2025/capstone-project-team-4/pull/162
 - Reviewed https://github.com/COSC-499-W2025/capstone-project-team-4/pull/165 (was not able to approve at the time, due to OS relating issue)
 
 ### Plan for Next Week
-- Explore alternative contribution metrics that better reflect meaningful development effort.
+Explore alternative contribution metrics that better reflect meaningful development effort.
+
+- <img width="1096" height="650" alt="Screenshot 2026-01-25 at 20 49 31" src="https://github.com/user-attachments/assets/0535e5d1-1460-48fd-8868-852ab0512abf" />
 
 Hours Worked: ~12 hours
