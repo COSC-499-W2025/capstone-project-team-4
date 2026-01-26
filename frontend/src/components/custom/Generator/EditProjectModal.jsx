@@ -19,15 +19,18 @@ const EditProjectModal = ({ isOpen, onClose, project, onSave }) => {
     name: project?.name || '',
     contributions: project?.contributions || 0,
     date: project?.date ? new Date(project.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+    projectStartedAt: project?.projectStartedAt ? new Date(project.projectStartedAt).toISOString().split('T')[0] : '',
     description: project?.description || '',
     languages: project?.languages || [],
     frameworks: project?.frameworks || [],
     skills: project?.skills || [],
+    toolsAndTechnologies: project?.toolsAndTechnologies || [],
   });
 
   const [newLanguage, setNewLanguage] = useState('');
   const [newFramework, setNewFramework] = useState('');
   const [newSkill, setNewSkill] = useState('');
+  const [newTool, setNewTool] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -37,8 +40,9 @@ const EditProjectModal = ({ isOpen, onClose, project, onSave }) => {
     }));
   };
 
+  // Language handlers
   const handleAddLanguage = () => {
-    if (newLanguage.trim()) {
+    if (newLanguage.trim() && !formData.languages.includes(newLanguage.trim())) {
       setFormData(prev => ({
         ...prev,
         languages: [...prev.languages, newLanguage.trim()]
@@ -54,8 +58,9 @@ const EditProjectModal = ({ isOpen, onClose, project, onSave }) => {
     }));
   };
 
+  // Framework handlers
   const handleAddFramework = () => {
-    if (newFramework.trim()) {
+    if (newFramework.trim() && !formData.frameworks.includes(newFramework.trim())) {
       setFormData(prev => ({
         ...prev,
         frameworks: [...prev.frameworks, newFramework.trim()]
@@ -71,8 +76,9 @@ const EditProjectModal = ({ isOpen, onClose, project, onSave }) => {
     }));
   };
 
+  // Skill handlers
   const handleAddSkill = () => {
-    if (newSkill.trim()) {
+    if (newSkill.trim() && !formData.skills.includes(newSkill.trim())) {
       setFormData(prev => ({
         ...prev,
         skills: [...prev.skills, newSkill.trim()]
@@ -88,11 +94,32 @@ const EditProjectModal = ({ isOpen, onClose, project, onSave }) => {
     }));
   };
 
+  // Tools & Technologies handlers
+  const handleAddTool = () => {
+    if (newTool.trim() && !formData.toolsAndTechnologies.includes(newTool.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        toolsAndTechnologies: [...prev.toolsAndTechnologies, newTool.trim()]
+      }));
+      setNewTool('');
+    }
+  };
+
+  const handleRemoveTool = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      toolsAndTechnologies: prev.toolsAndTechnologies.filter((_, i) => i !== index)
+    }));
+  };
+
   const handleSave = () => {
-    // Convert date back to ISO string with time
+    // Convert dates back to ISO string with time
     const updatedData = {
       ...formData,
       date: new Date(formData.date).toISOString(),
+      projectStartedAt: formData.projectStartedAt 
+        ? new Date(formData.projectStartedAt).toISOString() 
+        : null,
     };
     onSave(updatedData);
     onClose();
@@ -139,6 +166,21 @@ const EditProjectModal = ({ isOpen, onClose, project, onSave }) => {
               onChange={handleChange}
               placeholder="0"
             />
+          </div>
+
+          {/* Project Start Date */}
+          <div className="space-y-2">
+            <Label htmlFor="projectStartedAt">Project Start Date</Label>
+            <Input
+              id="projectStartedAt"
+              name="projectStartedAt"
+              type="date"
+              value={formData.projectStartedAt}
+              onChange={handleChange}
+            />
+            <p className="text-xs text-gray-500">
+              When the project was originally started
+            </p>
           </div>
 
           {/* Analyzed Date */}
@@ -244,6 +286,35 @@ const EditProjectModal = ({ isOpen, onClose, project, onSave }) => {
                   {skill}
                   <button
                     onClick={() => handleRemoveSkill(index)}
+                    className="ml-2 hover:text-red-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          {/* Tools & Technologies */}
+          <div className="space-y-2">
+            <Label>Tools & Technologies</Label>
+            <div className="flex gap-2">
+              <Input
+                value={newTool}
+                onChange={(e) => setNewTool(e.target.value)}
+                onKeyPress={(e) => handleKeyPress(e, handleAddTool)}
+                placeholder="Add a tool (e.g., Docker, GitHub Actions)"
+              />
+              <Button onClick={handleAddTool} type="button">
+                Add
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {formData.toolsAndTechnologies.map((tool, index) => (
+                <Badge key={index} variant="outline" className="text-sm bg-orange-50 text-orange-700 border-orange-200">
+                  {tool}
+                  <button
+                    onClick={() => handleRemoveTool(index)}
                     className="ml-2 hover:text-red-600"
                   >
                     <X className="h-3 w-3" />
