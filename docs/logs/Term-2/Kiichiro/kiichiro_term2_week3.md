@@ -22,8 +22,9 @@ https://github.com/COSC-499-W2025/capstone-project-team-4/pull/162
 - Documented findings and shared reproducible CLI commands with the team.
 - Discussed implications of rename handling and metric interpretation with team members.
 - Merged PR #162 to ensure consistent contribution metrics across the project.
-- Approved https://github.com/COSC-499-W2025/capstone-project-team-4/pull/166
+- Reviewed and Approved https://github.com/COSC-499-W2025/capstone-project-team-4/pull/166
 - Reviewed https://github.com/COSC-499-W2025/capstone-project-team-4/pull/165 (was not able to approve at the time, due to OS relating issue)
+- Reviewed and Approved https://github.com/COSC-499-W2025/capstone-project-team-4/pull/164
 
 ### Plan for Next Week
 Explore alternative contribution metrics that better reflect meaningful development effort.
