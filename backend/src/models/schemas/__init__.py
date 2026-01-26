@@ -29,15 +29,28 @@ from src.models.schemas.complexity import (
     ComplexityReport,
     ComplexitySummary,
 )
+from src.models.schemas.user import (
+    UserCreate,
+    UserUpdate,
+    UserResponse,
+    UserLogin,
+    LoginResponse,
+)
 from src.models.schemas.user_profile import (
     UserProfileCreate,
     UserProfileUpdate,
     UserProfileSummary,
     UserProfileDetail,
     UserProfileList,
-    WorkExperienceCreate,
-    WorkExperienceUpdate,
-    WorkExperienceResponse,
+    ExperienceCreate,
+    ExperienceUpdate,
+    ExperienceResponse,
+    ExperienceTypeEnum,
+)
+from src.models.schemas.data_privacy_settings import (
+    DataPrivacySettingsCreate,
+    DataPrivacySettingsUpdate,
+    DataPrivacySettingsResponse,
 )
 
 __all__ = [
@@ -59,12 +72,21 @@ __all__ = [
     "ComplexitySchema",
     "ComplexityReport",
     "ComplexitySummary",
+    "UserCreate",
+    "UserUpdate",
+    "UserResponse",
+    "UserLogin",
+    "LoginResponse",
     "UserProfileCreate",
     "UserProfileUpdate",
     "UserProfileSummary",
     "UserProfileDetail",
     "UserProfileList",
-    "WorkExperienceCreate",
-    "WorkExperienceUpdate",
-    "WorkExperienceResponse",
+    "ExperienceCreate",
+    "ExperienceUpdate",
+    "ExperienceResponse",
+    "ExperienceTypeEnum",
+    "DataPrivacySettingsCreate",
+    "DataPrivacySettingsUpdate",
+    "DataPrivacySettingsResponse",
 ]

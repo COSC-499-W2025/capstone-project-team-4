@@ -6,8 +6,6 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from src.models.schemas.skill import (
-    CrossValidationResponse,
-    CrossValidationSummary,
     ProjectSkillsResponse,
     SkillSchema,
     SkillSourceBreakdown,
@@ -45,35 +43,14 @@ class SkillService:
         if not project:
             return None
 
-        # Get languages and frameworks
-        languages = self.project_repo.get_languages(project_id)
-        frameworks = self.project_repo.get_frameworks(project_id)
-
-        # Get skills grouped by category
-        skills_grouped = self.skill_repo.get_grouped_by_category(project_id)
-
-        skills_by_category = {}
-        total_skills = 0
-
-        for category, skills in skills_grouped.items():
-            skill_schemas = []
-            for skill in skills:
-                skill_schemas.append(SkillSchema(
-                    name=skill.skill,
-                    category=skill.category,
-                    frequency=skill.frequency,
-                ))
-                total_skills += 1
-            skills_by_category[category] = skill_schemas
+        project_skills = self.skill_repo.get_by_project(project_id)
+        skill_names = [ps.skill.name for ps in project_skills]
 
         return ProjectSkillsResponse(
             project_id=project_id,
             project_name=project.name,
-            languages=languages,
-            frameworks=frameworks,
-            skills_by_category=skills_by_category,
-            total_skills=total_skills,
-            total_categories=len(skills_by_category),
+            skills=skill_names,
+            total_skills=len(project_skills),
         )
 
     def get_skill_timeline(
@@ -89,7 +66,6 @@ class SkillService:
             skill: Optional specific skill to filter
 
         Returns:
-            SkillTimelineResponse or None if project not found
         """
         project = self.project_repo.get(project_id)
         if not project:
@@ -98,12 +74,28 @@ class SkillService:
         timeline_entries = self.skill_repo.get_timeline(project_id, skill)
 
         timeline = []
+
         for entry in timeline_entries:
             timeline.append(SkillTimelineEntry(
                 skill=entry.skill,
                 date=entry.date.isoformat() if entry.date else "",
                 count=entry.count,
             ))
+
+        # Fallback: if no timeline data exists, synthesize a single snapshot from current skills
+        if not timeline:
+            skills = self.skill_repo.get_by_project(project_id)
+            if skill:
+                skills = [s for s in skills if s.skill and s.skill.name.lower() == skill.lower()]
+            if skills:
+                snapshot_date = (project.created_at.date() if project.created_at else None)
+                snapshot_date_str = snapshot_date.isoformat() if snapshot_date else ""
+                for s in skills:
+                    timeline.append(SkillTimelineEntry(
+                        skill=s.skill.name if s.skill else "",
+                        date=snapshot_date_str,
+                        count=s.frequency,
+                    ))
 
         return SkillTimelineResponse(
             project_id=project_id,
@@ -127,18 +119,18 @@ class SkillService:
         breakdown = self.skill_repo.get_skill_source_breakdown(project_id)
         source_counts = self.skill_repo.count_by_source(project_id)
 
+        def _to_schema(project_skill: Any) -> SkillSchema:
+            # Normalize ORM object into the API schema using the related Skill entity
+            skill = project_skill.skill
+            return SkillSchema(
+                name=skill.name if skill else "",
+                category=skill.category if skill else "",
+                frequency=project_skill.frequency,
+                source=project_skill.source,
+            )
+
         def _to_schemas(skills) -> List[SkillSchema]:
-            return [
-                SkillSchema(
-                    name=s.skill,
-                    category=s.category,
-                    frequency=s.frequency,
-                    source=s.source,
-                    source_id=s.source_id,
-                    cross_validation_boost=s.cross_validation_boost,
-                )
-                for s in skills
-            ]
+            return [_to_schema(s) for s in skills]
 
         return SkillSourceResponse(
             project_id=project_id,
@@ -170,60 +162,20 @@ class SkillService:
         """
         skills = self.skill_repo.get_skills_by_source(project_id, source)
 
-        skill_schemas = [
-            SkillSchema(
-                name=s.skill,
-                category=s.category,
-                frequency=s.frequency,
-                source=s.source,
-                source_id=s.source_id,
-                cross_validation_boost=s.cross_validation_boost,
+        def _to_schema(project_skill: Any) -> SkillSchema:
+            skill = project_skill.skill
+            return SkillSchema(
+                name=skill.name if skill else "",
+                category=skill.category if skill else "",
+                frequency=project_skill.frequency,
+                source=project_skill.source,
             )
-            for s in skills
-        ]
+
+        skill_schemas = [_to_schema(s) for s in skills]
 
         return SkillsBySourceResponse(
             project_id=project_id,
             source=source,
             skills=skill_schemas,
             total=len(skill_schemas),
-        )
-
-    def get_cross_validation_results(
-        self,
-        project_id: int,
-    ) -> CrossValidationResponse:
-        """
-        Get cross-validation results for a project.
-
-        Args:
-            project_id: ID of the project
-
-        Returns:
-            CrossValidationResponse with validation metadata
-        """
-        # Get source counts for the summary
-        source_counts = self.skill_repo.count_by_source(project_id)
-
-        # Build summary
-        summary = CrossValidationSummary(
-            total_frameworks=0,  # Would need framework repo to get this
-            original_frameworks=0,
-            gap_filled_frameworks=0,
-            frameworks_boosted=0,
-            frameworks_penalized=0,
-            validation_sources_used={
-                "library": source_counts.get("library", 0),
-                "tool": source_counts.get("tool", 0),
-                "language": source_counts.get("language", 0),
-            },
-        )
-
-        # For now, return empty lists for frameworks
-        # These would be populated from framework repository with cross-validation data
-        return CrossValidationResponse(
-            project_id=project_id,
-            summary=summary,
-            enhanced_frameworks=[],
-            gap_filled_frameworks=[],
         )
