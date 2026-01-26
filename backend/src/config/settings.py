@@ -3,7 +3,6 @@
 from pathlib import Path
 from typing import Optional
 
-from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,16 +20,14 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     debug: bool = False
 
-    # File paths - computed first
+    # File paths
     base_dir: Path = Path(__file__).resolve().parent.parent.parent
     data_dir: Path = base_dir / "data"
 
-    # Database
-    # NOTE: set this to None by default so Pydantic looks for a DATABASE_URL env var first
-    # Make sure that you have a .env file in the root of `backend` and do something like DATABASE_URL=ConnectionString
-    database_url: Optional[str] = None
-
+    # Database - PostgreSQL only (required)
+    database_url: str = "postgresql://student:capstoneteam4@5.78.88.162:5434/capstone_db_dev"
     database_echo: bool = False
+
     rules_dir: Path = base_dir / "src" / "core" / "rules"
     temp_dir: Path = base_dir / "temp"
     outputs_dir: Path = base_dir / "outputs"
@@ -54,16 +51,6 @@ class Settings(BaseSettings):
     # API settings
     api_prefix: str = "/api"
     cors_origins: list[str] = ["*"]
-
-    # VALIDATOR: This is the logic that switches databases automatically.
-    # It runs AFTER loading environment variables.
-    @model_validator(mode="after")
-    def set_default_database_url(self):
-        # If no DATABASE_URL env var was found, fall back to local SQLite just in case
-        if not self.database_url:
-            db_path = self.data_dir / "workmine.db"
-            self.database_url = f"sqlite:///{db_path}"
-        return self
 
 
 # Global settings instance
