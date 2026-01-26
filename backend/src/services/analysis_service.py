@@ -91,18 +91,6 @@ def _is_macos_junk_zip_name(name: str) -> bool:
         or base.startswith("._")
     )
 
-def _extract_zip_skipping_macos_junk(zip_path: Path, dest: Path) -> None:
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        members = []
-        for info in zf.infolist():
-            name = info.filename.replace("\\", "/")
-            if info.is_dir():
-                continue
-            if _is_macos_junk_zip_name(name):
-                continue
-            members.append(info)
-        zf.extractall(dest, members=members)
-
 def _is_under_ignored_dir(rel_path: Union[str, Path]) -> bool:
     
     p = Path(str(rel_path).replace("\\", "/"))
@@ -353,32 +341,45 @@ class AnalysisService:
                     results.extend(nested_results)
 
             # 2) Also analyze projects contained directly in this extracted zip (folders/files)
-            #    This ensures you still analyze “real” project roots even if nested zips exist.
-            project_roots = detect_project_roots(temp_path)
-            logger.info(f"Detected {len(project_roots)} project(s) in extracted ZIP at depth {_depth}")
+            #    This ensures you still analyze "real" project roots even if nested zips exist.
+            try:
+                project_roots = detect_project_roots(temp_path)
+                logger.info(f"Detected {len(project_roots)} project(s) in extracted ZIP at depth {_depth}")
+            except Exception as e:
+                logger.error(f"Error detecting project roots at depth {_depth}: {e}")
+                # If we already have results from nested zips, return those
+                if results:
+                    logger.info(f"Returning {len(results)} results from nested zips")
+                    return results
+                raise
 
-            for idx, root in enumerate(project_roots, start=1):
-                # Avoid analyzing extracted inner-zip dirs as “projects” if they live under ignored dirs
-                if _is_under_ignored_dir(str(root.relative_to(temp_path)).replace("\\", "/")):
-                    continue
+            # Skip analyzing temp_path as a project if we already have results from nested zips
+            # and the only "project root" is the temp_path itself (fallback case)
+            if results and len(project_roots) == 1 and project_roots[0] == temp_path:
+                logger.info(f"Skipping temp_path analysis at depth {_depth} - already have {len(results)} results from nested zips")
+            else:
+                for idx, root in enumerate(project_roots, start=1):
+                    # Avoid analyzing extracted inner-zip dirs as "projects" if they live under ignored dirs
+                    if _is_under_ignored_dir(str(root.relative_to(temp_path)).replace("\\", "/")):
+                        continue
 
-                derived_name = (
-                    base_name
-                    if len(project_roots) == 1
-                    else f"{base_name} - {root.name or f'project-{idx}'}"
-                )
-
-                results.append(
-                    self._run_analysis_pipeline(
-                        project_path=root,
-                        project_name=derived_name,
-                        source_type="zip",
-                        
-                        source_url=str(zip_path),
-                        zip_upload_time=datetime.utcnow(),
-                        earliest_file_date_in_zip=earliest_file_date,
+                    derived_name = (
+                        base_name
+                        if len(project_roots) == 1
+                        else f"{base_name} - {root.name or f'project-{idx}'}"
                     )
-                )
+
+                    results.append(
+                        self._run_analysis_pipeline(
+                            project_path=root,
+                            project_name=derived_name,
+                            source_type="zip",
+
+                            source_url=str(zip_path),
+                            zip_upload_time=datetime.utcnow(),
+                            earliest_file_date_in_zip=earliest_file_date,
+                        )
+                    )
 
         
         return results
@@ -424,7 +425,7 @@ class AnalysisService:
         Supports monorepos / multi-project repositories.
         """
 
-        from src.core.utils.project_detection import detect_project_roots, IGNORE_DIRS
+        from src.core.utils.project_detection import detect_project_roots
 
         # Parse GitHub URL
         parsed = urlparse(github_url)
