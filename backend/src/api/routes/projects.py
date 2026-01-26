@@ -9,6 +9,7 @@ from typing import Optional, Set
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from src.utils.contributor_dedup import cluster_authors
 from src.models.database import get_db
 from src.models.schemas.project import ProjectList, ProjectDetail
 from src.models.schemas.contributor import (
@@ -366,16 +367,11 @@ async def get_default_branch_stats(
             stats["added"] += added
             stats["deleted"] += deleted
 
-    items = [
-        {
-            "author": author,
-            "total_lines_changed": data["added"] + data["deleted"],
-            "total_lines_added": data["added"],
-            "total_lines_deleted": data["deleted"],
-        }
+    raw_stats = [
+        {"author": author, "added": data["added"], "deleted": data["deleted"]}
         for author, data in author_stats.items()
     ]
-    items.sort(key=lambda i: i["total_lines_changed"], reverse=True)
+    items = cluster_authors(raw_stats)
 
     return {
         "project_id": project.id,

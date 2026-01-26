@@ -12,6 +12,7 @@ from src.models.database import get_db
 from src.repositories.project_repository import ProjectRepository
 from src.api.exceptions import ProjectNotFoundError
 from src.api.routes.projects import _find_git_root
+from src.utils.contributor_dedup import cluster_authors
 
 logger = logging.getLogger(__name__)
 
@@ -128,16 +129,12 @@ async def get_default_branch_stats(
             add_totals[current_author] = add_totals.get(current_author, 0) + ins_i
             del_totals[current_author] = del_totals.get(current_author, 0) + del_i
 
-    items = []
+    raw_stats = []
     for author, added in add_totals.items():
         deleted = del_totals.get(author, 0)
-        total = added + deleted
-        items.append({
-            "author": author,
-            "total_lines_changed": total,
-            "total_lines_added": added,
-            "total_lines_deleted": deleted,
-        })
+        raw_stats.append({"author": author, "added": added, "deleted": deleted})
+
+    items = cluster_authors(raw_stats)
 
     items.sort(key=lambda x: x["total_lines_changed"], reverse=True)
 
