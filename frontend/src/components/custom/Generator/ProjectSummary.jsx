@@ -1,5 +1,14 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import EditProjectModal from '@/components/custom/Generator/EditProjectModal';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -7,30 +16,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import axios from 'axios';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { 
-  Pencil, 
-  Users, 
-  Calendar, 
-  Code, 
-  FileText, 
-  ChevronRight,
-  Plus,
-  Minus,
-  Loader2,
+  Calendar,
   ChevronDown,
-  ChevronUp
+  ChevronRight,
+  ChevronUp,
+  Code,
+  FileText,
+  Loader2,
+  Minus,
+  Pencil,
+  Plus,
+  Users
 } from 'lucide-react';
-import EditProjectModal from '@/components/custom/Generator/EditProjectModal';
+import { useState } from 'react';
 
 const ProjectSummary = ({ projects, onUpdateProject }) => {
   const [sortBy, setSortBy] = useState('contributions');
@@ -46,6 +46,9 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
 
   // Expanded sections state - track which project indices have expanded sections
   const [expandedSections, setExpandedSections] = useState({});
+
+  // Collapsed state per project card (true = collapsed)
+  const [collapsedCards, setCollapsedCards] = useState({});
 
   if (!projects || projects.length === 0) return null;
 
@@ -86,8 +89,15 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
     }));
   };
 
-  const isExpanded = (projectIndex, sectionType) => {
-    return expandedSections[`${projectIndex}-${sectionType}`] || false;
+  const isExpanded = (projectIndex, sectionType) =>
+    expandedSections[`${projectIndex}-${sectionType}`] || false;
+
+  const isCardCollapsed = (key) => collapsedCards[key] ?? true; // default collapsed
+  const toggleCardCollapsed = (key) => {
+    setCollapsedCards((prev) => ({
+      ...prev,
+      [key]: !(prev[key] ?? true),
+    }));
   };
 
   // Format date for display
@@ -213,18 +223,25 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {sortedProjects.map((project, index) => (
+        {sortedProjects.map((project, index) => {
+          const projectKey = project.projectId ?? `${project.name}-${index}`;
+          const collapsed = isCardCollapsed(projectKey);
+
+          return (
           <Card key={project.projectId || index} className="hover:shadow-lg transition-shadow relative">
             {/* Edit Button */}
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={() => handleEdit(project, index)}
-              className="absolute top-2 right-2 h-8 w-8 p-0 hover:bg-blue-50"
+              className="absolute top-2 right-2 h-12 w-12 rounded-full 
+                        hover:bg-blue-50 active:bg-blue-100
+                        focus:outline-none focus:ring-2 focus:ring-blue-300
+                        shadow-sm"
+              aria-label="Edit project"
             >
-              <Pencil className="h-4 w-4 text-gray-500 hover:text-blue-600" />
+              <Pencil className="h-5 w-5 text-gray-600 hover:text-blue-600" />
             </Button>
-
             <CardHeader>
               <CardTitle className="text-lg pr-8">{project.name}</CardTitle>
             </CardHeader>
@@ -309,108 +326,147 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
                   </div>
                 )}
 
-                {/* Description */}
-                {project.description && (
-                  <div>
-                    <span className="text-gray-600 block mb-1">Description:</span>
-                    <p className="text-gray-700 text-xs">{project.description}</p>
-                  </div>
-                )}
+                {/* COLLAPSIBLE SECTION */}
+                  {!collapsed && (
+                    <div className="space-y-3 pt-1">
+                      {/* Description */}
+                      {project.description && (
+                        <div>
+                          <span className="text-gray-600 block mb-1">Description:</span>
+                          <p className="text-gray-700 text-xs leading-relaxed">
+                            {project.description}
+                          </p>
+                        </div>
+                      )}
 
-                {/* Languages */}
-                {project.languages && project.languages.length > 0 && (
-                  <div>
-                    <span className="text-gray-600 block mb-2">Languages:</span>
-                    {renderExpandableBadges(
-                      project.languages, 
-                      index, 
-                      'languages', 
-                      8,
-                      { variant: "secondary", className: "text-xs" }
-                    )}
-                  </div>
-                )}
+                      {/* Languages */}
+                      {project.languages && project.languages.length > 0 && (
+                        <div>
+                          <span className="text-gray-600 block mb-2">Languages:</span>
+                          {renderExpandableBadges(project.languages, index, "languages", 8, {
+                            variant: "secondary",
+                            className: "text-xs",
+                          })}
+                        </div>
+                      )}
 
-                {/* Frameworks */}
-                {project.frameworks && project.frameworks.length > 0 && (
-                  <div>
-                    <span className="text-gray-600 block mb-2">Frameworks:</span>
-                    {renderExpandableBadges(
-                      project.frameworks, 
-                      index, 
-                      'frameworks', 
-                      5,
-                      { variant: "outline", className: "text-xs" }
-                    )}
-                  </div>
-                )}
+                      {/* Frameworks */}
+                      {project.frameworks && project.frameworks.length > 0 && (
+                        <div>
+                          <span className="text-gray-600 block mb-2">Frameworks:</span>
+                          {renderExpandableBadges(project.frameworks, index, "frameworks", 5, {
+                            variant: "outline",
+                            className: "text-xs",
+                          })}
+                        </div>
+                      )}
 
                 {/* Skills */}
-                {project.skills && project.skills.length > 0 && (
-                  <div>
-                    <span className="text-gray-600 block mb-2">Skills:</span>
-                    {renderExpandableBadges(
-                      project.skills, 
-                      index, 
-                      'skills', 
-                      5,
-                      { className: "text-xs bg-blue-100 text-blue-800" }
-                    )}
-                  </div>
-                )}
+                      {project.skills && project.skills.length > 0 && (
+                        <div>
+                          <span className="text-gray-600 block mb-2">Skills:</span>
+                          {renderExpandableBadges(project.skills, index, "skills", 5, {
+                            className: "text-xs bg-blue-100 text-blue-800",
+                          })}
+                        </div>
+                      )}
 
-                {/* Tools & Technologies */}
-                {project.toolsAndTechnologies && project.toolsAndTechnologies.length > 0 && (
-                  <div>
-                    <span className="text-gray-600 block mb-2">Tools & Technologies:</span>
-                    {renderExpandableBadges(
-                      project.toolsAndTechnologies, 
-                      index, 
-                      'tools', 
-                      5,
-                      { variant: "outline", className: "text-xs bg-orange-50 text-orange-700 border-orange-200" }
-                    )}
-                  </div>
-                )}
+                      {/* Tools & Technologies */}
+                      {project.toolsAndTechnologies &&
+                        project.toolsAndTechnologies.length > 0 && (
+                          <div>
+                            <span className="text-gray-600 block mb-2">
+                              Tools & Technologies:
+                            </span>
+                            {renderExpandableBadges(project.toolsAndTechnologies, index, "tools", 5, {
+                              variant: "outline",
+                              className:
+                                "text-xs bg-orange-50 text-orange-700 border-orange-200",
+                            })}
+                          </div>
+                        )}
 
                 {/* Complexity Metrics */}
-                {project.complexity && Object.keys(project.complexity).length > 0 && (
-                  <div className="pt-2 border-t">
-                    <span className="text-gray-600 block mb-1 text-xs">
-                      Complexity Metrics:
-                    </span>
-                    <div className="text-xs text-gray-500 space-y-1">
-                      {project.complexity.total_functions !== undefined && (
-                        <div className="flex justify-between">
-                          <span>Total Functions:</span>
-                          <span className="font-mono">{project.complexity.total_functions}</span>
-                        </div>
+                      {project.complexity && Object.keys(project.complexity).length > 0 && (
+                        <div className="pt-2 border-t">
+                          <span className="text-gray-600 block mb-1 text-xs">
+                            Complexity Metrics:
+                          </span>
+                          <div className="text-xs text-gray-500 space-y-1">
+                            {project.complexity.total_functions !== undefined && (
+                              <div className="flex justify-between gap-3">
+                                <span>Total Functions:</span>
+                                <span className="font-mono">
+                                  {project.complexity.total_functions}
+                                </span>
+                              </div>
+                            )}
+                            {project.complexity.avg_complexity !== undefined && (
+                              <div className="flex justify-between gap-3">
+                                <span>Avg Complexity:</span>
+                                <span className="font-mono">
+                                  {project.complexity.avg_complexity.toFixed(2)}
+                                </span>
+                              </div>
+                            )}
+                            {project.complexity.max_complexity !== undefined && (
+                              <div className="flex justify-between gap-3">
+                                <span>Max Complexity:</span>
+                                <span className="font-mono">
+                                  {project.complexity.max_complexity}
+                                </span>
+                              </div>
+                            )}
+                            {project.complexity.high_complexity_count !== undefined &&
+                              project.complexity.high_complexity_count > 0 && (
+                                <div className="flex justify-between gap-3">
+                                  <span>High Complexity Functions:</span>
+                                  <span className="font-mono text-amber-600">
+                                    {project.complexity.high_complexity_count}
+                                  </span>
+                                </div>
                       )}
-                      {project.complexity.avg_complexity !== undefined && (
-                        <div className="flex justify-between">
-                          <span>Avg Complexity:</span>
-                          <span className="font-mono">{project.complexity.avg_complexity.toFixed(2)}</span>
-                        </div>
-                      )}
-                      {project.complexity.max_complexity !== undefined && (
-                        <div className="flex justify-between">
-                          <span>Max Complexity:</span>
-                          <span className="font-mono">{project.complexity.max_complexity}</span>
-                        </div>
-                      )}
-                      {project.complexity.high_complexity_count !== undefined && project.complexity.high_complexity_count > 0 && (
-                        <div className="flex justify-between">
-                          <span>High Complexity Functions:</span>
-                          <span className="font-mono text-amber-600">{project.complexity.high_complexity_count}</span>
-                        </div>
-                      )}
+                    </div>
+                    {/* Hide details button */}
+                    <div className="pt-3 mt-2 border-t flex justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleCardCollapsed(projectKey)}
+                        className="h-9 px-3 text-xs hover:bg-gray-100 text-gray-600"
+                        aria-label="Hide project details"
+                      >
+                        <ChevronUp className="h-4 w-4 mr-1" />
+                        Hide details
+                      </Button>
                     </div>
                   </div>
                 )}
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            )}
+
+                  {/* Collapsed hint + expand button */}
+                  {collapsed && (
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleCardCollapsed(projectKey)}
+                        className="h-9 px-3 text-xs hover:bg-gray-100"
+                        aria-label="Expand project details"
+                      >
+                        <ChevronDown className="h-4 w-4 mr-1" />
+                        Expand details
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Edit Modal */}
