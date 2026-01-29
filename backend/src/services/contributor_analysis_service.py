@@ -156,10 +156,11 @@ class ContributorAnalysisService:
                         filename_normalized = filename.strip()
 
                         # Check if this is the file we're looking for
+                        # Use exact path matching to avoid matching different files with same basename
+                        # (e.g., skill.py in different directories)
                         if (file_normalized == filename_normalized or
                             file_normalized.endswith("/" + filename_normalized) or
-                            file_normalized.endswith("\\" + filename_normalized) or
-                            os.path.basename(file_normalized) == os.path.basename(filename_normalized)):
+                            file_normalized.endswith("\\" + filename_normalized)):
                             
                             try:
                                 added = int(added_str)
