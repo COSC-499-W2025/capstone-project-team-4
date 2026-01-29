@@ -5,11 +5,13 @@ from typing import Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from src.core.security import verify_password
+from src.core.security import verify_password, create_access_token
 from src.models.orm.user import User
 from src.models.schemas.user import UserCreate, UserResponse, UserLogin, LoginResponse
 from src.repositories.user_repository import UserRepository
-from src.repositories.data_privacy_settings_repository import DataPrivacySettingsRepository
+from src.repositories.data_privacy_settings_repository import (
+    DataPrivacySettingsRepository,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +25,9 @@ class AuthService:
         self.user_repo = UserRepository(db)
         self.privacy_repo = DataPrivacySettingsRepository(db)
 
-    def register(self, data: UserCreate) -> Tuple[Optional[UserResponse], Optional[str]]:
+    def register(
+        self, data: UserCreate
+    ) -> Tuple[Optional[UserResponse], Optional[str]]:
         """
         Register a new user.
 
@@ -57,7 +61,9 @@ class AuthService:
             updated_at=user.updated_at,
         ), None
 
-    def authenticate(self, data: UserLogin) -> Tuple[Optional[LoginResponse], Optional[str]]:
+    def authenticate(
+        self, data: UserLogin
+    ) -> Tuple[Optional[LoginResponse], Optional[str]]:
         """
         Authenticate a user with email and password.
 
@@ -84,6 +90,9 @@ class AuthService:
 
         logger.info(f"User authenticated: {user.email}")
 
+        # Generate token
+        access_token = create_access_token(subject=user.id)
+
         user_response = UserResponse(
             id=user.id,
             email=user.email,
@@ -91,9 +100,12 @@ class AuthService:
             created_at=user.created_at,
             updated_at=user.updated_at,
         )
-
+        # Idk wtf this loginresponse is but if it works it works bruh?
+        # ANd yeah there are no things called access_token and token_type I'm cooked
         return LoginResponse(
             message="Login successful",
+            access_token=access_token,
+            token_type="bearer",
             user=user_response,
         ), None
 
