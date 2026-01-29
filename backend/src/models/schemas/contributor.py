@@ -104,3 +104,50 @@ class ProjectContributorsAnalysisResponse(BaseModel):
     total_contributors: int = 0
     contributors: List[ContributorAnalysisSchema] = []
 
+
+class AreaShareSchema(BaseModel):
+    """Schema for area contribution share."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    area: str  # "backend", "frontend", "infra", "docs", "devex"
+    share: float  # 0-1.0, percentage of total lines changed
+
+
+class TopFileItemSchema(BaseModel):
+    """Schema for top file contribution."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    file: str  # Relative file path from project root
+    lines_changed: int  # lines_added + lines_deleted
+
+
+class ContributorSummarySchema(BaseModel):
+    """Schema for contributor analysis summary."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    top_areas: List[AreaShareSchema] = []  # Top contributing areas
+    top_files: List[TopFileItemSchema] = []  # Top 10 files by lines changed
+
+
+class ContributorAnalysisDetailSchema(BaseModel):
+    """Schema for individual contributor analysis response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    contributor_id: int
+    name: Optional[str] = None
+    summary: ContributorSummarySchema = Field(default_factory=ContributorSummarySchema)
+
+
+class ContributorAnalysisDetailResponseSchema(BaseModel):
+    """Schema for get contributor analysis detail endpoint response."""
+
+    project_id: int
+    project_name: str
+    branch: str
+    contributor: ContributorAnalysisDetailSchema
+    generated_at: datetime
+
