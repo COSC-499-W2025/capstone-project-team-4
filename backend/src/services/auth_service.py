@@ -100,8 +100,7 @@ class AuthService:
             created_at=user.created_at,
             updated_at=user.updated_at,
         )
-        # Idk wtf this loginresponse is but if it works it works bruh?
-        # ANd yeah there are no things called access_token and token_type I'm cooked
+
         return LoginResponse(
             message="Login successful",
             access_token=access_token,
