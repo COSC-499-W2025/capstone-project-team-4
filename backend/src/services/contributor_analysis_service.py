@@ -96,12 +96,14 @@ class ContributorAnalysisService:
         # logger.info(f"_get_file_lines_changed: {filename} by {contributor_email}")
         
         try:
-            # Use a combination of author filter and grep to find commits
+            # Use git log with case-insensitive author search (-i flag)
+            # This ensures we match emails regardless of case differences
             cmd = [
                 "git",
                 "-C",
                 repo_path,
                 "log",
+                "-i",  # Case-insensitive matching
                 branch,
                 f"--author={contributor_email}",
                 "--numstat",
