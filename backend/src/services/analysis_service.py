@@ -327,7 +327,7 @@ class AnalysisService:
 
             with ThreadPoolExecutor(max_workers=6) as executor:
                 futures = {
-                    executor.submit(git_analyze_contributors, project_root): "contributors",
+                    executor.submit(git_analyze_contributors, project_root, use_all_branches=False, max_commits=None): "contributors",
                     executor.submit(
                         lambda: project_analysis_to_dict(analyze_project(project_path, file_paths))
                     ): "complexity",

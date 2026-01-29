@@ -31,33 +31,37 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
-def _find_git_root(start_path: str) -> Optional[str]:
-    """Find nearest parent directory containing a .git folder.
-
-    Walks up to 50 levels; if not found, fall back to `git rev-parse --show-toplevel`.
+def _find_git_root(start_path: str, max_levels: int = 3) -> Optional[str]:
+    """Find .git directory within a limited scope (max_levels up from start_path).
+    
+    For ZIP uploads without git history, returns None so the endpoint can
+    handle this case appropriately.
+    
+    Args:
+        start_path: Starting directory path
+        max_levels: Maximum levels to traverse upward (default: 3)
+        
+    Returns:
+        Git root path if found within scope, None otherwise
     """
     try:
         from pathlib import Path
 
         p = Path(start_path).resolve()
-        for _ in range(50):
+        
+        # First, check current directory and limited parents
+        for level in range(max_levels + 1):
             if (p / ".git").exists():
                 return str(p)
             if p.parent == p:
+                # Reached filesystem root
                 break
             p = p.parent
 
-        proc = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        if proc.returncode == 0:
-            git_root = proc.stdout.strip()
-            if git_root:
-                return git_root
+        # If not found in limited scope, return None
+        # (do NOT fall back to git rev-parse which may find parent repos)
         return None
+        
     except Exception:
         return None
 
@@ -306,22 +310,106 @@ async def get_contributor_analysis(
     return result
 
 
-@router.get("/{project_id}/contributors/default-branch-stats")
+def _parse_author_string(author_str: str) -> tuple[str, str]:
+    """Parse author string 'Name <email>' into (name, email).
+    
+    Args:
+        author_str: Author string in format "Name <email>"
+        
+    Returns:
+        Tuple of (name, email)
+    """
+    # Format: "Name <email@example.com>"
+    if "<" in author_str and ">" in author_str:
+        name = author_str[:author_str.index("<")].strip()
+        email = author_str[author_str.index("<") + 1:author_str.index(">")].strip()
+        return name, email
+    # Fallback: assume entire string is email
+    return author_str.strip(), author_str.strip()
+
+
+@router.get("/{project_id}/contributors/default-branch-stats", response_model=ProjectContributorsResponse)
 async def get_default_branch_stats(
     project_id: int,
     include_merges: bool = Query(False, description="Include merge commits"),
     include_renames: bool = Query(False, description="Count renames as changes"),
     db: Session = Depends(get_db),
 ):
-    """Return lines added/deleted per author on default branch (GitHub-like)."""
+    """Get contributors for a project from git default branch with lines added/deleted stats.
+    
+    - If git history is available: Returns list of contributors with line change statistics from git log
+    - If git history is not available (e.g., ZIP upload): Returns stored contributor data from database
+    - Uses git log from default branch (respects DEFAULT env var, origin/HEAD, origin/main/master)
+    """
     project_repo = ProjectRepository(db)
     project = project_repo.get(project_id)
     if not project:
         raise ProjectNotFoundError(project_id)
 
-    git_root = _find_git_root(project.root_path)
+    git_root = _find_git_root(project.root_path, max_levels=3)
+    
+    # If no git history available, return database contributor data
     if not git_root:
-        raise HTTPException(status_code=400, detail=f"Could not locate .git from path {project.root_path}")
+        logger.info(f"Git history not found for project {project_id}. Using database contributor data.")
+        # Use the same logic as /contributors endpoint
+        service = ProjectService(db)
+        project_detail = service.get_project(project_id)
+        
+        if not project_detail:
+            raise ProjectNotFoundError(project_id)
+        
+        contributor_repo = ContributorRepository(db)
+        contributors = contributor_repo.get_by_project(project_id)
+        
+        contributor_schemas = []
+        total_commits = 0
+        
+        for c in contributors:
+            # Calculate activity metrics from database commit_history
+            commit_dates = [commit.commit_date for commit in c.commit_history]
+            activity = _calculate_activity_metrics(commit_dates) if commit_dates else ActivitySchema()
+            
+            # Filter out .json files from files_modified
+            all_files = c.files_modified or []
+            non_json_files = [fm for fm in all_files if not (fm.filename or "").lower().endswith(".json")]
+            
+            # Calculate change statistics (excluding .json files)
+            total_lines_changed = c.total_lines_added + c.total_lines_deleted
+            lines_changed_per_commit = round(total_lines_changed / c.commits, 2) if c.commits > 0 else 0.0
+            files_changed = len(non_json_files)
+            
+            changes = ChangeStatsSchema(
+                total_lines_added=c.total_lines_added,
+                total_lines_deleted=c.total_lines_deleted,
+                total_lines_changed=total_lines_changed,
+                lines_changed_per_commit=lines_changed_per_commit,
+                files_changed=files_changed,
+            )
+            
+            contributor_schemas.append(ContributorSchema(
+                id=c.id,
+                name=c.name,
+                email=c.email,
+                github_username=c.github_username,
+                github_email=c.github_email,
+                commits=c.commits,
+                commit_percent=c.percent,
+                total_lines_added=c.total_lines_added,
+                total_lines_deleted=c.total_lines_deleted,
+                activity=activity,
+                changes=changes,
+            ))
+            total_commits += c.commits
+        
+        return ProjectContributorsResponse(
+            project_id=project_id,
+            project_name=project_detail.project_name,
+            contributors=contributor_schemas,
+            total_contributors=len(contributor_schemas),
+            total_commits=total_commits,
+        )
+    
+    # Git history is available - process git log
     default_branch_ref = _resolve_default_branch(git_root)
 
     cmd = [
@@ -344,7 +432,8 @@ async def get_default_branch_stats(
         logger.error("git log failed: %s", proc.stderr)
         raise HTTPException(status_code=500, detail="Failed to read git history")
 
-    author_stats: dict[str, dict[str, int]] = {}
+    # Group stats by author (using author string as key initially)
+    author_stats: dict[str, dict[str, any]] = {}
     current_author: Optional[str] = None
 
     for line in proc.stdout.splitlines():
@@ -353,7 +442,8 @@ async def get_default_branch_stats(
         parts = line.split("\t")
         if len(parts) == 2:
             current_author = parts[1].strip()
-            author_stats.setdefault(current_author, {"added": 0, "deleted": 0})
+            author_stats.setdefault(current_author, {"added": 0, "deleted": 0, "commits": 0})
+            author_stats[current_author]["commits"] += 1
             continue
         if len(parts) == 3 and current_author:
             added_raw, deleted_raw, _ = parts
@@ -366,28 +456,49 @@ async def get_default_branch_stats(
             stats["added"] += added
             stats["deleted"] += deleted
 
-    items = [
-        {
-            "author": author,
-            "total_lines_changed": data["added"] + data["deleted"],
-            "total_lines_added": data["added"],
-            "total_lines_deleted": data["deleted"],
-        }
-        for author, data in author_stats.items()
-    ]
-    items.sort(key=lambda i: i["total_lines_changed"], reverse=True)
+    # Convert to contributor schemas
+    contributor_schemas = []
+    total_commits = 0
+    
+    for author_str, data in author_stats.items():
+        name, email = _parse_author_string(author_str)
+        total_lines_changed = data["added"] + data["deleted"]
+        
+        contributor_schemas.append(ContributorSchema(
+            id=0,  # Not from DB, so ID is 0
+            name=name,
+            email=email,
+            github_username=None,
+            github_email=None,
+            commits=data["commits"],
+            commit_percent=0.0,  # Will be calculated after
+            total_lines_added=data["added"],
+            total_lines_deleted=data["deleted"],
+            activity=ActivitySchema(),  # Git has no date detail in this format
+            changes=ChangeStatsSchema(
+                total_lines_added=data["added"],
+                total_lines_deleted=data["deleted"],
+                total_lines_changed=total_lines_changed,
+                lines_changed_per_commit=round(total_lines_changed / data["commits"], 2) if data["commits"] > 0 else 0.0,
+                files_changed=0,  # Not available from git numstat
+            ),
+        ))
+        total_commits += data["commits"]
 
-    return {
-        "project_id": project.id,
-        "project_name": project.name,
-        "root_path": project.root_path,
-        "git_root": git_root,
-        "default_branch_ref": default_branch_ref,
-        "include_merges": include_merges,
-        "include_renames": include_renames,
-        "total_contributors": len(items),
-        "items": items,
-    }
+    # Calculate commit percentages
+    for contributor in contributor_schemas:
+        contributor.commit_percent = round((contributor.commits / total_commits * 100), 2) if total_commits > 0 else 0.0
+
+    # Sort by lines changed (descending)
+    contributor_schemas.sort(key=lambda c: c.changes.total_lines_changed, reverse=True)
+
+    return ProjectContributorsResponse(
+        project_id=project_id,
+        project_name=project.name,
+        contributors=contributor_schemas,
+        total_contributors=len(contributor_schemas),
+        total_commits=total_commits,
+    )
 
 
 @router.get("/{project_id}/complexity", response_model=ComplexityReport)
