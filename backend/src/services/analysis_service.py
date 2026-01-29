@@ -5,6 +5,7 @@ import time
 import zipfile
 import tempfile
 import shutil
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -133,18 +134,25 @@ class AnalysisService:
         earliest_file_date = get_earliest_file_date_from_zip(zip_path)
         logger.info(f"Earliest file date from ZIP: {earliest_file_date}")
 
-        # Extract to temporary directory
-        with tempfile.TemporaryDirectory() as temp_dir:
-            logger.info(f"Extracting ZIP to {temp_dir}")
+        # Create persistent storage directory instead of temporary
+        projects_dir = Path(__file__).parent.parent.parent / "data" / "projects"
+        projects_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create unique directory for this extraction
+        unique_id = str(uuid.uuid4())[:8]
+        extract_dir = projects_dir / f"{name}_{unique_id}"
+        extract_dir.mkdir(parents=True, exist_ok=True)
+        
+        try:
+            logger.info(f"Extracting ZIP to {extract_dir}")
             with zipfile.ZipFile(zip_path, "r") as zf:
-                zf.extractall(temp_dir)
+                zf.extractall(extract_dir)
 
             # Detect actual project root with fallback strategy
-            temp_path = Path(temp_dir)
-            project_path = self._detect_project_root(temp_path)
+            project_path = self._detect_project_root(extract_dir)
             
-            if project_path != temp_path:
-                logger.info(f"Detected project root: {project_path.relative_to(temp_path)}")
+            if project_path != extract_dir:
+                logger.info(f"Detected project root: {project_path.relative_to(extract_dir)}")
             else:
                 logger.info(f"Using extraction root as project path")
 
@@ -156,6 +164,15 @@ class AnalysisService:
                 zip_upload_time=datetime.utcnow(),
                 earliest_file_date_in_zip=earliest_file_date,
             )
+        except Exception as e:
+            # Clean up on error
+            logger.error(f"Error analyzing ZIP file: {e}, cleaning up {extract_dir}")
+            if extract_dir.exists():
+                try:
+                    shutil.rmtree(extract_dir)
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to clean up directory {extract_dir}: {cleanup_error}")
+            raise
 
     def analyze_from_directory(
         self,
@@ -216,41 +233,58 @@ class AnalysisService:
         repo = repo.replace(".git", "")
         project_name = repo
 
-        # Clone to temporary directory
-        with tempfile.TemporaryDirectory() as temp_dir:
-            clone_url = f"https://github.com/{owner}/{repo}.git"
-            clone_path = Path(temp_dir) / repo
+        # Clone to persistent storage instead of temporary directory
+        projects_dir = Path(__file__).parent.parent.parent / "data" / "projects"
+        projects_dir.mkdir(parents=True, exist_ok=True)
+        
+        unique_id = str(uuid.uuid4())[:8]
+        clone_path = projects_dir / f"{repo}_{unique_id}"
+        clone_path.mkdir(parents=True, exist_ok=True)
+        
+        clone_url = f"https://github.com/{owner}/{repo}.git"
+        
+        logger.info(f"Cloning {clone_url} to {clone_path}")
 
-            logger.info(f"Cloning {clone_url} to {clone_path}")
+        try:
+            import subprocess
+            cmd = ["git", "clone", "--depth", "100"]
+            if branch:
+                cmd.extend(["--branch", branch])
+            cmd.extend([clone_url, str(clone_path)])
 
-            try:
-                import subprocess
-                cmd = ["git", "clone", "--depth", "100"]
-                if branch:
-                    cmd.extend(["--branch", branch])
-                cmd.extend([clone_url, str(clone_path)])
-
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=300,
-                )
-
-                if result.returncode != 0:
-                    raise RuntimeError(f"Git clone failed: {result.stderr}")
-
-            except subprocess.TimeoutExpired:
-                raise RuntimeError("Git clone timed out")
-            except FileNotFoundError:
-                raise RuntimeError("Git is not installed or not in PATH")
-
-            return self._run_analysis_pipeline(
-                project_path=clone_path,
-                project_name=project_name,
-                source_type="github",
-                source_url=github_url,
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=300,
             )
+
+            if result.returncode != 0:
+                # Clean up on error
+                if clone_path.exists():
+                    try:
+                        shutil.rmtree(clone_path)
+                    except Exception as cleanup_error:
+                        logger.warning(f"Failed to clean up directory {clone_path}: {cleanup_error}")
+                raise RuntimeError(f"Git clone failed: {result.stderr}")
+
+        except subprocess.TimeoutExpired:
+            # Clean up on error
+            if clone_path.exists():
+                try:
+                    shutil.rmtree(clone_path)
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to clean up directory {clone_path}: {cleanup_error}")
+            raise RuntimeError("Git clone timed out")
+        except FileNotFoundError:
+            raise RuntimeError("Git is not installed or not in PATH")
+
+        return self._run_analysis_pipeline(
+            project_path=clone_path,
+            project_name=project_name,
+            source_type="github",
+            source_url=github_url,
+        )
 
     def _run_analysis_pipeline(
         self,

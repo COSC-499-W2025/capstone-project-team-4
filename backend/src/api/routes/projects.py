@@ -236,9 +236,17 @@ async def get_project_contributors(
     total_commits = 0
 
     for c in contributors:
+        # DEBUG: Log actual contributor object values
+        logger.info(f"Processing Contributor: id={c.id}, name={c.name}, email={c.email}")
+        logger.info(f"  commits={c.commits}, percent={c.percent}")
+        logger.info(f"  github_username={c.github_username}, github_email={c.github_email}")
+        logger.info(f"  commit_history count={len(c.commit_history) if c.commit_history else 0}")
+        
         # Calculate activity metrics from database commit_history
         commit_dates = [commit.commit_date for commit in c.commit_history]
         activity = _calculate_activity_metrics(commit_dates) if commit_dates else ActivitySchema()
+        
+        logger.info(f"  activity: active_days={activity.active_days}, first={activity.first_commit_date}")
         
         # Filter out .json files from files_modified
         all_files = c.files_modified or []
@@ -254,6 +262,8 @@ async def get_project_contributors(
         lines_changed_per_commit = round(total_lines_changed / c.commits, 2) if c.commits > 0 else 0.0
         files_changed = len(non_json_files)
         
+        logger.info(f"  files_changed={files_changed}, total_lines_changed={total_lines_changed}")
+        
         changes = ChangeStatsSchema(
             total_lines_added=c.total_lines_added,
             total_lines_deleted=c.total_lines_deleted,
@@ -262,7 +272,7 @@ async def get_project_contributors(
             files_changed=files_changed,
         )
         
-        contributor_schemas.append(ContributorSchema(
+        schema = ContributorSchema(
             id=c.id,
             name=c.name,
             email=c.email,
@@ -274,7 +284,10 @@ async def get_project_contributors(
             total_lines_deleted=c.total_lines_deleted,
             activity=activity,
             changes=changes,
-        ))
+        )
+        
+        logger.info(f"  Created schema with id={schema.id}")
+        contributor_schemas.append(schema)
         total_commits += c.commits
 
     return ProjectContributorsResponse(

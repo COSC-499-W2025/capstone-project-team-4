@@ -45,7 +45,7 @@ class ContributorSchema(BaseModel):
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    id: int
+    id: int = 0  # Explicit default value
     name: Optional[str] = None
     email: Optional[str] = None
     github_username: Optional[str] = None
