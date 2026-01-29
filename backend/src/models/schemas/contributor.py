@@ -151,3 +151,49 @@ class ContributorAnalysisDetailResponseSchema(BaseModel):
     contributor: ContributorAnalysisDetailSchema
     generated_at: datetime
 
+
+class ContributorVisualizationSchema(BaseModel):
+    """Schema for individual contributor visualization data."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    contributor_id: int
+    name: Optional[str] = None
+    email: Optional[str] = None
+
+    # Overall contribution (0-100%)
+    contribution_percentage: float = 0.0  # Percentage of project total
+
+    # Absolute metrics
+    total_lines_added: int = 0
+    total_lines_deleted: int = 0
+    total_lines_changed: int = 0  # added + deleted
+    commits: int = 0
+    files_changed: int = 0
+
+    # Area-based contribution (top N areas)
+    top_areas: List[AreaShareSchema] = []  # area name and share (0-1.0)
+
+    # Top files (default 3)
+    top_files: List[TopFileItemSchema] = []  # filename and lines_changed
+
+
+class ProjectContributorsVisualizationResponse(BaseModel):
+    """Schema for project contributors visualization response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    project_id: int
+    project_name: str
+    branch: str
+
+    # Project-wide statistics
+    total_lines_changed: int = 0  # Sum of all contributors
+    total_commits: int = 0
+    total_contributors: int = 0
+
+    # Contributors data (sorted by contribution_percentage descending)
+    contributors: List[ContributorVisualizationSchema] = []
+
+    generated_at: datetime
+

@@ -16,6 +16,8 @@ from src.models.schemas.contributor import (
     ContributorAnalysisDetailResponseSchema,
     ContributorAnalysisDetailSchema,
     ContributorSummarySchema,
+    ContributorVisualizationSchema,
+    ProjectContributorsVisualizationResponse,
     TopFileItemSchema,
 )
 from src.repositories.contributor_repository import ContributorRepository
@@ -416,5 +418,162 @@ class ContributorAnalysisService:
             project_name=project.name,
             branch=branch,
             contributor=contributor_detail,
+            generated_at=datetime.utcnow(),
+        )
+
+    def get_project_contributors_visualization(
+        self,
+        project_id: int,
+        branch: str = "HEAD",
+        top_areas_count: int = 5,
+        top_files_count: int = 3,
+    ) -> Optional[ProjectContributorsVisualizationResponse]:
+        """Get visualization data for all contributors in a project.
+
+        Combines contribution metrics with area analysis to provide:
+        - Overall contribution percentage for each contributor (relative to project total)
+        - Top contributing areas for each contributor
+        - Top files for each contributor
+
+        Args:
+            project_id: Project ID
+            branch: Branch to analyze (defaults to HEAD)
+            top_areas_count: Number of top areas to return per contributor
+            top_files_count: Number of top files to return per contributor
+
+        Returns:
+            ProjectContributorsVisualizationResponse with visualization data
+            or None if project not found
+        """
+        # Get project
+        project = self.project_repo.get(project_id)
+        if not project:
+            logger.warning(f"Project {project_id} not found")
+            return None
+
+        logger.info(
+            f"Getting visualization for project {project_id}, "
+            f"branch={branch}, top_areas={top_areas_count}, top_files={top_files_count}"
+        )
+
+        # Get repository path
+        repo_path = project.root_path
+        if not os.path.exists(repo_path):
+            logger.error(f"Repository path does not exist: {repo_path}")
+            return None
+
+        # Get all contributors for this project
+        all_contributors = self.contributor_repo.get_by_project(project_id)
+        if not all_contributors:
+            logger.warning(f"No contributors found for project {project_id}")
+            return ProjectContributorsVisualizationResponse(
+                project_id=project_id,
+                project_name=project.name,
+                branch=branch,
+                total_lines_changed=0,
+                total_commits=0,
+                total_contributors=0,
+                contributors=[],
+                generated_at=datetime.utcnow(),
+            )
+
+        logger.info(f"Found {len(all_contributors)} contributors for project {project_id}")
+
+        # Calculate project totals
+        total_lines_changed_project = 0
+        total_commits_project = 0
+
+        for contributor in all_contributors:
+            contributor_lines = (
+                contributor.total_lines_added + contributor.total_lines_deleted
+            )
+            total_lines_changed_project += contributor_lines
+            total_commits_project += contributor.commits
+
+        logger.info(
+            f"Project totals: lines_changed={total_lines_changed_project}, "
+            f"commits={total_commits_project}"
+        )
+
+        # Build visualization data for each contributor
+        visualization_list = []
+
+        for contributor in all_contributors:
+            contributor_lines_changed = (
+                contributor.total_lines_added + contributor.total_lines_deleted
+            )
+
+            # Calculate contribution percentage
+            contribution_percentage = (
+                (contributor_lines_changed / total_lines_changed_project * 100)
+                if total_lines_changed_project > 0
+                else 0.0
+            )
+
+            # Get top areas
+            top_areas = self.calculate_top_areas(
+                contributor_id=contributor.id,
+                repo_path=repo_path,
+                branch=branch,
+            )
+            # Limit to top N areas
+            top_areas = top_areas[:top_areas_count]
+
+            # Get top files
+            top_files = self.calculate_top_files(
+                contributor_id=contributor.id,
+                repo_path=repo_path,
+                branch=branch,
+                top_n=top_files_count,
+            )
+
+            # Count files changed (excluding .json files, matching existing logic)
+            all_files = contributor.files_modified or []
+            non_json_files = [
+                fm for fm in all_files 
+                if not (fm.filename or "").lower().endswith(".json")
+            ]
+            files_changed = len(non_json_files)
+
+            # Build visualization schema
+            viz_schema = ContributorVisualizationSchema(
+                contributor_id=contributor.id,
+                name=contributor.name,
+                email=contributor.email,
+                contribution_percentage=round(contribution_percentage, 2),
+                total_lines_added=contributor.total_lines_added,
+                total_lines_deleted=contributor.total_lines_deleted,
+                total_lines_changed=contributor_lines_changed,
+                commits=contributor.commits,
+                files_changed=files_changed,
+                top_areas=top_areas,
+                top_files=top_files,
+            )
+
+            visualization_list.append(viz_schema)
+
+            logger.debug(
+                f"Contributor {contributor.id} ({contributor.name}): "
+                f"{contribution_percentage:.2f}% contribution, "
+                f"{len(top_areas)} areas, {len(top_files)} files"
+            )
+
+        # Sort by contribution_percentage descending
+        visualization_list.sort(key=lambda x: x.contribution_percentage, reverse=True)
+
+        logger.info(
+            f"Built visualization for {len(visualization_list)} contributors, "
+            f"sorted by contribution percentage"
+        )
+
+        # Build and return response
+        return ProjectContributorsVisualizationResponse(
+            project_id=project_id,
+            project_name=project.name,
+            branch=branch,
+            total_lines_changed=total_lines_changed_project,
+            total_commits=total_commits_project,
+            total_contributors=len(visualization_list),
+            contributors=visualization_list,
             generated_at=datetime.utcnow(),
         )
