@@ -26,18 +26,20 @@ async def get_contributor_analysis(
     project_id: int,
     contributor_id: int,
     branch: Optional[str] = None,
+    top_files: int = 10,
     db: Session = Depends(get_db),
 ) -> ContributorAnalysisDetailResponseSchema:
     """Get detailed analysis for a specific contributor in a project.
 
     This endpoint provides analysis of a contributor's contributions including:
     - Top contributing areas (backend, frontend, infra, etc.) with share percentages
-    - Top 10 files by lines changed
+    - Top N files by lines changed (configurable)
 
     Args:
         project_id: Project ID
         contributor_id: Contributor ID
         branch: Optional branch to analyze (defaults to current HEAD)
+        top_files: Number of top files to return (default: 10)
         db: Database session
 
     Returns:
@@ -75,6 +77,7 @@ async def get_contributor_analysis(
             project_id=project_id,
             contributor_id=contributor_id,
             branch=branch,
+            top_files=top_files,
         )
 
         if not analysis:

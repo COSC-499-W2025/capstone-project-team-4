@@ -336,6 +336,7 @@ class ContributorAnalysisService:
         project_id: int,
         contributor_id: int,
         branch: Optional[str] = None,
+        top_files: int = 10,
     ) -> Optional[ContributorAnalysisDetailResponseSchema]:
         """Get analysis for a specific contributor.
 
@@ -343,6 +344,7 @@ class ContributorAnalysisService:
             project_id: Project ID
             contributor_id: Contributor ID
             branch: Branch to analyze (optional)
+            top_files: Number of top files to return (default: 10)
 
         Returns:
             ContributorAnalysisDetailResponseSchema or None if not found
@@ -398,7 +400,7 @@ class ContributorAnalysisService:
             contributor_id, repo_path, branch
         )
         top_files = self.calculate_top_files(
-            contributor_id, repo_path, branch, top_n=10
+            contributor_id, repo_path, branch, top_n=top_files
         )
 
         # Build response
