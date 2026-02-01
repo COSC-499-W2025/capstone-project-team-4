@@ -194,6 +194,13 @@ class ProjectService:
             first_commit_date=project.first_commit_date,
             project_started_at=project.project_started_at,
 
+            # Include arrays fetched from database
+            languages=languages,
+            frameworks=frameworks,
+            libraries=libraries,
+            tools_and_technologies=tools,
+            contextual_skills=[s.skill.name for s in skills] if skills else [],
+
             file_count=summary["file_count"] if summary else 0,
             contributor_count=summary["contributor_count"] if summary else 0,
             skill_count=summary["skill_count"] if summary else 0,

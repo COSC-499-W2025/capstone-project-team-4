@@ -52,6 +52,10 @@ from src.models.schemas.data_privacy_settings import (
     DataPrivacySettingsUpdate,
     DataPrivacySettingsResponse,
 )
+from src.models.schemas.test_data import (
+    SnapshotArchive,
+    SnapshotArchiveList,
+)
 
 __all__ = [
     "ProjectCreate",
@@ -89,4 +93,6 @@ __all__ = [
     "DataPrivacySettingsCreate",
     "DataPrivacySettingsUpdate",
     "DataPrivacySettingsResponse",
+    "SnapshotArchive",
+    "SnapshotArchiveList",
 ]

@@ -528,6 +528,14 @@ class AnalysisService:
             step_start = time.time()
             file_info_list = collect_all_file_info(project_path, show_progress=True)
             file_paths = [f.path for f in file_info_list]
+
+            # Debug: Show language distribution from collected files
+            language_counts = {}
+            for f in file_info_list:
+                lang = f.language if hasattr(f, 'language') else 'Unknown'
+                language_counts[lang] = language_counts.get(lang, 0) + 1
+            logger.info(f"DEBUG: File collection language breakdown: {language_counts}")
+
             stage_timings['file_collection'] = time.time() - step_start
             logger.info(f"Step 0 complete: Collected info for {len(file_info_list)} files in {stage_timings['file_collection']:.2f}s")
 
@@ -589,15 +597,18 @@ class AnalysisService:
                             logger.info(f"Library detection complete: Found {library_report.get('total_count', 0)} libraries")
                         elif task_name == "tools":
                             tool_report = result
-                            logger.info(f"Tool detection complete: Found {tool_report.get('total_count', 0)} tools")
+                            tool_names = [t.get("name") if isinstance(t, dict) else str(t) for t in tool_report.get("tools", [])]
+                            logger.info(f"Tool detection complete: Found {tool_report.get('total_count', 0)} tools: {tool_names}")
                         elif task_name == "languages":
+                            logger.info(f"Language detection RAW result: {result}")
                             languages_detected = sorted(
                                 [lang for lang, count in result.items() if lang != "Unknown" and count > 0]
                             )
-                            logger.info("Language detection complete: Found %d languages", len(languages_detected))
+                            logger.info("Language detection complete: Found %d languages: %s", len(languages_detected), languages_detected)
                         elif task_name == "frameworks":
                             frameworks_detected = result or []
-                            logger.info("Framework detection complete: Found %d frameworks", len(frameworks_detected))
+                            framework_names = [fw.get("name") if isinstance(fw, dict) else str(fw) for fw in frameworks_detected]
+                            logger.info("Framework detection complete: Found %d frameworks: %s", len(frameworks_detected), framework_names)
                     except Exception as e:
                         logger.warning(f"{task_name} analysis failed: {e}")
 
@@ -825,7 +836,10 @@ class AnalysisService:
             logger.warning("Framework rules file not found at %s", rules_path)
             return []
 
+        logger.info(f"DEBUG: Detecting frameworks in {project_path}")
         results = detect_frameworks_recursive(project_path, str(rules_path))
+        logger.info(f"DEBUG: Framework detection RAW results: {results}")
+
         best: dict = {}
 
         for folder_frameworks in results.get("frameworks", {}).values():
@@ -837,10 +851,12 @@ class AnalysisService:
                 if name not in best or conf > best[name]:
                     best[name] = conf
 
-        return [
+        final_frameworks = [
             {"name": name, "confidence": conf}
             for name, conf in sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))
         ]
+        logger.info(f"DEBUG: Final frameworks after deduplication: {final_frameworks}")
+        return final_frameworks
 
     def _save_files(self, project_id: int, file_list: list) -> None:
         """Save file metadata to database."""

@@ -1,0 +1,112 @@
+{
+  "project_name": "Demo Collaboration Project",
+  "description": "Test data snapshots demonstrating project progression over time for resume generation demos",
+  "source_repo": "https://github.com/OWNER/PROJECT",
+  "created_by": "Test Data Generation Script",
+  "created_at": "2026-02-01",
+  "snapshots": [
+    {
+      "filename": "code-collab-proj-v1-foundation.zip",
+      "version": "v1",
+      "stage": "foundation",
+      "commit_hash": "",
+      "commit_date": "",
+      "description": "Initial project structure with basic features. Early stage with minimal dependencies and 1-2 contributors.",
+      "expected_metrics": {
+        "contributors": 2,
+        "languages": [
+          "Python",
+          "JavaScript"
+        ],
+        "frameworks": [
+          "Flask"
+        ],
+        "libraries": 5,
+        "skills": 8,
+        "approx_loc": 1500,
+        "avg_complexity": 2.5,
+        "commit_count": 50
+      },
+      "highlights": [
+        "Basic REST API structure",
+        "SQLite database integration",
+        "Initial project scaffolding"
+      ]
+    },
+    {
+      "filename": "code-collab-proj-v2-growth.zip",
+      "version": "v2",
+      "stage": "growth",
+      "commit_hash": "",
+      "commit_date": "",
+      "description": "Mid-development stage with added frameworks, testing infrastructure, and expanded team. Shows significant technology stack growth.",
+      "expected_metrics": {
+        "contributors": 5,
+        "languages": [
+          "Python",
+          "JavaScript",
+          "TypeScript"
+        ],
+        "frameworks": [
+          "Flask",
+          "React",
+          "pytest"
+        ],
+        "libraries": 20,
+        "skills": 15,
+        "approx_loc": 5000,
+        "avg_complexity": 3.5,
+        "commit_count": 150
+      },
+      "highlights": [
+        "React frontend added",
+        "PostgreSQL migration",
+        "Comprehensive test suite",
+        "API documentation"
+      ]
+    },
+    {
+      "filename": "code-collab-proj-v3-mature.zip",
+      "version": "v3",
+      "stage": "mature",
+      "commit_hash": "",
+      "commit_date": "",
+      "description": "Production-ready stage with full feature set, CI/CD, and complete team. Demonstrates mature codebase with best practices.",
+      "expected_metrics": {
+        "contributors": 7,
+        "languages": [
+          "Python",
+          "JavaScript",
+          "TypeScript",
+          "SQL"
+        ],
+        "frameworks": [
+          "Flask",
+          "React",
+          "pytest",
+          "Docker"
+        ],
+        "libraries": 35,
+        "skills": 20,
+        "approx_loc": 8000,
+        "avg_complexity": 4.2,
+        "commit_count": 300
+      },
+      "highlights": [
+        "Docker containerization",
+        "GitHub Actions CI/CD",
+        "Authentication system",
+        "Production deployment configuration"
+      ]
+    }
+  ],
+  "usage": {
+    "api_endpoint": "/api/test-data/snapshots",
+    "upload_endpoint": "/api/projects/analyze/upload",
+    "notes": [
+      "All snapshots must include .git directory for commit history analysis",
+      "Snapshots should show clear progression in metrics between versions",
+      "Use create_snapshot.sh script to generate snapshots from a git repository"
+    ]
+  }
+}
