@@ -28,7 +28,7 @@ router = APIRouter(prefix="/projects/analyze", tags=["analysis"])
 async def analyze_upload(
     file: UploadFile = File(..., description="ZIP file to analyze"),
     project_name: Optional[str] = Form(None, description="Custom project name"),
-    create_snapshots: bool = Form(False, description="Create 2 snapshots at different time points: Growth (60%) and Maturity (85%) - requires git history"),
+    create_snapshots: bool = Form(False, description="Create 2 snapshots at different time points: Mid (60%) and Late (85%) - requires git history"),
     db: Session = Depends(get_db),
 ):
     """
@@ -36,8 +36,8 @@ async def analyze_upload(
 
     - If create_snapshots=false (default): Analyzes the project as-is and returns 1 result
     - If create_snapshots=true: Creates 2 snapshots at different points in git history:
-      - Growth (60% of commits): Mid-development stage
-      - Maturity (85% of commits): Near-final stage
+      - Mid (60% of commits): Midpoint of development
+      - Late (85% of commits): Near the end of development
 
     Returns a list of analysis results (1 for regular upload, 2 for snapshots).
     """
@@ -122,8 +122,8 @@ async def analyze_upload(
 
                 # Calculate snapshot points (60%, 85%)
                 snapshot_points = [
-                    ("Growth", int(total_commits * 0.60)),
-                    ("Maturity", int(total_commits * 0.85)),
+                    ("Mid", int(total_commits * 0.60)),
+                    ("Late", int(total_commits * 0.85)),
                 ]
 
                 # Create snapshots at each point
