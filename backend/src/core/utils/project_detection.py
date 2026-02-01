@@ -1,58 +1,122 @@
-"""
-Utilities for detecting multiple projects inside a directory
-(e.g. monorepos or multi-project ZIP uploads).
-"""
-
+from __future__ import annotations
+from logging import root
 from pathlib import Path
 from typing import List
 
-# Files that strongly indicate a project root
 PROJECT_MARKERS = {
-    "package.json",        # Node / frontend
-    "pyproject.toml",      # Python modern
-    "requirements.txt",    # Python legacy
-    "setup.py",            # Python legacy
-    "pom.xml",             # Java / Maven
-    "build.gradle",        # Java / Gradle
+    "package.json",
+    "pyproject.toml",
+    "requirements.txt",
+    "setup.py",
+    "pom.xml",
+    "build.gradle",
     "Makefile",
-    "Cargo.toml",          # Rust
-    "go.mod",              # Go
+    "Cargo.toml",
+    "go.mod",
 }
 
+IGNORE_DIRS = {
+    "__MACOSX",
+    ".git",
+    ".venv",
+    "venv",
+    "env",
+    "node_modules",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "dist",
+    "build",
+    ".next",
+    ".turbo",
+    ".idea",
+    ".vscode",
+}
 
-def is_project_root(path: Path) -> bool:
-    """Return True if directory looks like a project root."""
-    if not path.is_dir():
+CODE_EXTS = {".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".go", ".rs", ".c", ".cpp", ".cs"}
+
+
+def _is_ignored_dir(p: Path) -> bool:
+    return p.name in IGNORE_DIRS or p.name.startswith(".")
+
+
+def is_project_root(path: Path, min_code_files: int = 3, max_scan_files: int = 400) -> bool:
+    """Heuristic project root detector that avoids scanning into .venv/node_modules/etc."""
+    if not path.is_dir() or _is_ignored_dir(path):
         return False
 
+    # Strong markers
     for marker in PROJECT_MARKERS:
         if (path / marker).exists():
             return True
 
-    # fallback: directory with lots of source files
-    source_files = list(path.rglob("*.py")) + list(path.rglob("*.js"))
-    return len(source_files) >= 3
+    # Lightweight code-file count (bounded, prunes ignored dirs)
+    count = 0
+    scanned = 0
+    for p in path.rglob("*"):
+        if scanned >= max_scan_files:
+            break
+        scanned += 1
+
+        if p.is_dir() and _is_ignored_dir(p):
+            # rglob can't truly prune, but we can skip quickly
+            continue
+
+        if p.is_file() and p.suffix.lower() in CODE_EXTS:
+            # ignore code inside ignored dirs
+            if any(part in IGNORE_DIRS for part in p.parts):
+                continue
+            count += 1
+            if count >= min_code_files:
+                return True
+
+    return False
 
 
-def detect_project_roots(root: Path) -> List[Path]:
+def detect_project_roots(root: Path, max_depth: int = 4) -> List[Path]:
     """
-    Detect multiple project roots inside a directory.
-
-    Rules:
-    - If the root itself looks like a project → return [root]
-    - Else, scan first-level subdirectories for project roots
-    - Avoid deeply nested false positives
+    Detect multiple project roots (recursive + depth-limited), while ignoring junk/env folders.
+    Once a root is detected, we do not descend further into it.
     """
-
-    if is_project_root(root):
-        return [root]
+    root = root.resolve()
 
     projects: List[Path] = []
 
-    for child in root.iterdir():
-        if child.is_dir() and not child.name.startswith("."):
-            if is_project_root(child):
-                projects.append(child)
+    def depth(p: Path) -> int:
+        try:
+            return len(p.relative_to(root).parts)
+        except ValueError:
+            return 999
 
-    # Fallback: treat entire directory as single project
-    return projects or [root]
+    # walk tree, but stop deep + avoid ignored dirs
+    for p in root.rglob("*"):
+        if not p.is_dir():
+            continue
+        if _is_ignored_dir(p):
+            continue
+        if depth(p) > max_depth:
+            continue
+
+        if is_project_root(p):
+            projects.append(p)
+
+    # If we found nested projects, prefer the shallowest ones
+    projects = sorted(projects, key=lambda x: (len(x.relative_to(root).parts), x.name.lower()))
+
+
+    # Remove roots that are inside another detected root
+    filtered: List[Path] = []
+    for p in projects:
+        if not any(p.is_relative_to(parent) for parent in filtered):  # py3.9+ has is_relative_to
+            filtered.append(p)
+
+    if len(filtered) >= 2:
+        return filtered
+
+
+    if len(filtered) == 1:
+        return filtered
+    
+    return [root]
+

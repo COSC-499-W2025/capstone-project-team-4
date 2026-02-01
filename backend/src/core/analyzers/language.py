@@ -449,18 +449,26 @@ class FileWalker:
                 yield os.path.join(root, file)
 
     def should_analyze_file(self, file_path: str) -> bool:
-        """Determine if a file should be analyzed."""
+        
         filename, extension = FileUtils.get_file_info(file_path)
+
+        # Skip by global extension rules (images, pdfs, zips, etc.)
+        if extension in SKIP_EXTENSIONS:
+            return False
+
+        # Skip by global filename rules
+        if filename in SKIP_FILENAMES:
+            return False
 
         # Skip hidden files (except allowed ones)
         if filename.startswith(".") and filename not in self.config.hidden_exceptions:
             return False
 
-        # Skip by extension
+        # Skip by extension (config)
         if extension in self.config.skip_extensions:
             return False
 
-        # Skip by filename
+        # Skip by filename (config)
         if filename in self.config.skip_filenames:
             return False
 

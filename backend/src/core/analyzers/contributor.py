@@ -39,7 +39,7 @@ def get_first_commit_date(project_path: str) -> Optional[datetime]:
         return None
     
     try:
-        repo = Repo(project_path)
+        repo = Repo(project_path, search_parent_directories=True)
         
         # Get the first (oldest) commit
         try:
@@ -81,7 +81,7 @@ def get_project_creation_date(project_path: str) -> Optional[datetime]:
     
     # Try Git first
     try:
-        repo = Repo(project_path)
+        repo = Repo(project_path, search_parent_directories=True)
         
         # Get the first (oldest) commit
         try:
