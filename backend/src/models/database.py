@@ -3,7 +3,7 @@
 from contextlib import contextmanager
 from typing import Generator
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker, declarative_base
 
 from src.config.settings import settings
@@ -14,25 +14,14 @@ Base = declarative_base()
 # Ensure data directory exists
 settings.data_dir.mkdir(parents=True, exist_ok=True)
 
-# Get database URL
-_database_url = settings.database_url
-
-# Create engine with connection pooling
+# Create engine with connection pooling for PostgreSQL
 engine = create_engine(
-    _database_url,
+    settings.database_url,
     echo=settings.database_echo,
-    connect_args={"check_same_thread": False},  # Required for SQLite
     pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
 )
-
-
-# Enable foreign key support for SQLite
-@event.listens_for(engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    """Enable foreign key constraints for SQLite."""
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
 
 
 # Create session factory
@@ -66,11 +55,30 @@ def init_db() -> None:
     """Initialize database by creating all tables."""
     # Import all models to ensure they're registered with Base
     from src.models.orm import (
-        User, Project, ProjectAnalysisSummary, File, Language, Contributor, ContributorFile,
-        Complexity, Skill, ProjectSkill, ProjectSkillTimeline, ResumeItem, Framework, ProjectFramework,
-        Library, ProjectLibrary, Tool, ProjectTool,
-        UserProfile, Experience, ExperienceType, DataPrivacySettings
+        User,
+        Project,
+        ProjectAnalysisSummary,
+        File,
+        Language,
+        Contributor,
+        ContributorFile,
+        Complexity,
+        Skill,
+        ProjectSkill,
+        ProjectSkillTimeline,
+        ResumeItem,
+        Framework,
+        ProjectFramework,
+        Library,
+        ProjectLibrary,
+        Tool,
+        ProjectTool,
+        UserProfile,
+        Experience,
+        ExperienceType,
+        DataPrivacySettings,
     )
+
     Base.metadata.create_all(bind=engine)
 
 

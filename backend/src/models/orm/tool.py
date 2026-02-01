@@ -17,8 +17,12 @@ class Tool(Base):
     __tablename__ = "tools"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     category: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+
+    __table_args__ = (
+        UniqueConstraint("name", "category", name="uq_tool_name_category"),
+    )
 
     def __repr__(self) -> str:
         return f"<Tool(id={self.id}, name='{self.name}', category='{self.category}')>"

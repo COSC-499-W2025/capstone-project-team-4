@@ -44,6 +44,7 @@ class BaseRepository(Generic[ModelType]):
 
     def update(self, obj: ModelType) -> ModelType:
         """Update an existing record."""
+        self.db.add(obj)
         self.db.commit()
         self.db.refresh(obj)
         return obj
