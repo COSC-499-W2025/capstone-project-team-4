@@ -41,16 +41,35 @@ class ProjectAnalysisResult:
 # =============================================================================
 
 
-def _is_ignored(path: Path) -> bool:
-    """Check if a path should be ignored during analysis."""
-    return any(part in SKIP_DIRECTORIES for part in path.parts)
+def _is_ignored(path: Path, root: Path = None) -> bool:
+    """Check if a path should be ignored during analysis.
+
+    Args:
+        path: Path to check
+        root: Optional root path for relative checking (avoids /tmp false positives on Linux)
+    """
+    if root:
+        try:
+            relative_path = path.relative_to(root)
+            return any(part in SKIP_DIRECTORIES for part in relative_path.parts)
+        except ValueError:
+            pass
+
+    # Fallback: only check directory names, excluding system paths
+    SYSTEM_DIRS = {'/', 'tmp', 'temp', 'var', 'home', 'Users', 'app'}
+    return any(part in SKIP_DIRECTORIES and part not in SYSTEM_DIRS for part in path.parts)
 
 
-def _should_analyze(path: Path) -> bool:
-    """Check if a file should be analyzed for complexity."""
+def _should_analyze(path: Path, root: Path = None) -> bool:
+    """Check if a file should be analyzed for complexity.
+
+    Args:
+        path: Path to the file
+        root: Optional root path for relative checking
+    """
     if not path.is_file():
         return False
-    if _is_ignored(path):
+    if _is_ignored(path, root):
         return False
     if path.suffix.lower() not in EXT_TO_LANG:
         return False
@@ -182,17 +201,17 @@ def analyze_project(
     functions: List[FunctionMetrics] = []
 
     if root.is_file():
-        if _should_analyze(root):
+        if _should_analyze(root, root.parent):
             functions.extend(analyze_file(root))
     elif file_paths is not None:
         # Use pre-collected file paths (avoids redundant rglob)
         for path in file_paths:
-            if _should_analyze(path):
+            if _should_analyze(path, root):
                 functions.extend(analyze_file(path))
     else:
         # Fall back to traversing file system
         for path in root.rglob("*"):
-            if _should_analyze(path):
+            if _should_analyze(path, root):
                 functions.extend(analyze_file(path))
 
     return ProjectAnalysisResult(
