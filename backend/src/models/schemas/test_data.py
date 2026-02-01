@@ -33,7 +33,6 @@ class SnapshotMetrics(BaseModel):
     frameworks: List[str]
     libraries: List[str]
     tools: List[str]
-    skills: List[str]
     skill_count: int
     total_files: int
     total_loc: int
@@ -78,4 +77,3 @@ class SnapshotComparison(BaseModel):
     new_languages: List[str] = []
     new_frameworks: List[str] = []
     new_libraries: List[str] = []
-    new_skills: List[str] = []

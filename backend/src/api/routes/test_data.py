@@ -198,7 +198,6 @@ async def compare_snapshots(
         new_languages=new_languages,
         new_frameworks=new_frameworks,
         new_libraries=new_libraries,
-        new_skills=[],  # Would need detailed analysis data
     )
 
 
