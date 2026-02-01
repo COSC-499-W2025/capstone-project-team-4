@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Home, Sparkles, UserCircle } from 'lucide-react'; // Added UserCircle icon
+import { Home, Sparkles, UserCircle } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
 const Navigation = () => {
@@ -18,7 +18,7 @@ const Navigation = () => {
             </div>
             
             {/* Navigation Links */}
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-4 items-center">
+            <div className="hidden sm:ml-6 sm:flex sm:space-x-4">
               <Link to="/">
                 <Button
                   variant={location.pathname === '/' ? 'default' : 'ghost'}
