@@ -20,7 +20,7 @@ from src.core.security import SECRET_KEY, ALGORITHM
 from src.models.orm.user import User
 
 # This is for FastAPI actually storing the session so that other API endpoints know!
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
 async def get_current_user(

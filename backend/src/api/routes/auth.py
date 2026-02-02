@@ -3,12 +3,15 @@
 import logging
 
 from fastapi import APIRouter, Depends
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from src.models.database import get_db
 from src.models.schemas.user import UserCreate, UserResponse, UserLogin, LoginResponse
+from src.models.orm.user import User
 from src.services.auth_service import AuthService
 from src.api.exceptions import EmailAlreadyRegisteredError, InvalidCredentialsError
+from src.api.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +42,7 @@ async def register(
 
 @router.post("/login", response_model=LoginResponse, summary="User Login")
 async def login(
-    data: UserLogin,
+    data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
     """
@@ -49,9 +52,20 @@ async def login(
     - Returns user information on success
     """
     service = AuthService(db)
-    response, error = service.authenticate(data)
+    login_data = UserLogin(email=data.username, password=data.password)
+    response, error = service.authenticate(login_data)
 
     if error:
         raise InvalidCredentialsError(error)
 
     return response
+
+
+# This is for testing `get_current_user` or that retrieval of the access token works
+@router.get("/me", response_model=UserResponse, summary="Get Current User")
+async def read_users_me(current_user: User = Depends(get_current_user)):
+    """
+    Test the endpoint to verify if the token actually validates.
+    Returns the currently logged-in user
+    """
+    return current_user
