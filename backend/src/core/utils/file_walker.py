@@ -121,8 +121,8 @@ class UnifiedFileWalker:
             for filename in filenames:
                 file_path = Path(dirpath) / filename
 
-                # Check if file should be analyzed
-                if not self.should_analyze_file(file_path):
+                # Check if file should be analyzed (pass root for relative path checking)
+                if not self.should_analyze_file(file_path, root):
                     continue
 
                 # Apply optional custom filter
@@ -152,28 +152,30 @@ class UnifiedFileWalker:
 
             for filename in filenames:
                 file_path = Path(dirpath) / filename
-                skip, reason = self.should_skip_file(file_path)
+                skip, reason = self.should_skip_file(file_path, root)
                 yield file_path, reason if skip else None
 
-    def should_analyze_file(self, file_path: Path) -> bool:
+    def should_analyze_file(self, file_path: Path, root_path: Optional[Path] = None) -> bool:
         """
         Determine if a file should be analyzed.
 
         Args:
             file_path: Path to the file
+            root_path: Optional root path for relative directory checking
 
         Returns:
             True if the file should be analyzed, False otherwise
         """
-        skip, _ = self.should_skip_file(file_path)
+        skip, _ = self.should_skip_file(file_path, root_path)
         return not skip
 
-    def should_skip_file(self, file_path: Path) -> Tuple[bool, str]:
+    def should_skip_file(self, file_path: Path, root_path: Optional[Path] = None) -> Tuple[bool, str]:
         """
         Determine if a file should be skipped and why.
 
         Args:
             file_path: Path to the file
+            root_path: Optional root path for relative directory checking
 
         Returns:
             Tuple of (should_skip: bool, reason: str)
@@ -193,10 +195,26 @@ class UnifiedFileWalker:
         if filename in self.skip_filenames:
             return True, f"skipped filename: {filename}"
 
-        # Check if file is in a skipped directory (for nested checks)
-        for part in file_path.parts:
-            if part in self.skip_dirs:
-                return True, f"in skipped directory: {part}"
+        # Check if file is in a skipped directory (only check relative path parts)
+        # This avoids false positives from system paths like /tmp on Linux
+        if root_path:
+            try:
+                relative_path = file_path.relative_to(root_path)
+                for part in relative_path.parts:
+                    if part in self.skip_dirs:
+                        return True, f"in skipped directory: {part}"
+            except ValueError:
+                # file_path is not relative to root_path, check parent directories only
+                for part in file_path.parts[:-1]:  # Exclude filename
+                    if part in self.skip_dirs:
+                        return True, f"in skipped directory: {part}"
+        else:
+            # No root path provided - only check immediate parent directories
+            # Skip system directories like /tmp, /var, etc.
+            for part in file_path.parent.parts:
+                # Only check directory names, not full path components
+                if part in self.skip_dirs and part not in ('/', 'tmp', 'temp', 'var'):
+                    return True, f"in skipped directory: {part}"
 
         # Check file size
         try:
