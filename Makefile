@@ -29,7 +29,7 @@ test-backend:
 	docker compose exec -T backend pytest tests -v
 
 # Run backend tests with coverage report
-test-report:
+test-backend-cov:
 	docker compose exec -T backend pytest tests --cov=src --cov-report=term-missing --cov-report=html -v
 
 # Run frontend tests
@@ -55,4 +55,4 @@ shell-frontend:
 health:
 	@echo "Database:" && docker compose exec -T db pg_isready -U workmine -d workmine || echo "Not ready"
 	@echo "Backend:" && curl -sf http://localhost:8000/health && echo " OK" || echo "Not ready"
-	@echo "Frontend:" && curl -sf http://localhost:5173 > /dev/null && echo "OK" || echo "Not ready"
+	@echo "Frontend:" && curl -sf http://localhost:5173 -o nul && echo "OK" || echo "Not ready"
