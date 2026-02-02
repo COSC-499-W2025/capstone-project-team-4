@@ -3,10 +3,12 @@ import axios from "axios";
 
 export const useFileUpload = () => {
   // Initialize state from localStorage if available
-  const [uploadedFiles, setUploadedFiles] = useState(() => {
-    const saved = localStorage.getItem("uploadedFiles");
-    return saved ? JSON.parse(saved) : [];
-  });
+  // NOTE: Yeah.. not doing that rn
+  // const [uploadedFiles, setUploadedFiles] = useState(() => {
+  //   const saved = localStorage.getItem("uploadedFiles");
+  //   return saved ? JSON.parse(saved) : [];
+  // });
+  const [uploadedFiles, setUploadedFiles] = useState([]);
 
   const [projectData, setProjectData] = useState(() => {
     const saved = localStorage.getItem("projectData");
@@ -23,9 +25,9 @@ export const useFileUpload = () => {
   const [error, setError] = useState(null);
 
   // Save to localStorage whenever state changes
-  useEffect(() => {
-    localStorage.setItem("uploadedFiles", JSON.stringify(uploadedFiles));
-  }, [uploadedFiles]);
+  // useEffect(() => {
+  //   localStorage.setItem("uploadedFiles", JSON.stringify(uploadedFiles));
+  // }, [uploadedFiles]);
 
   useEffect(() => {
     localStorage.setItem("projectData", JSON.stringify(projectData));
@@ -97,11 +99,14 @@ export const useFileUpload = () => {
         if (data.project_id) {
           try {
             const contributorResponse = await axios.get(
-              `/api/projects/${data.project_id}/contributors/default-branch-stats`
+              `/api/projects/${data.project_id}/contributors/default-branch-stats`,
             );
             contributorDetails = contributorResponse.data;
           } catch (contributorError) {
-            console.warn('Could not fetch contributor details:', contributorError);
+            console.warn(
+              "Could not fetch contributor details:",
+              contributorError,
+            );
             // Continue without contributor details - they can still see the count
           }
         }
