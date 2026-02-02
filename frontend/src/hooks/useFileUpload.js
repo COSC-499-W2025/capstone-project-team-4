@@ -73,78 +73,89 @@ export const useFileUpload = () => {
   };
 
   const processFiles = async () => {
-  setIsLoading(true);
-  setError(null);
+    setIsLoading(true);
+    setError(null);
 
-  try {
-    const results = [];
+    try {
+      const results = [];
 
-    for (const file of uploadedFiles) {
-      const formData = new FormData();
-      formData.append("file", file);
+      for (const file of uploadedFiles) {
+        const formData = new FormData();
+        formData.append("file", file);
 
-      const response = await axios.post(
-        "/api/projects/analyze/upload",
-        formData,
-      );
+        const response = await axios.post("/api/projects/analyze/upload", formData);
 
-      const payload = response.data;
-      const items = Array.isArray(payload) ? payload : [payload];
+        const payload = response.data;
+        const items = Array.isArray(payload) ? payload : [payload];
 
-      for (const data of items) {
-        let contributorDetails = null;
+        // Filter out empty/root “outer zip” result so it doesn’t render as a card
+        const filteredItems = items.filter((p) => {
+          if (!p) return false;
 
-        if (data.project_id) {
-          try {
-            const contributorResponse = await axios.get(
-              `/api/projects/${data.project_id}/contributors/default-branch-stats`,
-            );
-            contributorDetails = contributorResponse.data;
-          } catch (contributorError) {
-            console.warn(
-              "Could not fetch contributor details:",
-              contributorError,
-            );
-          }
-        }
+          const hasName = typeof p.project_name === "string" && p.project_name.trim().length > 0;
 
-        results.push({
-          name: data.project_name || file.name.replace(".zip", ""),
-          contributions: data.file_count || 0,
-          date: data.zip_uploaded_at || new Date().toISOString(),
-          projectStartedAt: data.project_started_at || null,
-          firstCommitDate: data.first_commit_date || null,
-          firstFileCreated: data.first_file_created || null,
-          description: `Languages: ${data.languages?.join(", ") || "N/A"}`,
-          languages: data.languages || [],
-          frameworks: data.frameworks || [],
-          skills: data.contextual_skills || data.skills || [],
-          complexity: data.complexity_summary || {},
-          contributorCount: data.contributor_count || 0,
-          contributorDetails,
-          projectId: data.project_id,
-          totalLinesOfCode: data.total_lines_of_code || 0,
-          libraryCount: data.library_count || 0,
-          toolCount: data.tool_count || 0,
-          libraries: data.libraries || [],
-          toolsAndTechnologies: data.tools_and_technologies || [],
+          const hasContent =
+            (p.file_count ?? 0) > 0 ||
+            (p.total_lines_of_code ?? 0) > 0 ||
+            (p.languages?.length ?? 0) > 0 ||
+            (p.frameworks?.length ?? 0) > 0 ||
+            (p.libraries?.length ?? 0) > 0 ||
+            (p.tools_and_technologies?.length ?? 0) > 0;
+
+          // If backend returns a “root project” summary for the outer zip, it often has no name or no content.
+          return hasName && hasContent;
         });
+
+        for (const data of filteredItems) {
+          let contributorDetails = null;
+
+          if (data.project_id) {
+            try {
+              const contributorResponse = await axios.get(
+                `/api/projects/${data.project_id}/contributors/default-branch-stats`,
+              );
+              contributorDetails = contributorResponse.data;
+            } catch (contributorError) {
+              console.warn("Could not fetch contributor details:", contributorError);
+            }
+          }
+
+          results.push({
+          
+            name: data.project_name,
+            contributions: data.file_count || 0,
+            date: data.zip_uploaded_at || new Date().toISOString(),
+            projectStartedAt: data.project_started_at || null,
+            firstCommitDate: data.first_commit_date || null,
+            firstFileCreated: data.first_file_created || null,
+            description: `Languages: ${data.languages?.join(", ") || "N/A"}`,
+            languages: data.languages || [],
+            frameworks: data.frameworks || [],
+            skills: data.contextual_skills || data.skills || [],
+            complexity: data.complexity_summary || {},
+            contributorCount: data.contributor_count || 0,
+            contributorDetails,
+            projectId: data.project_id,
+            totalLinesOfCode: data.total_lines_of_code || 0,
+            libraryCount: data.library_count || 0,
+            toolCount: data.tool_count || 0,
+            libraries: data.libraries || [],
+            toolsAndTechnologies: data.tools_and_technologies || [],
+          });
+        }
       }
+
+      setProjectData(results);
+    } catch (error) {
+      console.error("Error processing files:", error);
+      setError(error.message);
+      alert(
+        `Error: ${error.message}\n\nPlease check that your backend server is running.`,
+      );
+    } finally {
+      setIsLoading(false);
     }
-
-
-    setProjectData(results);
-
-  } catch (error) {
-    console.error("Error processing files:", error);
-    setError(error.message);
-    alert(
-      `Error: ${error.message}\n\nPlease check that your backend server is running.`,
-    );
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const handleConsentAccept = () => {
     setConsentGiven(true);
