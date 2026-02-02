@@ -36,6 +36,10 @@ test-backend-cov:
 test-frontend:
 	docker compose exec -T frontend npm run test:run
 
+# Run frontend tests with coverage
+test-frontend-cov:
+	docker compose exec -T frontend npm run test:coverage
+
 # Run all tests
 test-all: test-backend test-frontend
 
