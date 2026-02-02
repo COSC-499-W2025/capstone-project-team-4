@@ -1,6 +1,7 @@
 """Analysis API routes."""
 
 import logging
+import platform
 import tempfile
 import shutil
 import subprocess
@@ -101,8 +102,10 @@ async def analyze_upload(
                     )
 
                 # Get git commit history
+                # Convert path to string and use forward slashes for git on Windows
+                git_project_path = str(project_path).replace("\\", "/") if platform.system() == "Windows" else str(project_path)
                 result = subprocess.run(
-                    ["git", "-C", str(project_path), "log", "--reverse", "--oneline", "--all"],
+                    ["git", "-C", git_project_path, "log", "--reverse", "--oneline", "--all"],
                     capture_output=True,
                     text=True,
                     check=True,
@@ -139,11 +142,14 @@ async def analyze_upload(
                     snapshot_project_path = snapshot_dir / "project"
 
                     # Copy the entire project directory (including .git) instead of cloning
-                    shutil.copytree(project_path, snapshot_project_path, symlinks=True)
+                    # Use symlinks=True on Unix, False on Windows (requires admin on Windows)
+                    use_symlinks = platform.system() != "Windows"
+                    shutil.copytree(project_path, snapshot_project_path, symlinks=use_symlinks)
 
                     # Reset to specific commit
+                    git_snapshot_path = str(snapshot_project_path).replace("\\", "/") if platform.system() == "Windows" else str(snapshot_project_path)
                     subprocess.run(
-                        ["git", "-C", str(snapshot_project_path), "reset", "--hard", commit_hash],
+                        ["git", "-C", git_snapshot_path, "reset", "--hard", commit_hash],
                         capture_output=True,
                         check=True,
                     )
