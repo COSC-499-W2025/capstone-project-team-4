@@ -19,7 +19,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Build and start all services (db, backend, frontend)
+      # Step 2: Create .env file for backend
+      - name: Create backend .env file
+        run: cp backend/.env.example backend/.env
+
+      # Step 3: Build and start all services (db, backend, frontend)
       - name: Build and start containers
         run: docker compose up -d --build
 
