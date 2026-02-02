@@ -28,27 +28,20 @@ ps:
 test-backend:
 	docker compose exec -T backend pytest tests -v
 
-# Run backend tests with coverage
-test-backend-cov:
-	docker compose exec -T backend pytest tests --cov=src --cov-report=term-missing -v
+# Run backend tests with coverage report
+test-report:
+	docker compose exec -T backend pytest tests --cov=src --cov-report=term-missing --cov-report=html -v
 
 # Run frontend tests
 test-frontend:
 	docker compose exec -T frontend npm run test:run
 
-# Run frontend tests with coverage
+# Run frontend tests with coverage report
 test-frontend-cov:
 	docker compose exec -T frontend npm run test:coverage
 
 # Run all tests
-test-all: test-backend test-frontend
-
-# Alias for test-all
-test: test-all
-
-# Run backend tests with coverage report
-test-report:
-	docker compose exec -T backend pytest tests --cov=src --cov-report=term-missing --cov-report=html -v
+test: test-backend test-frontend
 
 # Open shell in backend container
 shell-backend:
