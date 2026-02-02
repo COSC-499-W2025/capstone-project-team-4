@@ -37,7 +37,7 @@ async def register(
     return user
 
 
-@router.post("/login", response_model=LoginResponse)
+@router.post("/login", response_model=LoginResponse, summary="User Login")
 async def login(
     data: UserLogin,
     db: Session = Depends(get_db),
