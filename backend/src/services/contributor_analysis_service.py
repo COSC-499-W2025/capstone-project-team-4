@@ -256,14 +256,19 @@ class ContributorAnalysisService:
     ) -> List[AreaShareSchema]:
         """Calculate top contributing areas for a contributor.
 
+        Focuses on Backend and Frontend areas only.
+
         Args:
             contributor_id: Contributor ID
             repo_path: Path to git repository
             branch: Branch to analyze
 
         Returns:
-            List of areas with their share (0-1.0) sorted by share descending
+            List of Backend/Frontend areas with their share (0-1.0) sorted by share descending
         """
+        # Allowed areas (Backend and Frontend only)
+        ALLOWED_AREAS = {"backend", "frontend"}
+        
         # Get contributor
         contributor = self.contributor_repo.get(contributor_id)
         if not contributor or not contributor.email:
@@ -298,19 +303,22 @@ class ContributorAnalysisService:
 
         logger.info(f"Found {len(file_stats)} files with actual changes")
 
-        # Group files by area
+        # Group files by area (only counting Backend/Frontend)
         area_stats: Dict[str, int] = defaultdict(int)
         for filename, lines_changed in file_stats.items():
             area = self._classify_file_to_area(filename)
             logger.debug(f"  {filename} -> {area}: {lines_changed} lines")
-            if area:
+            # Only count Backend and Frontend contributions
+            if area and area in ALLOWED_AREAS:
                 area_stats[area] += lines_changed
+            elif area:
+                logger.debug(f"  Skipping non-Backend/Frontend area: {area}")
 
         if not area_stats:
-            logger.warning(f"No areas classified for contributor {contributor_id}")
+            logger.warning(f"No Backend/Frontend areas classified for contributor {contributor_id}")
             return []
 
-        logger.info(f"Classified into {len(area_stats)} areas")
+        logger.info(f"Classified into {len(area_stats)} Backend/Frontend areas")
 
         # Calculate shares
         total_lines = sum(area_stats.values())
@@ -325,7 +333,7 @@ class ContributorAnalysisService:
         # Sort by share descending
         top_areas.sort(key=lambda x: x.share, reverse=True)
 
-        logger.info(f"Returning {len(top_areas)} areas")
+        logger.info(f"Returning {len(top_areas)} Backend/Frontend areas")
 
         return top_areas
 
