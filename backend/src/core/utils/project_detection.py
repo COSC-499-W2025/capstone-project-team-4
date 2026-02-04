@@ -127,15 +127,32 @@ def detect_project_roots(root: Path, max_depth: int = 4) -> List[Path]:
     return [root]
 
 
+
+def _has_monorepo_marker(root: Path) -> bool:
+    """
+    Marker files that strongly suggest this folder is a real repo root / monorepo root.
+    Use files (not directories) to avoid false positives.
+    """
+    markers = (
+        ".gitignore",
+        "README.md",
+        "readme.md",
+        "docker-compose.yml",
+        "pnpm-workspace.yaml",
+        "lerna.json",
+        "turbo.json",
+        "nx.json",
+    )
+    return any((root / m).is_file() for m in markers)
+
+
 def is_monorepo_root(root: Path, max_depth: int = 2) -> bool:
-    """
-    Generic monorepo detection for ZIP uploads:
-    If the root contains 2+ project roots (within max_depth), treat root as one project.
-    """
+
     if not root.is_dir():
         return False
 
-    found = []
+    if not _has_monorepo_marker(root):
+        return False
 
     def depth(p: Path) -> int:
         try:
@@ -143,6 +160,7 @@ def is_monorepo_root(root: Path, max_depth: int = 2) -> bool:
         except ValueError:
             return 999
 
+    found = 0
     for p in root.rglob("*"):
         if not p.is_dir():
             continue
@@ -152,8 +170,8 @@ def is_monorepo_root(root: Path, max_depth: int = 2) -> bool:
             continue
 
         if is_project_root(p):
-            found.append(p)
-            if len(found) >= 2:
+            found += 1
+            if found >= 2:
                 return True
 
     return False
