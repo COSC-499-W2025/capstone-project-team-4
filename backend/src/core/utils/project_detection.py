@@ -81,6 +81,9 @@ def detect_project_roots(root: Path, max_depth: int = 4) -> List[Path]:
     """
     root = root.resolve()
 
+    if is_monorepo_root(root):
+        return [root]
+
     projects: List[Path] = []
 
     def depth(p: Path) -> int:
@@ -112,6 +115,9 @@ def detect_project_roots(root: Path, max_depth: int = 4) -> List[Path]:
             filtered.append(p)
 
     if len(filtered) >= 2:
+    # If this looks like a monorepo, analyze at the root level
+        if is_monorepo_root(root):
+            return [root]
         return filtered
 
 
@@ -120,3 +126,34 @@ def detect_project_roots(root: Path, max_depth: int = 4) -> List[Path]:
     
     return [root]
 
+
+def is_monorepo_root(root: Path, max_depth: int = 2) -> bool:
+    """
+    Generic monorepo detection for ZIP uploads:
+    If the root contains 2+ project roots (within max_depth), treat root as one project.
+    """
+    if not root.is_dir():
+        return False
+
+    found = []
+
+    def depth(p: Path) -> int:
+        try:
+            return len(p.relative_to(root).parts)
+        except ValueError:
+            return 999
+
+    for p in root.rglob("*"):
+        if not p.is_dir():
+            continue
+        if _is_ignored_dir(p):
+            continue
+        if depth(p) > max_depth:
+            continue
+
+        if is_project_root(p):
+            found.append(p)
+            if len(found) >= 2:
+                return True
+
+    return False
