@@ -1256,3 +1256,4 @@ class AnalysisService:
             first_commit_date=first_commit_date,
             project_started_at=project_started_at,
         )
+

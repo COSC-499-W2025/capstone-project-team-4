@@ -1,11 +1,8 @@
 """Analysis API routes."""
 
 import logging
-import platform
-import tempfile
-import shutil
 import subprocess
-import zipfile
+import tempfile
 from pathlib import Path
 from typing import Optional, Union, List
 
@@ -18,6 +15,7 @@ from src.models.schemas.analysis import (
     GitHubAnalysisRequest,
 )
 from src.services.analysis_service import AnalysisService
+from src.services.snapshot_analysis_service import SnapshotAnalysisService
 from src.api.exceptions import InvalidFileError, InvalidGitHubURLError, AnalysisError
 
 logger = logging.getLogger(__name__)
@@ -29,16 +27,16 @@ router = APIRouter(prefix="/projects/analyze", tags=["analysis"])
 async def analyze_upload(
     file: UploadFile = File(..., description="ZIP file to analyze"),
     project_name: Optional[str] = Form(None, description="Custom project name"),
-    create_snapshots: bool = Form(False, description="Create 2 snapshots at different time points: Mid (60%) and Late (85%) - requires git history"),
+    create_snapshots: bool = Form(False, description="Create 2 snapshots: Old (50% of history) and Current (uploaded version) - requires git history"),
     db: Session = Depends(get_db),
 ):
     """
     Analyze a project from an uploaded ZIP file.
 
     - If create_snapshots=false (default): Analyzes the project as-is and returns 1 result
-    - If create_snapshots=true: Creates 2 snapshots at different points in git history:
-      - Mid (60% of commits): Midpoint of development
-      - Late (85% of commits): Near the end of development
+    - If create_snapshots=true: Creates 2 snapshots:
+      - Old (50% of commits): Midpoint of development
+      - Current (100%): The uploaded version (latest state)
 
     Returns a list of analysis results (1 for regular upload, 2 for snapshots).
     """
@@ -71,112 +69,27 @@ async def analyze_upload(
             tmp.write(contents)
             tmp_path = Path(tmp.name)
 
-        service = AnalysisService(db)
         name = project_name or Path(filename).stem
 
         # If create_snapshots is True, create multiple snapshots
         if create_snapshots:
-            temp_dir = tempfile.TemporaryDirectory()
-
             try:
-                # Extract ZIP to check for git history
-                extract_dir = Path(temp_dir.name) / "extracted"
-                extract_dir.mkdir()
-
-                with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
-                    zip_ref.extractall(extract_dir)
-
-                # Find the project directory
-                project_dirs = list(extract_dir.iterdir())
-                if not project_dirs:
-                    raise InvalidFileError("Empty ZIP archive")
-
-                project_path = project_dirs[0]
-
-                # Verify .git directory exists
-                git_dir = project_path / ".git"
-                if not git_dir.exists():
-                    raise InvalidFileError(
-                        "No .git directory found. Snapshot creation requires git history. "
-                        "Upload without create_snapshots=true for regular analysis."
-                    )
-
-                # Get git commit history
-                # Convert path to string and use forward slashes for git on Windows
-                git_project_path = str(project_path).replace("\\", "/") if platform.system() == "Windows" else str(project_path)
-                result = subprocess.run(
-                    ["git", "-C", git_project_path, "log", "--reverse", "--oneline", "--all"],
-                    capture_output=True,
-                    text=True,
-                    check=True,
+                # Delegate to SnapshotAnalysisService for snapshot workflow
+                snapshot_service = SnapshotAnalysisService(db)
+                return snapshot_service.analyze_with_snapshots(tmp_path, name)
+            except ValueError as e:
+                # Convert ValueError from validation to InvalidFileError
+                raise InvalidFileError(
+                    f"{str(e)} Upload without create_snapshots=true for regular analysis."
                 )
-
-                commits = result.stdout.strip().split("\n")
-                if not commits or not commits[0]:
-                    raise InvalidFileError("No git commits found in project")
-
-                total_commits = len(commits)
-
-                if total_commits < 10:
-                    raise InvalidFileError(
-                        f"Project has only {total_commits} commits. Need at least 10 commits for snapshots. "
-                        "Upload without create_snapshots=true for regular analysis."
-                    )
-
-                # Calculate snapshot points (60%, 85%)
-                snapshot_points = [
-                    ("Mid", int(total_commits * 0.60)),
-                    ("Late", int(total_commits * 0.85)),
-                ]
-
-                # Create snapshots at each point
-                analysis_results = []
-
-                for snapshot_label, commit_index in snapshot_points:
-                    commit_hash = commits[commit_index].split()[0]
-                    snapshot_name = f"{name}-{snapshot_label}"
-
-                    # Create a temporary directory for this snapshot
-                    snapshot_dir = Path(temp_dir.name) / f"snapshot_{snapshot_label}"
-                    snapshot_dir.mkdir()
-                    snapshot_project_path = snapshot_dir / "project"
-
-                    # Copy the entire project directory (including .git) instead of cloning
-                    # Use symlinks=True on Unix, False on Windows (requires admin on Windows)
-                    use_symlinks = platform.system() != "Windows"
-                    shutil.copytree(project_path, snapshot_project_path, symlinks=use_symlinks)
-
-                    # Reset to specific commit
-                    git_snapshot_path = str(snapshot_project_path).replace("\\", "/") if platform.system() == "Windows" else str(snapshot_project_path)
-                    subprocess.run(
-                        ["git", "-C", git_snapshot_path, "reset", "--hard", commit_hash],
-                        capture_output=True,
-                        check=True,
-                    )
-
-                    # Clean build artifacts
-                    for artifact_dir in ["node_modules", "venv", "__pycache__", ".pytest_cache", "dist", "build"]:
-                        artifact_path = snapshot_project_path / artifact_dir
-                        if artifact_path.exists():
-                            shutil.rmtree(artifact_path, ignore_errors=True)
-
-                    # Analyze this snapshot
-                    result = service.analyze_from_directory(snapshot_project_path, snapshot_name)
-
-                    if isinstance(result, list):
-                        analysis_results.extend(result)
-                    else:
-                        analysis_results.append(result)
-
-                return analysis_results
-
-            except subprocess.CalledProcessError as e:
-                raise AnalysisError(f"Git operation failed: {e.stderr if hasattr(e, 'stderr') else str(e)}")
-            finally:
-                if temp_dir:
-                    temp_dir.cleanup()
+            except (RuntimeError, subprocess.CalledProcessError) as e:
+                # RuntimeError from git operations, CalledProcessError from subprocess
+                raise InvalidFileError(
+                    f"Git operation failed: {str(e)}. Upload without create_snapshots=true for regular analysis."
+                )
         else:
             # Regular single analysis
+            service = AnalysisService(db)
             result = service.analyze_from_zip(tmp_path, name)
 
             #  Always return list to match response_model=List[AnalysisResult]

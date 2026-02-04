@@ -77,6 +77,7 @@ def init_db() -> None:
         Experience,
         ExperienceType,
         DataPrivacySettings,
+        SnapshotComparison,
     )
 
     Base.metadata.create_all(bind=engine)

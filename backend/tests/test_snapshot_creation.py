@@ -34,8 +34,8 @@ def test_snapshot_creation_with_valid_git_repo(
 
     # Extract project names from response
     project_names = [p["project_name"] for p in data]
-    assert "test-project-Mid" in project_names
-    assert "test-project-Late" in project_names
+    assert "test-project-Old" in project_names
+    assert "test-project-Current" in project_names
 
     # Verify all are completed
     for project in data:
@@ -47,8 +47,8 @@ def test_snapshot_creation_with_valid_git_repo(
     all_projects = test_db.query(Project).all()
     db_project_names = [p.name for p in all_projects]
 
-    assert "test-project-Mid" in db_project_names
-    assert "test-project-Late" in db_project_names
+    assert "test-project-Old" in db_project_names
+    assert "test-project-Current" in db_project_names
     assert len(all_projects) == 2  # 2 snapshots
 
 
@@ -77,7 +77,8 @@ def test_snapshot_creation_without_git_history(
         )
 
     assert response.status_code == 400
-    assert "requires git history" in response.json()["detail"].lower()
+    detail = response.json()["detail"].lower()
+    assert ("git" in detail and ("history" in detail or "repository" in detail))
 
 
 def test_snapshot_creation_with_insufficient_commits(
@@ -191,9 +192,9 @@ def test_snapshot_naming_convention(
     # Extract project names from response
     project_names = {p["project_name"] for p in data}
 
-    # Should have snapshots with "Mid" and "Late" suffixes
-    assert "my-project-Mid" in project_names
-    assert "my-project-Late" in project_names
+    # Should have snapshots with "Old" and "Current" suffixes
+    assert "my-project-Old" in project_names
+    assert "my-project-Current" in project_names
 
 
 def test_snapshot_commit_points(
@@ -224,8 +225,8 @@ def test_snapshot_commit_points(
     # Verify snapshots exist
     from src.models.orm import Project
 
-    mid_project = test_db.query(Project).filter_by(name="commit-test-Mid").first()
-    late_project = test_db.query(Project).filter_by(name="commit-test-Late").first()
+    mid_project = test_db.query(Project).filter_by(name="commit-test-Old").first()
+    late_project = test_db.query(Project).filter_by(name="commit-test-Current").first()
 
     assert mid_project is not None
     assert late_project is not None
@@ -261,5 +262,5 @@ def test_snapshot_with_custom_project_name(
     names = {p["project_name"] for p in data}
 
     # Should have snapshots with custom name
-    assert "CustomName-Mid" in names
-    assert "CustomName-Late" in names
+    assert "CustomName-Old" in names
+    assert "CustomName-Current" in names

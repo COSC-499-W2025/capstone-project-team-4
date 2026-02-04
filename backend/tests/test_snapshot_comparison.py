@@ -13,7 +13,7 @@ from src.models.orm import Project, Language, Framework, ProjectFramework, File
 def project1(test_db: Session) -> Project:
     """Create first test project (earlier snapshot)."""
     project = Project(
-        name="Demo-Mid",
+        name="Demo-Old",
         root_path="/tmp/demo-mid",
         source_type="github",
         source_url="https://github.com/test/demo",
@@ -64,7 +64,7 @@ def project1(test_db: Session) -> Project:
 def project2(test_db: Session) -> Project:
     """Create second test project (later snapshot with more features)."""
     project = Project(
-        name="Demo-Late",
+        name="Demo-Current",
         root_path="/tmp/demo-late",
         source_type="github",
         source_url="https://github.com/test/demo",
@@ -120,15 +120,15 @@ def test_compare_snapshots_by_id(
 ):
     """Test comparing snapshots by project ID."""
     response = client.get(
-        f"/api/test-data/snapshots/compare?project1_id={project1.id}&project2_id={project2.id}"
+        f"/api/snapshots/compare?project1_id={project1.id}&project2_id={project2.id}"
     )
 
     assert response.status_code == 200
     data = response.json()
 
     # Verify response structure
-    assert data["snapshot1_name"] == "Demo-Mid"
-    assert data["snapshot2_name"] == "Demo-Late"
+    assert data["snapshot1_name"] == "Demo-Old"
+    assert data["snapshot2_name"] == "Demo-Current"
     assert "summary" in data
 
     # Verify metric comparisons exist
@@ -155,42 +155,25 @@ def test_compare_snapshots_by_id(
     assert len(data["frameworks"]["snapshot2_value"]) == 2
 
 
-def test_compare_snapshots_by_name(
-    client: TestClient,
-    project1: Project,
-    project2: Project,
-):
-    """Test comparing snapshots by project name."""
-    response = client.get(
-        "/api/test-data/snapshots/compare?project1_name=Demo-Mid&project2_name=Demo-Late"
-    )
-
-    assert response.status_code == 200
-    data = response.json()
-
-    assert data["snapshot1_name"] == "Demo-Mid"
-    assert data["snapshot2_name"] == "Demo-Late"
-
-
 def test_compare_missing_project1_params(client: TestClient):
-    """Test comparison fails when project1 parameters are missing."""
-    response = client.get("/api/test-data/snapshots/compare?project2_id=1")
+    """Test comparison fails when project1_id is missing."""
+    response = client.get("/api/snapshots/compare?project2_id=1")
 
-    assert response.status_code == 400
-    assert "project1_id or project1_name" in response.json()["detail"]
+    assert response.status_code == 422  # Validation error
+    assert "project1_id" in response.text.lower()
 
 
 def test_compare_missing_project2_params(client: TestClient, project1: Project):
-    """Test comparison fails when project2 parameters are missing."""
-    response = client.get(f"/api/test-data/snapshots/compare?project1_id={project1.id}")
+    """Test comparison fails when project2_id is missing."""
+    response = client.get(f"/api/snapshots/compare?project1_id={project1.id}")
 
-    assert response.status_code == 400
-    assert "project2_id or project2_name" in response.json()["detail"]
+    assert response.status_code == 422  # Validation error
+    assert "project2_id" in response.text.lower()
 
 
 def test_compare_nonexistent_project1(client: TestClient, project2: Project):
     """Test comparison fails when project1 doesn't exist."""
-    response = client.get(f"/api/test-data/snapshots/compare?project1_id=999&project2_id={project2.id}")
+    response = client.get(f"/api/snapshots/compare?project1_id=999&project2_id={project2.id}")
 
     assert response.status_code == 404
     assert "Project 1 not found" in response.json()["detail"]
@@ -198,19 +181,10 @@ def test_compare_nonexistent_project1(client: TestClient, project2: Project):
 
 def test_compare_nonexistent_project2(client: TestClient, project1: Project):
     """Test comparison fails when project2 doesn't exist."""
-    response = client.get(f"/api/test-data/snapshots/compare?project1_id={project1.id}&project2_id=999")
+    response = client.get(f"/api/snapshots/compare?project1_id={project1.id}&project2_id=999")
 
     assert response.status_code == 404
     assert "Project 2 not found" in response.json()["detail"]
-
-
-def test_compare_by_name_not_found(client: TestClient):
-    """Test comparison fails when projects not found by name."""
-    response = client.get(
-        "/api/test-data/snapshots/compare?project1_name=NonExistent&project2_name=AlsoNonExistent"
-    )
-
-    assert response.status_code == 404
 
 
 def test_metric_comparison_structure(
@@ -220,7 +194,7 @@ def test_metric_comparison_structure(
 ):
     """Test that metric comparisons have correct structure."""
     response = client.get(
-        f"/api/test-data/snapshots/compare?project1_id={project1.id}&project2_id={project2.id}"
+        f"/api/snapshots/compare?project1_id={project1.id}&project2_id={project2.id}"
     )
 
     assert response.status_code == 200
@@ -244,7 +218,7 @@ def test_snapshot_metrics_structure(
 ):
     """Test that snapshot metrics have correct structure."""
     response = client.get(
-        f"/api/test-data/snapshots/compare?project1_id={project1.id}&project2_id={project2.id}"
+        f"/api/snapshots/compare?project1_id={project1.id}&project2_id={project2.id}"
     )
 
     assert response.status_code == 200
@@ -252,7 +226,7 @@ def test_snapshot_metrics_structure(
 
     # Verify snapshot1_metrics structure
     metrics1 = data["snapshot1_metrics"]
-    assert metrics1["snapshot_name"] == "Demo-Mid"
+    assert metrics1["snapshot_name"] == "Demo-Old"
     assert "total_commits" in metrics1
     assert "contributor_count" in metrics1
     assert "languages" in metrics1
@@ -264,7 +238,7 @@ def test_snapshot_metrics_structure(
 
     # Verify snapshot2_metrics structure
     metrics2 = data["snapshot2_metrics"]
-    assert metrics2["snapshot_name"] == "Demo-Late"
+    assert metrics2["snapshot_name"] == "Demo-Current"
 
 
 def test_comparison_summary_generation(
@@ -274,7 +248,7 @@ def test_comparison_summary_generation(
 ):
     """Test that comparison summary is generated correctly."""
     response = client.get(
-        f"/api/test-data/snapshots/compare?project1_id={project1.id}&project2_id={project2.id}"
+        f"/api/snapshots/compare?project1_id={project1.id}&project2_id={project2.id}"
     )
 
     assert response.status_code == 200
@@ -296,7 +270,7 @@ def test_percent_change_calculation(
 ):
     """Test that percent change is calculated correctly."""
     response = client.get(
-        f"/api/test-data/snapshots/compare?project1_id={project1.id}&project2_id={project2.id}"
+        f"/api/snapshots/compare?project1_id={project1.id}&project2_id={project2.id}"
     )
 
     assert response.status_code == 200
@@ -317,6 +291,7 @@ def test_no_changes_comparison(
 ):
     """Test comparison when projects have identical metrics."""
     # Create two identical projects
+    project_ids = []
     for name in ["Identical-1", "Identical-2"]:
         project = Project(
             name=name,
@@ -331,6 +306,8 @@ def test_no_changes_comparison(
         )
         test_db.add(project)
         test_db.commit()
+        test_db.refresh(project)
+        project_ids.append(project.id)
 
         # Add same language via File
         python = test_db.query(Language).filter_by(name="Python").first()
@@ -351,7 +328,7 @@ def test_no_changes_comparison(
         test_db.commit()
 
     response = client.get(
-        "/api/test-data/snapshots/compare?project1_name=Identical-1&project2_name=Identical-2"
+        f"/api/snapshots/compare?project1_id={project_ids[0]}&project2_id={project_ids[1]}"
     )
 
     assert response.status_code == 200
