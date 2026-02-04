@@ -1,4 +1,4 @@
-"""Debug script to test git command execution."""
+"""This file is for debugging purposes during development and is not required in the production environment."""
 
 import subprocess
 import os
@@ -14,10 +14,10 @@ print(f"Branch: {branch}\n")
 
 # Test 1: Check if repo exists
 if not os.path.isdir(repo_path):
-    print(f"❌ Repository path not found: {repo_path}")
+    print(f"Repository path not found: {repo_path}")
     exit(1)
 else:
-    print(f"✓ Repository path exists")
+    print(f"Repository path exists")
 
 # Test 2: Check if git is available
 try:
@@ -28,12 +28,12 @@ try:
         timeout=5
     )
     if result.returncode == 0:
-        print(f"✓ Git repository found: {result.stdout.strip()}")
+        print(f"Git repository found: {result.stdout.strip()}")
     else:
-        print(f"❌ Not a git repository: {result.stderr}")
+        print(f"Not a git repository: {result.stderr}")
         exit(1)
 except Exception as e:
-    print(f"❌ Git not available: {e}")
+    print(f"Git not available: {e}")
     exit(1)
 
 # Test 3: Get commits for the contributor
@@ -50,11 +50,12 @@ print(f"Command: {' '.join(cmd)}\n")
 result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 if result.returncode == 0:
     lines = result.stdout.strip().split("\n")
-    print(f"✓ Found {len(lines)} recent commits:")
+    print(f"Found {len(lines)} recent commits:")
     for line in lines[:5]:
         print(f"  {line}")
 else:
-    print(f"❌ Failed: {result.stderr}")
+    print(f"Failed: {result.stderr}")
+
 
 # Test 4: Get file changes for first commit
 print(f"\n--- Test: Get file changes with --numstat ---")
@@ -76,7 +77,7 @@ if result.returncode == 0:
         print(f"  {line}")
     print(f"  ... (total {len(lines)} lines)")
 else:
-    print(f"❌ Failed: {result.stderr}")
+    print(f"Failed: {result.stderr}")
 
 # Test 5: Check a specific file
 print(f"\n--- Test: Check changes for a specific file ---")
@@ -103,6 +104,6 @@ if result.returncode == 0:
     else:
         print(f"⚠ No changes found for this file by this contributor")
 else:
-    print(f"❌ Failed: {result.stderr}")
+    print(f"Failed: {result.stderr}")
 
-print("\n✓ Debug tests completed")
+print("\nDebug tests completed")
