@@ -88,7 +88,7 @@ def detect_project_roots(root: Path, max_depth: int = 4) -> List[Path]:
 
     def depth(p: Path) -> int:
         try:
-            return len(p.relative_to(root).parts)
+            return len(p.resolve().relative_to(root).parts)
         except ValueError:
             return 999
 
@@ -105,13 +105,14 @@ def detect_project_roots(root: Path, max_depth: int = 4) -> List[Path]:
             projects.append(p)
 
     # If we found nested projects, prefer the shallowest ones
-    projects = sorted(projects, key=lambda x: (len(x.relative_to(root).parts), x.name.lower()))
+    projects = sorted(projects, key=lambda x: (len(x.resolve().relative_to(root).parts), x.name.lower()))
 
 
     # Remove roots that are inside another detected root
     filtered: List[Path] = []
     for p in projects:
-        if not any(p.is_relative_to(parent) for parent in filtered):  # py3.9+ has is_relative_to
+        p_resolved = p.resolve()
+        if not any(p_resolved.is_relative_to(parent.resolve()) for parent in filtered):  # py3.9+ has is_relative_to
             filtered.append(p)
 
     if len(filtered) >= 2:
@@ -156,7 +157,7 @@ def is_monorepo_root(root: Path, max_depth: int = 2) -> bool:
 
     def depth(p: Path) -> int:
         try:
-            return len(p.relative_to(root).parts)
+            return len(p.resolve().relative_to(root).parts)
         except ValueError:
             return 999
 
