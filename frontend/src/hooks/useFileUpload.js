@@ -77,60 +77,72 @@ export const useFileUpload = () => {
     setError(null);
 
     try {
-      // Process each file separately since your API takes one file at a time
       const results = [];
 
       for (const file of uploadedFiles) {
         const formData = new FormData();
         formData.append("file", file);
 
-        // Use axios as it's much cleaner than fetch.
-        const response = await axios.post(
-          "/api/projects/analyze/upload",
-          formData,
-        );
-        const data = response.data;
+        const response = await axios.post("/api/projects/analyze/upload", formData);
 
-        // IMPORTANT: Fetch contributor data IMMEDIATELY after upload
-        // while the temporary files still exist on the server
-        let contributorDetails = null;
-        if (data.project_id) {
-          try {
-            const contributorResponse = await axios.get(
-              `/api/projects/${data.project_id}/contributors/default-branch-stats`
-            );
-            contributorDetails = contributorResponse.data;
-          } catch (contributorError) {
-            console.warn('Could not fetch contributor details:', contributorError);
-            // Continue without contributor details - they can still see the count
-          }
-        }
+        const payload = response.data;
+        const items = Array.isArray(payload) ? payload : [payload];
 
-        // Transform the API response to match our display format
-        // Now properly mapping contributor_count, project_started_at, and other fields
-        results.push({
-          name: data.project_name || file.name.replace(".zip", ""),
-          contributions: data.file_count || 0,
-          date: data.zip_uploaded_at || new Date().toISOString(), // When analyzed/uploaded
-          projectStartedAt: data.project_started_at || null, // When project actually began
-          firstCommitDate: data.first_commit_date || null,
-          firstFileCreated: data.first_file_created || null,
-          description: `Languages: ${data.languages?.join(", ") || "N/A"}`,
-          languages: data.languages || [],
-          frameworks: data.frameworks || [],
-          skills: data.contextual_skills || data.skills || [],
-          complexity: data.complexity_summary || {},
-          // Contributor data - now stored from immediate fetch
-          contributorCount: data.contributor_count || 0,
-          contributorDetails: contributorDetails, // Store the full contributor data
-          // Additional metadata
-          projectId: data.project_id,
-          totalLinesOfCode: data.total_lines_of_code || 0,
-          libraryCount: data.library_count || 0,
-          toolCount: data.tool_count || 0,
-          libraries: data.libraries || [],
-          toolsAndTechnologies: data.tools_and_technologies || [],
+        // Filter out empty/root “outer zip” result so it doesn’t render as a card
+        const filteredItems = items.filter((p) => {
+          if (!p) return false;
+
+          const hasName = typeof p.project_name === "string" && p.project_name.trim().length > 0;
+
+          const hasContent =
+            (p.file_count ?? 0) > 0 ||
+            (p.total_lines_of_code ?? 0) > 0 ||
+            (p.languages?.length ?? 0) > 0 ||
+            (p.frameworks?.length ?? 0) > 0 ||
+            (p.libraries?.length ?? 0) > 0 ||
+            (p.tools_and_technologies?.length ?? 0) > 0;
+
+          // If backend returns a “root project” summary for the outer zip, it often has no name or no content.
+          return hasName && hasContent;
         });
+
+        for (const data of filteredItems) {
+          let contributorDetails = null;
+
+          if (data.project_id) {
+            try {
+              const contributorResponse = await axios.get(
+                `/api/projects/${data.project_id}/contributors/default-branch-stats`,
+              );
+              contributorDetails = contributorResponse.data;
+            } catch (contributorError) {
+              console.warn("Could not fetch contributor details:", contributorError);
+            }
+          }
+
+          results.push({
+          
+            name: data.project_name,
+            contributions: data.file_count || 0,
+            date: data.zip_uploaded_at || new Date().toISOString(),
+            projectStartedAt: data.project_started_at || null,
+            firstCommitDate: data.first_commit_date || null,
+            firstFileCreated: data.first_file_created || null,
+            description: `Languages: ${data.languages?.join(", ") || "N/A"}`,
+            languages: data.languages || [],
+            frameworks: data.frameworks || [],
+            skills: data.contextual_skills || data.skills || [],
+            complexity: data.complexity_summary || {},
+            contributorCount: data.contributor_count || 0,
+            contributorDetails,
+            projectId: data.project_id,
+            totalLinesOfCode: data.total_lines_of_code || 0,
+            libraryCount: data.library_count || 0,
+            toolCount: data.tool_count || 0,
+            libraries: data.libraries || [],
+            toolsAndTechnologies: data.tools_and_technologies || [],
+          });
+        }
       }
 
       setProjectData(results);

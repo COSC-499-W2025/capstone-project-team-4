@@ -264,7 +264,7 @@ def detect_project_roots_in_zip(extracted_root: Path, max_depth: int = 4) -> lis
     for root, dirs, files in os.walk(base):
         root_path = Path(root)
 
-        depth = len(root_path.relative_to(base).parts)
+        depth = len(root_path.resolve().relative_to(base.resolve()).parts)
         if depth > max_depth:
             dirs.clear()
             continue
@@ -358,8 +358,8 @@ class AnalysisService:
             logger.info(f"Detected {len(project_roots)} project(s) in extracted ZIP at depth {_depth}")
 
             for idx, root in enumerate(project_roots, start=1):
-                # Avoid analyzing extracted inner-zip dirs as “projects” if they live under ignored dirs
-                if _is_under_ignored_dir(str(root.relative_to(temp_path)).replace("\\", "/")):
+                # Avoid analyzing extracted inner-zip dirs as "projects" if they live under ignored dirs
+                if _is_under_ignored_dir(str(root.resolve().relative_to(temp_path.resolve())).replace("\\", "/")):
                     continue
 
                 derived_name = (
@@ -811,7 +811,7 @@ class AnalysisService:
         if git_dirs:
             # Return parent of the first .git found
             project_root = git_dirs[0].parent
-            logger.info(f"Found .git directory at {project_root.relative_to(base_path)}")
+            logger.info(f"Found .git directory at {project_root.resolve().relative_to(base_path.resolve())}")
             return project_root
         
         # Strategy 3: Fall back to base path

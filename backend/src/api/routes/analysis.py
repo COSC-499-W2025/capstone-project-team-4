@@ -28,51 +28,66 @@ async def analyze_upload(
     project_name: Optional[str] = Form(None, description="Custom project name"),
     db: Session = Depends(get_db),
 ):
+    # Log incoming request details
+    logger.info(f"Received upload request - filename: {file.filename}, content_type: {file.content_type}, project_name: {project_name}")
+
     # Validate filename and extension
     if not file.filename:
+        logger.error("No filename provided in upload request")
         raise InvalidFileError("No filename provided")
 
     # Normalize to just the base name (some clients include paths)
     filename = Path(file.filename).name
+    logger.info(f"Normalized filename: {filename}")
 
     #  Always return list to match response_model=List[AnalysisResult]
     if filename.startswith("._") or filename == ".DS_Store":
+        logger.error(f"macOS metadata file detected: {filename}")
         raise InvalidFileError(
             "macOS metadata file detected (._*). Upload the real .zip file, not the sidecar."
         )
 
     if not filename.lower().endswith(".zip"):
+        logger.error(f"File does not end with .zip: {filename}")
         raise InvalidFileError("File must be a ZIP archive")
 
     tmp_path: Optional[Path] = None
 
-    # Save uploaded file to temp location 
+    # Save uploaded file to temp location
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
             contents = await file.read()
+            logger.info(f"Read {len(contents)} bytes from uploaded file")
+
             if not contents:
+                logger.error("Uploaded file is empty")
                 raise InvalidFileError("Uploaded file is empty")
 
             tmp.write(contents)
             tmp_path = Path(tmp.name)
+            logger.info(f"Saved to temporary file: {tmp_path}")
 
-        # Run analysis 
+        # Run analysis
         service = AnalysisService(db)
         name = project_name or Path(filename).stem
+        logger.info(f"Starting analysis for project: {name}")
         result = service.analyze_from_zip(tmp_path, name)
 
         #  Always return list to match response_model=List[AnalysisResult]
-        return result if isinstance(result, list) else [result]
+        final_result = result if isinstance(result, list) else [result]
+        logger.info(f"Analysis completed successfully, returning {len(final_result)} project(s)")
+        return final_result
 
     except (FileNotFoundError, ValueError) as e:
         # FileNotFoundError: temp file missing (rare)
         # ValueError: invalid zip, etc.
+        logger.error(f"File or value error during analysis: {str(e)}")
         raise InvalidFileError(str(e))
     except InvalidFileError:
-        # Re-raise as-is
+        # Re-raise as-is (already logged above)
         raise
     except Exception as e:
-        logger.exception("Analysis failed")
+        logger.exception("Analysis failed with unexpected error")
         raise AnalysisError(str(e))
     finally:
         # --- Clean up temp file ---
