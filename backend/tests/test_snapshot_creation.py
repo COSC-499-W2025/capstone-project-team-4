@@ -44,12 +44,13 @@ def test_snapshot_creation_with_valid_git_repo(
     # Verify snapshots were created in database
     from src.models.orm import Project
 
-    all_projects = test_db.query(Project).all()
-    db_project_names = [p.name for p in all_projects]
+    # Query only snapshot analysis projects (not the source project)
+    snapshot_projects = test_db.query(Project).filter(Project.snapshot_id.isnot(None)).all()
+    db_project_names = [p.name for p in snapshot_projects]
 
     assert "test-project-Old" in db_project_names
     assert "test-project-Current" in db_project_names
-    assert len(all_projects) == 2  # 2 snapshots
+    assert len(snapshot_projects) == 2  # 2 snapshot analysis projects
 
 
 def test_snapshot_creation_without_git_history(

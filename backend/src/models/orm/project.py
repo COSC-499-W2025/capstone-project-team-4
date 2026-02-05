@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from src.models.orm.library import ProjectLibrary
     from src.models.orm.tool import ProjectTool
     from src.models.orm.user import User
+    from src.models.orm.snapshot import Snapshot
 
 
 class Project(Base):
@@ -39,6 +40,15 @@ class Project(Base):
     first_file_created: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     first_commit_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     project_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    # Snapshot reference (if this project represents a snapshot)
+    snapshot_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("snapshots.id", ondelete="SET NULL", use_alter=True, name="fk_project_snapshot"),
+        nullable=True,
+        index=True,
+        comment="If set, this project represents analysis data for a snapshot"
+    )
 
     # Relationships
     files: Mapped[List["File"]] = relationship(
@@ -72,6 +82,22 @@ class Project(Base):
         "ProjectTool", back_populates="project", cascade="all, delete-orphan"
     )
     user: Mapped[Optional["User"]] = relationship("User", back_populates="projects")
+
+    # Snapshot relationships
+    snapshots: Mapped[List["Snapshot"]] = relationship(
+        "Snapshot",
+        foreign_keys="Snapshot.source_project_id",
+        back_populates="source_project",
+        cascade="all, delete-orphan",
+        doc="Snapshots created from this project (if this is a source project)"
+    )
+
+    snapshot: Mapped[Optional["Snapshot"]] = relationship(
+        "Snapshot",
+        foreign_keys=[snapshot_id],
+        back_populates="analyzed_project",
+        doc="The snapshot this project represents (if this is snapshot analysis data)"
+    )
 
     def __repr__(self) -> str:
         return f"<Project(id={self.id}, name='{self.name}', user_id={self.user_id})>"

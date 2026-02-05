@@ -6,17 +6,45 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from src.models.orm import Project, Language, Framework, ProjectFramework, File
+from src.models.orm import Project, Snapshot, Language, Framework, ProjectFramework, File
 
 
 @pytest.fixture
-def project1(test_db: Session) -> Project:
-    """Create first test project (earlier snapshot)."""
+def project1(test_db: Session) -> Snapshot:
+    """Create first test snapshot (earlier snapshot)."""
+    # Create source project
+    source = Project(
+        name="Demo",
+        root_path="/tmp/demo",
+        source_type="github",
+        source_url="https://github.com/test/demo",
+        snapshot_id=None,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    test_db.add(source)
+    test_db.commit()
+    test_db.refresh(source)
+
+    # Create Snapshot record
+    snapshot = Snapshot(
+        source_project_id=source.id,
+        snapshot_type="baseline",
+        label="Demo-Old",
+        snapshot_date=datetime.now(timezone.utc),
+        commit_percentage=50.0,
+    )
+    test_db.add(snapshot)
+    test_db.commit()
+    test_db.refresh(snapshot)
+
+    # Create analyzed project linked to snapshot
     project = Project(
-        name="Demo-Old",
+        name="Demo",
         root_path="/tmp/demo-mid",
         source_type="github",
         source_url="https://github.com/test/demo",
+        snapshot_id=snapshot.id,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
         zip_uploaded_at=datetime.now(timezone.utc),
@@ -57,17 +85,34 @@ def project1(test_db: Session) -> Project:
 
     test_db.commit()
 
-    return project
+    return snapshot
 
 
 @pytest.fixture
-def project2(test_db: Session) -> Project:
-    """Create second test project (later snapshot with more features)."""
+def project2(test_db: Session, project1: Snapshot) -> Snapshot:
+    """Create second test snapshot (later snapshot with more features)."""
+    # Reuse the source project from project1
+    source = test_db.query(Project).filter_by(id=project1.source_project_id).first()
+
+    # Create Snapshot record
+    snapshot = Snapshot(
+        source_project_id=source.id,
+        snapshot_type="current",
+        label="Demo-Current",
+        snapshot_date=datetime.now(timezone.utc),
+        commit_percentage=100.0,
+    )
+    test_db.add(snapshot)
+    test_db.commit()
+    test_db.refresh(snapshot)
+
+    # Create analyzed project linked to snapshot
     project = Project(
-        name="Demo-Current",
+        name="Demo",
         root_path="/tmp/demo-late",
         source_type="github",
         source_url="https://github.com/test/demo",
+        snapshot_id=snapshot.id,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
         zip_uploaded_at=datetime.now(timezone.utc),
@@ -110,13 +155,13 @@ def project2(test_db: Session) -> Project:
 
     test_db.commit()
 
-    return project
+    return snapshot
 
 
 def test_compare_snapshots_by_id(
     client: TestClient,
-    project1: Project,
-    project2: Project,
+    project1: Snapshot,
+    project2: Snapshot,
 ):
     """Test comparing snapshots by project ID."""
     response = client.get(
@@ -163,7 +208,7 @@ def test_compare_missing_project1_params(client: TestClient):
     assert "project1_id" in response.text.lower()
 
 
-def test_compare_missing_project2_params(client: TestClient, project1: Project):
+def test_compare_missing_project2_params(client: TestClient, project1: Snapshot):
     """Test comparison fails when project2_id is missing."""
     response = client.get(f"/api/snapshots/compare?project1_id={project1.id}")
 
@@ -171,7 +216,7 @@ def test_compare_missing_project2_params(client: TestClient, project1: Project):
     assert "project2_id" in response.text.lower()
 
 
-def test_compare_nonexistent_project1(client: TestClient, project2: Project):
+def test_compare_nonexistent_project1(client: TestClient, project2: Snapshot):
     """Test comparison fails when project1 doesn't exist."""
     response = client.get(f"/api/snapshots/compare?project1_id=999&project2_id={project2.id}")
 
@@ -179,7 +224,7 @@ def test_compare_nonexistent_project1(client: TestClient, project2: Project):
     assert "Project 1 not found" in response.json()["detail"]
 
 
-def test_compare_nonexistent_project2(client: TestClient, project1: Project):
+def test_compare_nonexistent_project2(client: TestClient, project1: Snapshot):
     """Test comparison fails when project2 doesn't exist."""
     response = client.get(f"/api/snapshots/compare?project1_id={project1.id}&project2_id=999")
 
@@ -213,8 +258,8 @@ def test_metric_comparison_structure(
 
 def test_snapshot_metrics_structure(
     client: TestClient,
-    project1: Project,
-    project2: Project,
+    project1: Snapshot,
+    project2: Snapshot,
 ):
     """Test that snapshot metrics have correct structure."""
     response = client.get(
@@ -289,14 +334,42 @@ def test_no_changes_comparison(
     client: TestClient,
     test_db: Session,
 ):
-    """Test comparison when projects have identical metrics."""
-    # Create two identical projects
-    project_ids = []
-    for name in ["Identical-1", "Identical-2"]:
+    """Test comparison when snapshots have identical metrics."""
+    # Create source project
+    source = Project(
+        name="Identical",
+        root_path="/tmp/identical",
+        source_type="github",
+        snapshot_id=None,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    test_db.add(source)
+    test_db.commit()
+    test_db.refresh(source)
+
+    # Create two identical snapshots
+    snapshot_ids = []
+    for i, name in enumerate(["Identical-1", "Identical-2"]):
+        # Create Snapshot record
+        snapshot = Snapshot(
+            source_project_id=source.id,
+            snapshot_type="baseline" if i == 0 else "current",
+            label=name,
+            snapshot_date=datetime.now(timezone.utc),
+            commit_percentage=50.0 if i == 0 else 100.0,
+        )
+        test_db.add(snapshot)
+        test_db.commit()
+        test_db.refresh(snapshot)
+        snapshot_ids.append(snapshot.id)
+
+        # Create analyzed project linked to snapshot
         project = Project(
-            name=name,
+            name="Identical",
             root_path=f"/tmp/{name.lower()}",
             source_type="github",
+            snapshot_id=snapshot.id,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
             zip_uploaded_at=datetime.now(timezone.utc),
@@ -307,7 +380,6 @@ def test_no_changes_comparison(
         test_db.add(project)
         test_db.commit()
         test_db.refresh(project)
-        project_ids.append(project.id)
 
         # Add same language via File
         python = test_db.query(Language).filter_by(name="Python").first()
@@ -328,7 +400,7 @@ def test_no_changes_comparison(
         test_db.commit()
 
     response = client.get(
-        f"/api/snapshots/compare?project1_id={project_ids[0]}&project2_id={project_ids[1]}"
+        f"/api/snapshots/compare?project1_id={snapshot_ids[0]}&project2_id={snapshot_ids[1]}"
     )
 
     assert response.status_code == 200

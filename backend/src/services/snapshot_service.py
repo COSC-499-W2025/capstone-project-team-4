@@ -5,7 +5,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from src.models.orm import Project, SnapshotComparison
+from src.models.orm import Project, Snapshot, SnapshotComparison
 from src.models.schemas.test_data import SnapshotMetrics, MetricComparison, SnapshotComparison as SnapshotComparisonSchema
 from src.services.project_service import ProjectService
 from src.repositories.project_repository import ProjectRepository
@@ -44,20 +44,29 @@ class SnapshotService:
             Created SnapshotComparison record
 
         Raises:
-            ValueError: If projects don't exist
+            ValueError: If snapshots don't exist or don't have analyzed projects
         """
-        # Get projects from repository (ORM objects)
-        project1 = self.project_repo.get(snapshot1_id)
-        project2 = self.project_repo.get(snapshot2_id)
+        # Get Snapshot objects
+        snapshot1 = self.db.query(Snapshot).filter_by(id=snapshot1_id).first()
+        snapshot2 = self.db.query(Snapshot).filter_by(id=snapshot2_id).first()
 
-        if not project1:
+        if not snapshot1:
             raise ValueError(f"Project 1 not found: ID {snapshot1_id}")
-        if not project2:
+        if not snapshot2:
             raise ValueError(f"Project 2 not found: ID {snapshot2_id}")
 
+        # Get the analyzed project data from snapshots
+        project1 = snapshot1.analyzed_project
+        project2 = snapshot2.analyzed_project
+
+        if not project1:
+            raise ValueError(f"Snapshot 1 (ID {snapshot1_id}) has no analyzed project data")
+        if not project2:
+            raise ValueError(f"Snapshot 2 (ID {snapshot2_id}) has no analyzed project data")
+
         # Convert to metrics
-        metrics1 = self._convert_to_snapshot_metrics(project1)
-        metrics2 = self._convert_to_snapshot_metrics(project2)
+        metrics1 = self._convert_to_snapshot_metrics(project1, snapshot1)
+        metrics2 = self._convert_to_snapshot_metrics(project2, snapshot2)
 
         # Calculate comparisons
         comparison_data = self._calculate_comparisons(metrics1, metrics2)
@@ -81,7 +90,7 @@ class SnapshotService:
         self.db.commit()
         self.db.refresh(comparison)
 
-        logger.info(f"Created comparison between projects {snapshot1_id} and {snapshot2_id}")
+        logger.info(f"Created comparison between snapshots {snapshot1_id} and {snapshot2_id}")
         return comparison
 
     def get_comparison(
@@ -144,19 +153,28 @@ class SnapshotService:
         # Get or create comparison
         comparison = self.get_or_create_comparison(snapshot1_id, snapshot2_id)
 
-        # Get projects from repository (ORM objects for metrics)
-        project1 = self.project_repo.get(snapshot1_id)
-        project2 = self.project_repo.get(snapshot2_id)
+        # Get Snapshot objects and their analyzed projects
+        snapshot1 = self.db.query(Snapshot).filter_by(id=snapshot1_id).first()
+        snapshot2 = self.db.query(Snapshot).filter_by(id=snapshot2_id).first()
 
-        metrics1 = self._convert_to_snapshot_metrics(project1)
-        metrics2 = self._convert_to_snapshot_metrics(project2)
+        if not snapshot1 or not snapshot2:
+            raise ValueError("One or both snapshots not found")
+
+        project1 = snapshot1.analyzed_project
+        project2 = snapshot2.analyzed_project
+
+        if not project1 or not project2:
+            raise ValueError("One or both snapshots have no analyzed project data")
+
+        metrics1 = self._convert_to_snapshot_metrics(project1, snapshot1)
+        metrics2 = self._convert_to_snapshot_metrics(project2, snapshot2)
 
         # Build response
         metric_changes = comparison.metric_changes
 
         return SnapshotComparisonSchema(
-            snapshot1_name=project1.name,
-            snapshot2_name=project2.name,
+            snapshot1_name=snapshot1.label,
+            snapshot2_name=snapshot2.label,
             summary=comparison.summary,
             contributors=MetricComparison(**metric_changes["contributors"]),
             languages=MetricComparison(**metric_changes["languages"]),
@@ -174,8 +192,13 @@ class SnapshotService:
             new_libraries=comparison.new_libraries or [],
         )
 
-    def _convert_to_snapshot_metrics(self, project: Project) -> SnapshotMetrics:
-        """Convert Project ORM to SnapshotMetrics."""
+    def _convert_to_snapshot_metrics(self, project: Project, snapshot: Snapshot) -> SnapshotMetrics:
+        """Convert Project ORM and Snapshot to SnapshotMetrics.
+
+        Args:
+            project: The analyzed project data
+            snapshot: The snapshot metadata
+        """
         # Get complexity summary
         complexity_summary = self.complexity_repo.get_summary(project.id)
 
@@ -186,6 +209,7 @@ class SnapshotService:
         languages = self.project_repo.get_languages(project.id)
         frameworks = self.project_repo.get_frameworks(project.id)
         libraries = self.project_repo.get_libraries(project.id)
+        tools = self.project_repo.get_tools(project.id)
 
         # Get skill count
         skill_count = self.skill_repo.count_by_project(project.id)
@@ -194,13 +218,13 @@ class SnapshotService:
         total_loc = self.project_repo.get_total_lines_of_code(project.id)
 
         return SnapshotMetrics(
-            snapshot_name=project.name,
+            snapshot_name=snapshot.label,  # Use snapshot label instead of project name
             total_commits=contributor_count,  # Use contributor count as proxy for commits
             contributor_count=contributor_count,
             languages=languages,
             frameworks=frameworks,
             libraries=libraries,
-            tools=[],  # Tools would need to be queried separately if needed
+            tools=tools,
             skill_count=skill_count,
             total_files=len(project.files) if project.files else 0,
             total_loc=total_loc,
@@ -210,19 +234,32 @@ class SnapshotService:
 
     def _calculate_comparisons(self, metrics1: SnapshotMetrics, metrics2: SnapshotMetrics) -> dict:
         """Calculate metric comparisons and new items."""
-        def calc_change(val1, val2):
-            """Calculate absolute change and percent change."""
-            if isinstance(val1, list):
-                val1 = len(val1)
-            if isinstance(val2, list):
-                val2 = len(val2)
+        def calc_change(val1, val2, is_list=False):
+            """Calculate absolute change and percent change for a metric.
 
-            change = val2 - val1
-            percent_change = (change / val1 * 100) if val1 > 0 else (100.0 if val2 > 0 else 0.0)
+            Args:
+                val1: Value from snapshot 1 (can be int, float, or list)
+                val2: Value from snapshot 2 (can be int, float, or list)
+                is_list: If True, preserves list values and calculates change based on length
+            """
+            # For list metrics, preserve the lists but calculate change based on length
+            if is_list:
+                snapshot1_val = val1
+                snapshot2_val = val2
+                val1_count = len(val1) if val1 else 0
+                val2_count = len(val2) if val2 else 0
+            else:
+                snapshot1_val = val1 or 0.0
+                snapshot2_val = val2 or 0.0
+                val1_count = val1 or 0.0
+                val2_count = val2 or 0.0
+
+            change = val2_count - val1_count
+            percent_change = (change / val1_count * 100) if val1_count > 0 else (100.0 if val2_count > 0 else 0.0)
 
             return {
-                "snapshot1_value": val1 if not isinstance(val1, list) else metrics1.__dict__.get(val1, []),
-                "snapshot2_value": val2 if not isinstance(val2, list) else metrics2.__dict__.get(val2, []),
+                "snapshot1_value": snapshot1_val,
+                "snapshot2_value": snapshot2_val,
                 "change": change,
                 "percent_change": round(percent_change, 2)
             }
@@ -233,96 +270,16 @@ class SnapshotService:
         new_libraries = list(set(metrics2.libraries) - set(metrics1.libraries))
         new_contributors = []  # Would need contributor names from database
 
-        # Build metric changes
+        # Build metric changes using the helper function
         metric_changes = {
-            "contributors": {
-                "snapshot1_value": metrics1.contributor_count,
-                "snapshot2_value": metrics2.contributor_count,
-                "change": metrics2.contributor_count - metrics1.contributor_count,
-                "percent_change": round(
-                    ((metrics2.contributor_count - metrics1.contributor_count) / metrics1.contributor_count * 100)
-                    if metrics1.contributor_count > 0
-                    else (100.0 if metrics2.contributor_count > 0 else 0.0),
-                    2
-                )
-            },
-            "languages": {
-                "snapshot1_value": metrics1.languages,
-                "snapshot2_value": metrics2.languages,
-                "change": len(metrics2.languages) - len(metrics1.languages),
-                "percent_change": round(
-                    ((len(metrics2.languages) - len(metrics1.languages)) / len(metrics1.languages) * 100)
-                    if len(metrics1.languages) > 0
-                    else (100.0 if len(metrics2.languages) > 0 else 0.0),
-                    2
-                )
-            },
-            "frameworks": {
-                "snapshot1_value": metrics1.frameworks,
-                "snapshot2_value": metrics2.frameworks,
-                "change": len(metrics2.frameworks) - len(metrics1.frameworks),
-                "percent_change": round(
-                    ((len(metrics2.frameworks) - len(metrics1.frameworks)) / len(metrics1.frameworks) * 100)
-                    if len(metrics1.frameworks) > 0
-                    else (100.0 if len(metrics2.frameworks) > 0 else 0.0),
-                    2
-                )
-            },
-            "libraries": {
-                "snapshot1_value": metrics1.libraries,
-                "snapshot2_value": metrics2.libraries,
-                "change": len(metrics2.libraries) - len(metrics1.libraries),
-                "percent_change": round(
-                    ((len(metrics2.libraries) - len(metrics1.libraries)) / len(metrics1.libraries) * 100)
-                    if len(metrics1.libraries) > 0
-                    else (100.0 if len(metrics2.libraries) > 0 else 0.0),
-                    2
-                )
-            },
-            "skills": {
-                "snapshot1_value": metrics1.skill_count,
-                "snapshot2_value": metrics2.skill_count,
-                "change": metrics2.skill_count - metrics1.skill_count,
-                "percent_change": round(
-                    ((metrics2.skill_count - metrics1.skill_count) / metrics1.skill_count * 100)
-                    if metrics1.skill_count > 0
-                    else (100.0 if metrics2.skill_count > 0 else 0.0),
-                    2
-                )
-            },
-            "total_files": {
-                "snapshot1_value": metrics1.total_files,
-                "snapshot2_value": metrics2.total_files,
-                "change": metrics2.total_files - metrics1.total_files,
-                "percent_change": round(
-                    ((metrics2.total_files - metrics1.total_files) / metrics1.total_files * 100)
-                    if metrics1.total_files > 0
-                    else (100.0 if metrics2.total_files > 0 else 0.0),
-                    2
-                )
-            },
-            "total_loc": {
-                "snapshot1_value": metrics1.total_loc,
-                "snapshot2_value": metrics2.total_loc,
-                "change": metrics2.total_loc - metrics1.total_loc,
-                "percent_change": round(
-                    ((metrics2.total_loc - metrics1.total_loc) / metrics1.total_loc * 100)
-                    if metrics1.total_loc > 0
-                    else (100.0 if metrics2.total_loc > 0 else 0.0),
-                    2
-                )
-            },
-            "avg_complexity": {
-                "snapshot1_value": metrics1.avg_complexity or 0.0,
-                "snapshot2_value": metrics2.avg_complexity or 0.0,
-                "change": (metrics2.avg_complexity or 0.0) - (metrics1.avg_complexity or 0.0),
-                "percent_change": round(
-                    (((metrics2.avg_complexity or 0.0) - (metrics1.avg_complexity or 0.0)) / (metrics1.avg_complexity or 1.0) * 100)
-                    if (metrics1.avg_complexity or 0.0) > 0
-                    else 0.0,
-                    2
-                )
-            },
+            "contributors": calc_change(metrics1.contributor_count, metrics2.contributor_count),
+            "languages": calc_change(metrics1.languages, metrics2.languages, is_list=True),
+            "frameworks": calc_change(metrics1.frameworks, metrics2.frameworks, is_list=True),
+            "libraries": calc_change(metrics1.libraries, metrics2.libraries, is_list=True),
+            "skills": calc_change(metrics1.skill_count, metrics2.skill_count),
+            "total_files": calc_change(metrics1.total_files, metrics2.total_files),
+            "total_loc": calc_change(metrics1.total_loc, metrics2.total_loc),
+            "avg_complexity": calc_change(metrics1.avg_complexity, metrics2.avg_complexity),
         }
 
         return {

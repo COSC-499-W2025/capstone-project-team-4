@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.models.database import Base
 
 if TYPE_CHECKING:
-    from src.models.orm.project import Project
+    from src.models.orm.snapshot import Snapshot
 
 
 class SnapshotComparison(Base):
@@ -19,12 +19,12 @@ class SnapshotComparison(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
-    # References to the two projects being compared
+    # References to the two snapshots being compared
     snapshot1_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer, ForeignKey("snapshots.id", ondelete="CASCADE"), nullable=False, index=True
     )
     snapshot2_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer, ForeignKey("snapshots.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
     # Comparison metadata
@@ -41,11 +41,15 @@ class SnapshotComparison(Base):
     new_contributors: Mapped[list] = mapped_column(JSON, default=list)
 
     # Relationships
-    snapshot1: Mapped["Project"] = relationship(
-        "Project", foreign_keys=[snapshot1_id], uselist=False
+    snapshot1: Mapped["Snapshot"] = relationship(
+        "Snapshot",
+        foreign_keys=[snapshot1_id],
+        back_populates="comparisons_as_snapshot1"
     )
-    snapshot2: Mapped["Project"] = relationship(
-        "Project", foreign_keys=[snapshot2_id], uselist=False
+    snapshot2: Mapped["Snapshot"] = relationship(
+        "Snapshot",
+        foreign_keys=[snapshot2_id],
+        back_populates="comparisons_as_snapshot2"
     )
 
     def __repr__(self) -> str:
