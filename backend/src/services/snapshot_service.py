@@ -37,6 +37,14 @@ TEXT_EXTENSIONS = {
     ".yml", ".toml", ".xml",
 }
 
+CODE_EXTENSIONS = {
+    ".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".go", ".rb", ".rs",
+    ".c", ".cpp", ".h", ".hpp", ".cs", ".php", ".swift", ".kt", ".scala", ".sh", ".sql",
+}
+
+TEXT_ONLY_EXTENSIONS = {".txt", ".md", ".rtf", ".csv"}
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp"}
+
 
 @dataclass(frozen=True)
 class MidpointCommit:
@@ -178,16 +186,67 @@ class SnapshotService:
 
         total_files = 0
         total_lines = 0
-        extensions = Counter()
+        extension_counts = Counter()
+        project_stats: dict[str, dict] = {}
         for file_path in repo_root.rglob("*"):
             if not file_path.is_file():
                 continue
             if any(part in IGNORED_DIRS for part in file_path.parts):
                 continue
+
+            rel = file_path.relative_to(repo_root)
+            top_level = rel.parts[0] if len(rel.parts) > 1 else "__root__"
+            stats = project_stats.setdefault(
+                top_level,
+                {
+                    "project_name": top_level,
+                    "file_count": 0,
+                    "code_file_count": 0,
+                    "text_file_count": 0,
+                    "image_file_count": 0,
+                    "other_file_count": 0,
+                    "lines_of_code": 0,
+                    "extension_counts": Counter(),
+                },
+            )
+
             ext = file_path.suffix.lower() or "no_ext"
-            extensions[ext] += 1
+            category = self._file_category(ext)
+            line_count = self._count_lines(file_path)
+
+            stats["file_count"] += 1
+            stats[f"{category}_file_count"] += 1
+            stats["lines_of_code"] += line_count
+            stats["extension_counts"][ext] += 1
+
             total_files += 1
-            total_lines += self._count_lines(file_path)
+            total_lines += line_count
+            extension_counts[ext] += 1
+
+        project_breakdown = []
+        content_type_totals = {
+            "code_projects": 0,
+            "text_projects": 0,
+            "image_projects": 0,
+            "mixed_projects": 0,
+        }
+        for name in sorted(project_stats):
+            item = project_stats[name]
+            content_type = self._project_content_type(item)
+            content_type_totals[f"{content_type}_projects"] += 1
+            project_breakdown.append(
+                {
+                    "project_name": item["project_name"],
+                    "content_type": content_type,
+                    "file_count": item["file_count"],
+                    "code_file_count": item["code_file_count"],
+                    "text_file_count": item["text_file_count"],
+                    "image_file_count": item["image_file_count"],
+                    "other_file_count": item["other_file_count"],
+                    "lines_of_code": item["lines_of_code"],
+                    "file_type_distribution": item["extension_counts"].most_common(10),
+                }
+            )
 
         return {
             "project_id": project_id,
@@ -204,7 +263,10 @@ class SnapshotService:
             "summary": {
                 "total_files": total_files,
                 "total_lines": total_lines,
-                "top_extensions": extensions.most_common(15),
+                "file_type_distribution": extension_counts.most_common(15),
+                "project_breakdown": project_breakdown,
+                "content_type_totals": content_type_totals,
+                "analysis_metrics": self._collect_analysis_metrics(repo_root),
             },
         }
 
@@ -229,63 +291,6 @@ class SnapshotService:
             "summary": snapshot["summary"],
         }
 
-    def compare_snapshots(self, base_snapshot_id: int, target_snapshot_id: int) -> dict:
-        """Compare two stored snapshots and return growth metrics."""
-        base = self.snapshot_repo.get(base_snapshot_id)
-        target = self.snapshot_repo.get(target_snapshot_id)
-
-        if not base:
-            raise HTTPException(status_code=404, detail=f"Snapshot not found: {base_snapshot_id}")
-        if not target:
-            raise HTTPException(status_code=404, detail=f"Snapshot not found: {target_snapshot_id}")
-        if base.project_id != target.project_id:
-            raise HTTPException(status_code=400, detail="Snapshots must belong to the same project.")
-
-        base_payload = json.loads(base.payload_json)
-        target_payload = json.loads(target.payload_json)
-        base_summary = base_payload.get("summary", {})
-        target_summary = target_payload.get("summary", {})
-
-        base_files = int(base_summary.get("total_files", 0) or 0)
-        target_files = int(target_summary.get("total_files", 0) or 0)
-        base_lines = int(base_summary.get("total_lines", 0) or 0)
-        target_lines = int(target_summary.get("total_lines", 0) or 0)
-
-        files_delta = target_files - base_files
-        lines_delta = target_lines - base_lines
-
-        base_ext = self._extensions_to_map(base_summary.get("top_extensions", []))
-        target_ext = self._extensions_to_map(target_summary.get("top_extensions", []))
-        extension_deltas = []
-        for ext in sorted(set(base_ext) | set(target_ext)):
-            b = base_ext.get(ext, 0)
-            t = target_ext.get(ext, 0)
-            if b == t:
-                continue
-            extension_deltas.append(
-                {
-                    "extension": ext,
-                    "base_count": b,
-                    "target_count": t,
-                    "delta": t - b,
-                }
-            )
-
-        return {
-            "base_snapshot_id": base.id,
-            "target_snapshot_id": target.id,
-            "project_id": base.project_id,
-            "base_commit_hash": base.commit_hash,
-            "target_commit_hash": target.commit_hash,
-            "delta": {
-                "files_delta": files_delta,
-                "lines_delta": lines_delta,
-                "files_growth_pct": self._growth_pct(base_files, target_files),
-                "lines_growth_pct": self._growth_pct(base_lines, target_lines),
-            },
-            "extension_deltas": extension_deltas,
-        }
-
     def _count_lines(self, file_path: Path) -> int:
         if file_path.suffix.lower() not in TEXT_EXTENSIONS:
             return 0
@@ -295,25 +300,154 @@ class SnapshotService:
         except OSError:
             return 0
 
-    @staticmethod
-    def _growth_pct(base_value: int, target_value: int) -> float:
-        if base_value == 0:
-            if target_value == 0:
-                return 0.0
-            return 100.0
-        return round(((target_value - base_value) / base_value) * 100.0, 2)
+    def _collect_analysis_metrics(self, project_path: Path) -> dict:
+        """Reuse existing analyzers to capture rich snapshot metrics."""
+        from src.core.analyzers.project_stats import analyze_project, project_analysis_to_dict
+        from src.core.detectors.framework import detect_frameworks_recursive
+        from src.core.detectors.language import ProjectAnalyzer
+        from src.core.detectors.library import detect_libraries_recursive
+        from src.core.detectors.skill import analyze_project_skills
+        from src.core.detectors.tool import detect_tools_recursive
+        from src.core.utils.file_walker import collect_all_file_info
+        from src.core.validators.cross_validator import CrossValidator
+
+        try:
+            file_info_list = collect_all_file_info(project_path, show_progress=False)
+            file_paths = [f.path for f in file_info_list]
+        except Exception:
+            file_paths = []
+
+        # Complexity
+        complexity_summary = {
+            "total_functions": 0,
+            "avg_complexity": 0.0,
+            "max_complexity": 0,
+            "high_complexity_count": 0,
+        }
+        try:
+            complexity_dict = project_analysis_to_dict(analyze_project(project_path, file_paths))
+            complexities = [
+                int(f.get("cyclomatic_complexity", 0))
+                for f in complexity_dict.get("functions", [])
+                if f.get("cyclomatic_complexity") is not None
+            ]
+            if complexities:
+                complexity_summary = {
+                    "total_functions": len(complexities),
+                    "avg_complexity": round(sum(complexities) / len(complexities), 4),
+                    "max_complexity": max(complexities),
+                    "high_complexity_count": sum(1 for c in complexities if c >= 10),
+                }
+        except Exception:
+            pass
+
+        # Languages
+        languages = []
+        try:
+            language_stats = ProjectAnalyzer().analyze_project_languages(str(project_path))
+            languages = sorted([lang for lang, count in language_stats.items() if lang != "Unknown" and count > 0])
+        except Exception:
+            pass
+
+        # Libraries and tools
+        libraries_report = {"libraries": []}
+        tools_report = {"tools": []}
+        try:
+            libraries_report = detect_libraries_recursive(project_path)
+        except Exception:
+            pass
+        try:
+            tools_report = detect_tools_recursive(project_path)
+        except Exception:
+            pass
+        libraries = sorted({
+            lib.get("name", "").strip()
+            for lib in libraries_report.get("libraries", [])
+            if lib.get("name")
+        })
+        tools = sorted({
+            tool.get("name", "").strip()
+            for tool in tools_report.get("tools", [])
+            if tool.get("name")
+        })
+
+        # Frameworks via same detector + cross-validator flow as analysis service
+        frameworks = []
+        try:
+            rules_path = Path(__file__).resolve().parent.parent / "core" / "rules" / "frameworks.yml"
+            raw_fw = detect_frameworks_recursive(project_path, str(rules_path))
+            per_folder = raw_fw.get("frameworks", {})
+            fw_detected = []
+            for folder_frameworks in per_folder.values():
+                fw_detected.extend(folder_frameworks)
+            validator = CrossValidator(
+                languages=languages,
+                frameworks=fw_detected,
+                libraries=libraries_report.get("libraries", []),
+                tools=tools_report.get("tools", []),
+            )
+            enhanced = validator.get_enhanced_results().get_all_frameworks()
+            frameworks = sorted(set(f.get("name", "").strip() for f in enhanced if f.get("name")))
+        except Exception:
+            frameworks = []
+
+        # Skills from existing skill extractor
+        skills = []
+        try:
+            skill_report = analyze_project_skills(
+                str(project_path),
+                libraries=libraries_report.get("libraries", []),
+                tools=tools_report.get("tools", []),
+                languages=languages,
+                frameworks=frameworks,
+            )
+            skill_categories = skill_report.get("skill_categories", {})
+            skills = sorted({s for values in skill_categories.values() for s in values})
+        except Exception:
+            pass
+
+        return {
+            "languages": languages,
+            "frameworks": frameworks,
+            "libraries": libraries,
+            "tools_and_technologies": tools,
+            "skills": skills,
+            "complexity_summary": complexity_summary,
+            "counts": {
+                "language_count": len(languages),
+                "framework_count": len(frameworks),
+                "library_count": len(libraries),
+                "tool_count": len(tools),
+                "skill_count": len(skills),
+            },
+        }
 
     @staticmethod
-    def _extensions_to_map(items) -> dict[str, int]:
-        result: dict[str, int] = {}
-        for item in items or []:
-            if isinstance(item, (list, tuple)) and len(item) >= 2:
-                ext = str(item[0])
-                try:
-                    result[ext] = int(item[1])
-                except (TypeError, ValueError):
-                    result[ext] = 0
-        return result
+    def _file_category(ext: str) -> str:
+        if ext in CODE_EXTENSIONS:
+            return "code"
+        if ext in TEXT_ONLY_EXTENSIONS:
+            return "text"
+        if ext in IMAGE_EXTENSIONS:
+            return "image"
+        return "other"
+
+    @staticmethod
+    def _project_content_type(stats: dict) -> str:
+        active = sum(
+            1
+            for key in ("code_file_count", "text_file_count", "image_file_count")
+            if stats.get(key, 0) > 0
+        )
+        if active >= 2:
+            return "mixed"
+        if stats.get("code_file_count", 0) > 0:
+            return "code"
+        if stats.get("text_file_count", 0) > 0:
+            return "text"
+        if stats.get("image_file_count", 0) > 0:
+            return "image"
+        return "mixed"
 
     def _git(self, repo_root: Path, *args: str) -> str:
         cmd = ["git", "-C", str(repo_root), *args]

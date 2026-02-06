@@ -49,6 +49,30 @@ def test_build_snapshot_counts_files_and_ignores_dirs(tmp_path, monkeypatch):
 
     service = SnapshotService(db=None)
     monkeypatch.setattr(service, "_git", fake_git)
+    monkeypatch.setattr(
+        service,
+        "_collect_analysis_metrics",
+        lambda _repo_root: {
+            "languages": ["Python"],
+            "frameworks": [],
+            "libraries": [],
+            "tools_and_technologies": [],
+            "skills": ["Backend Development"],
+            "complexity_summary": {
+                "total_functions": 1,
+                "avg_complexity": 1.0,
+                "max_complexity": 1,
+                "high_complexity_count": 0,
+            },
+            "counts": {
+                "language_count": 1,
+                "framework_count": 0,
+                "library_count": 0,
+                "tool_count": 0,
+                "skill_count": 1,
+            },
+        },
+    )
 
     snapshot = service._build_snapshot(
         project_id=1,
@@ -59,7 +83,14 @@ def test_build_snapshot_counts_files_and_ignores_dirs(tmp_path, monkeypatch):
 
     assert snapshot["summary"]["total_files"] == 2
     assert snapshot["summary"]["total_lines"] == 3
+    assert snapshot["summary"]["file_type_distribution"]
     assert snapshot["commit"]["message"] == "midpoint commit"
+    assert "project_breakdown" in snapshot["summary"]
+    assert snapshot["summary"]["project_breakdown"]
+    assert snapshot["summary"]["project_breakdown"][0]["file_type_distribution"]
+    assert "content_type_totals" in snapshot["summary"]
+    assert "analysis_metrics" in snapshot["summary"]
+    assert snapshot["summary"]["analysis_metrics"]["languages"] == ["Python"]
 
 
 def test_create_midpoint_snapshot_happy_path(monkeypatch):
@@ -83,7 +114,7 @@ def test_create_midpoint_snapshot_happy_path(monkeypatch):
         lambda *_args, **_kwargs: {
             "snapshot_type": "midpoint",
             "commit": {"hash": "h1", "index": 1, "total_commits": 3},
-            "summary": {"total_files": 10, "total_lines": 20, "top_extensions": [(".py", 5)]},
+            "summary": {"total_files": 10, "total_lines": 20, "file_type_distribution": [(".py", 5)]},
         },
     )
 
@@ -118,7 +149,7 @@ def test_create_current_snapshot_happy_path(monkeypatch):
         lambda *_args, **_kwargs: {
             "snapshot_type": "current",
             "commit": {"hash": "h2", "index": 2, "total_commits": 3},
-            "summary": {"total_files": 11, "total_lines": 21, "top_extensions": [(".py", 6)]},
+            "summary": {"total_files": 11, "total_lines": 21, "file_type_distribution": [(".py", 6)]},
         },
     )
 
@@ -164,7 +195,7 @@ def test_create_current_and_midpoint_snapshots_happy_path(monkeypatch):
                 "index": commit_point.index,
                 "total_commits": commit_point.total_commits,
             },
-            "summary": {"total_files": 1, "total_lines": 2, "top_extensions": [(".py", 1)]},
+            "summary": {"total_files": 1, "total_lines": 2, "file_type_distribution": [(".py", 1)]},
         }
 
     monkeypatch.setattr(service, "_build_snapshot", fake_build)

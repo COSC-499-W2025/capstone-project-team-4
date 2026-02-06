@@ -71,7 +71,10 @@ class SnapshotSummary(BaseModel):
 
     total_files: int = 0
     total_lines: int = 0
-    top_extensions: List[tuple[str, int]] = []
+    file_type_distribution: List[tuple[str, int]] = []
+    project_breakdown: List[dict] = []
+    content_type_totals: dict = {}
+    analysis_metrics: dict = {}
 
 
 class ProjectSnapshotResponse(BaseModel):
