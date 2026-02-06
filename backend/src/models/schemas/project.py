@@ -64,3 +64,24 @@ class ProjectList(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+class SnapshotSummary(BaseModel):
+    """Compact snapshot summary."""
+
+    total_files: int = 0
+    total_lines: int = 0
+    top_extensions: List[tuple[str, int]] = []
+
+
+class ProjectSnapshotResponse(BaseModel):
+    """Response for project snapshot creation."""
+
+    snapshot_id: int
+    project_id: int
+    snapshot_type: str
+    commit_hash: str
+    commit_index: int
+    total_commits: int
+    created_at: datetime
+    summary: SnapshotSummary

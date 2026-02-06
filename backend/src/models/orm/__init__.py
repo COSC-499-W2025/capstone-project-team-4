@@ -1,6 +1,7 @@
 # SQLAlchemy ORM models
 from src.models.orm.user import User
 from src.models.orm.project import Project, ProjectAnalysisSummary
+from src.models.orm.project_snapshot import ProjectSnapshot
 from src.models.orm.file import File, Language
 from src.models.orm.contributor import Contributor, ContributorFile
 from src.models.orm.contributor_commit import ContributorCommit
@@ -18,6 +19,7 @@ __all__ = [
     "User",
     "Project",
     "ProjectAnalysisSummary",
+    "ProjectSnapshot",
     "File",
     "Language",
     "Contributor",

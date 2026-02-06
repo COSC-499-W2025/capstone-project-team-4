@@ -58,6 +58,7 @@ def init_db() -> None:
         User,
         Project,
         ProjectAnalysisSummary,
+        ProjectSnapshot,
         File,
         Language,
         Contributor,

@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from src.models.orm.library import ProjectLibrary
     from src.models.orm.tool import ProjectTool
     from src.models.orm.user import User
+    from src.models.orm.project_snapshot import ProjectSnapshot
 
 
 class Project(Base):
@@ -70,6 +71,9 @@ class Project(Base):
     )
     tools: Mapped[List["ProjectTool"]] = relationship(
         "ProjectTool", back_populates="project", cascade="all, delete-orphan"
+    )
+    snapshots: Mapped[List["ProjectSnapshot"]] = relationship(
+        "ProjectSnapshot", back_populates="project", cascade="all, delete-orphan"
     )
     user: Mapped[Optional["User"]] = relationship("User", back_populates="projects")
 

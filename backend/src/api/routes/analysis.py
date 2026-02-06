@@ -1,8 +1,7 @@
 """Analysis API routes."""
 
 import logging
-import tempfile
-import shutil
+import uuid
 from pathlib import Path
 from typing import Optional, Union, List
 
@@ -16,6 +15,7 @@ from src.models.schemas.analysis import (
 )
 from src.services.analysis_service import AnalysisService
 from src.api.exceptions import InvalidFileError, InvalidGitHubURLError, AnalysisError
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -51,11 +51,12 @@ async def analyze_upload(
         logger.error(f"File does not end with .zip: {filename}")
         raise InvalidFileError("File must be a ZIP archive")
 
-    tmp_path: Optional[Path] = None
-
-    # Save uploaded file to temp location
+    # Save uploaded file to persistent location
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
+        settings.uploads_dir.mkdir(parents=True, exist_ok=True)
+        saved_name = f"{uuid.uuid4().hex}_{filename}"
+        tmp_path = settings.uploads_dir / saved_name
+        with tmp_path.open("wb") as tmp:
             contents = await file.read()
             logger.info(f"Read {len(contents)} bytes from uploaded file")
 
@@ -64,8 +65,7 @@ async def analyze_upload(
                 raise InvalidFileError("Uploaded file is empty")
 
             tmp.write(contents)
-            tmp_path = Path(tmp.name)
-            logger.info(f"Saved to temporary file: {tmp_path}")
+            logger.info(f"Saved uploaded ZIP to persistent path: {tmp_path}")
 
         # Run analysis
         service = AnalysisService(db)
@@ -89,19 +89,6 @@ async def analyze_upload(
     except Exception as e:
         logger.exception("Analysis failed with unexpected error")
         raise AnalysisError(str(e))
-    finally:
-        # --- Clean up temp file ---
-        if tmp_path:
-            try:
-                tmp_path.unlink(missing_ok=True)  
-            except TypeError:
-          
-                try:
-                    tmp_path.unlink()
-                except Exception:
-                    pass
-            except Exception:
-                pass
 
 
 @router.post("/github", response_model=Union[AnalysisResult, List[AnalysisResult]], status_code=201)
