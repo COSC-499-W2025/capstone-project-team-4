@@ -47,6 +47,15 @@ class MidpointCommit:
     total_commits: int
 
 
+@dataclass(frozen=True)
+class CommitPoint:
+    """Generic commit metadata for snapshotting."""
+
+    hash: str
+    index: int
+    total_commits: int
+
+
 class SnapshotService:
     """Generate midpoint snapshots and persist to database."""
 
@@ -56,6 +65,14 @@ class SnapshotService:
         self.snapshot_repo = SnapshotRepository(db)
 
     def create_midpoint_snapshot(self, project_id: int) -> dict:
+        return self._create_snapshot(project_id=project_id, snapshot_type="midpoint")
+
+    def create_current_snapshot(self, project_id: int) -> dict:
+        """Create a snapshot representing the uploaded project's current state."""
+        return self._create_snapshot(project_id=project_id, snapshot_type="current")
+
+    def create_current_and_midpoint_snapshots(self, project_id: int) -> dict:
+        """Create both current and midpoint snapshots in one request."""
         project = self.project_repo.get(project_id)
         if not project:
             raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
@@ -63,9 +80,38 @@ class SnapshotService:
         with tempfile.TemporaryDirectory() as tmp_dir:
             workspace = Path(tmp_dir)
             repo_root = self._materialize_repo(project.root_path, project.source_url, workspace)
-            midpoint = self._get_midpoint_commit(repo_root)
-            self._git(repo_root, "checkout", "--detach", midpoint.hash)
-            snapshot = self._build_snapshot(project_id, repo_root, midpoint)
+
+            current_commit = self._resolve_commit_point(repo_root, snapshot_type="current")
+            current_snapshot = self._build_snapshot(
+                project_id, repo_root, current_commit, snapshot_type="current"
+            )
+            current_saved = self._persist_snapshot(project_id, current_snapshot)
+
+            midpoint_commit = self._resolve_commit_point(repo_root, snapshot_type="midpoint")
+            self._git(repo_root, "checkout", "--detach", midpoint_commit.hash)
+            midpoint_snapshot = self._build_snapshot(
+                project_id, repo_root, midpoint_commit, snapshot_type="midpoint"
+            )
+            midpoint_saved = self._persist_snapshot(project_id, midpoint_snapshot)
+
+            return {
+                "project_id": project_id,
+                "current_snapshot": current_saved,
+                "midpoint_snapshot": midpoint_saved,
+            }
+
+    def _create_snapshot(self, project_id: int, snapshot_type: str) -> dict:
+        project = self.project_repo.get(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            workspace = Path(tmp_dir)
+            repo_root = self._materialize_repo(project.root_path, project.source_url, workspace)
+            commit_point = self._resolve_commit_point(repo_root, snapshot_type=snapshot_type)
+            if snapshot_type == "midpoint":
+                self._git(repo_root, "checkout", "--detach", commit_point.hash)
+            snapshot = self._build_snapshot(project_id, repo_root, commit_point, snapshot_type=snapshot_type)
             return self._persist_snapshot(project_id, snapshot)
 
     def _materialize_repo(self, root_path: str, source_url: Optional[str], workspace: Path) -> Path:
@@ -110,9 +156,25 @@ class SnapshotService:
         midpoint_index = (len(commits) - 1) // 2
         return MidpointCommit(hash=commits[midpoint_index], index=midpoint_index, total_commits=len(commits))
 
-    def _build_snapshot(self, project_id: int, repo_root: Path, midpoint: MidpointCommit) -> dict:
-        commit_iso = self._git(repo_root, "show", "-s", "--format=%cI", midpoint.hash).strip()
-        commit_message = self._git(repo_root, "show", "-s", "--format=%s", midpoint.hash).strip()
+    def _get_current_commit(self, repo_root: Path) -> CommitPoint:
+        output = self._git(repo_root, "rev-list", "--reverse", "HEAD")
+        commits = [line.strip() for line in output.splitlines() if line.strip()]
+        if not commits:
+            raise HTTPException(status_code=400, detail="No commits found in repository history.")
+        current_index = len(commits) - 1
+        return CommitPoint(hash=commits[current_index], index=current_index, total_commits=len(commits))
+
+    def _resolve_commit_point(self, repo_root: Path, snapshot_type: str) -> CommitPoint:
+        if snapshot_type == "midpoint":
+            midpoint = self._get_midpoint_commit(repo_root)
+            return CommitPoint(hash=midpoint.hash, index=midpoint.index, total_commits=midpoint.total_commits)
+        if snapshot_type == "current":
+            return self._get_current_commit(repo_root)
+        raise HTTPException(status_code=400, detail=f"Unsupported snapshot type: {snapshot_type}")
+
+    def _build_snapshot(self, project_id: int, repo_root: Path, commit_point: CommitPoint, snapshot_type: str) -> dict:
+        commit_iso = self._git(repo_root, "show", "-s", "--format=%cI", commit_point.hash).strip()
+        commit_message = self._git(repo_root, "show", "-s", "--format=%s", commit_point.hash).strip()
 
         total_files = 0
         total_lines = 0
@@ -129,13 +191,13 @@ class SnapshotService:
 
         return {
             "project_id": project_id,
-            "snapshot_type": "midpoint",
+            "snapshot_type": snapshot_type,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "commit": {
-                "hash": midpoint.hash,
-                "index": midpoint.index,
-                "total_commits": midpoint.total_commits,
-                "ratio": round((midpoint.index + 1) / midpoint.total_commits, 4),
+                "hash": commit_point.hash,
+                "index": commit_point.index,
+                "total_commits": commit_point.total_commits,
+                "ratio": round((commit_point.index + 1) / commit_point.total_commits, 4),
                 "message": commit_message,
                 "committed_at": commit_iso,
             },
@@ -167,6 +229,63 @@ class SnapshotService:
             "summary": snapshot["summary"],
         }
 
+    def compare_snapshots(self, base_snapshot_id: int, target_snapshot_id: int) -> dict:
+        """Compare two stored snapshots and return growth metrics."""
+        base = self.snapshot_repo.get(base_snapshot_id)
+        target = self.snapshot_repo.get(target_snapshot_id)
+
+        if not base:
+            raise HTTPException(status_code=404, detail=f"Snapshot not found: {base_snapshot_id}")
+        if not target:
+            raise HTTPException(status_code=404, detail=f"Snapshot not found: {target_snapshot_id}")
+        if base.project_id != target.project_id:
+            raise HTTPException(status_code=400, detail="Snapshots must belong to the same project.")
+
+        base_payload = json.loads(base.payload_json)
+        target_payload = json.loads(target.payload_json)
+        base_summary = base_payload.get("summary", {})
+        target_summary = target_payload.get("summary", {})
+
+        base_files = int(base_summary.get("total_files", 0) or 0)
+        target_files = int(target_summary.get("total_files", 0) or 0)
+        base_lines = int(base_summary.get("total_lines", 0) or 0)
+        target_lines = int(target_summary.get("total_lines", 0) or 0)
+
+        files_delta = target_files - base_files
+        lines_delta = target_lines - base_lines
+
+        base_ext = self._extensions_to_map(base_summary.get("top_extensions", []))
+        target_ext = self._extensions_to_map(target_summary.get("top_extensions", []))
+        extension_deltas = []
+        for ext in sorted(set(base_ext) | set(target_ext)):
+            b = base_ext.get(ext, 0)
+            t = target_ext.get(ext, 0)
+            if b == t:
+                continue
+            extension_deltas.append(
+                {
+                    "extension": ext,
+                    "base_count": b,
+                    "target_count": t,
+                    "delta": t - b,
+                }
+            )
+
+        return {
+            "base_snapshot_id": base.id,
+            "target_snapshot_id": target.id,
+            "project_id": base.project_id,
+            "base_commit_hash": base.commit_hash,
+            "target_commit_hash": target.commit_hash,
+            "delta": {
+                "files_delta": files_delta,
+                "lines_delta": lines_delta,
+                "files_growth_pct": self._growth_pct(base_files, target_files),
+                "lines_growth_pct": self._growth_pct(base_lines, target_lines),
+            },
+            "extension_deltas": extension_deltas,
+        }
+
     def _count_lines(self, file_path: Path) -> int:
         if file_path.suffix.lower() not in TEXT_EXTENSIONS:
             return 0
@@ -175,6 +294,26 @@ class SnapshotService:
                 return sum(1 for _ in f)
         except OSError:
             return 0
+
+    @staticmethod
+    def _growth_pct(base_value: int, target_value: int) -> float:
+        if base_value == 0:
+            if target_value == 0:
+                return 0.0
+            return 100.0
+        return round(((target_value - base_value) / base_value) * 100.0, 2)
+
+    @staticmethod
+    def _extensions_to_map(items) -> dict[str, int]:
+        result: dict[str, int] = {}
+        for item in items or []:
+            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                ext = str(item[0])
+                try:
+                    result[ext] = int(item[1])
+                except (TypeError, ValueError):
+                    result[ext] = 0
+        return result
 
     def _git(self, repo_root: Path, *args: str) -> str:
         cmd = ["git", "-C", str(repo_root), *args]
@@ -185,4 +324,3 @@ class SnapshotService:
                 detail=f"Git command failed: {' '.join(args)}. {proc.stderr.strip()}",
             )
         return proc.stdout
-

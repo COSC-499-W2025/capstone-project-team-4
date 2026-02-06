@@ -85,3 +85,11 @@ class ProjectSnapshotResponse(BaseModel):
     total_commits: int
     created_at: datetime
     summary: SnapshotSummary
+
+
+class SnapshotPairResponse(BaseModel):
+    """Response for creating current and midpoint snapshots together."""
+
+    project_id: int
+    current_snapshot: ProjectSnapshotResponse
+    midpoint_snapshot: ProjectSnapshotResponse
