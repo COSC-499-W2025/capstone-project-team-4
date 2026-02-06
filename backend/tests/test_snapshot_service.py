@@ -207,3 +207,94 @@ def test_create_current_and_midpoint_snapshots_happy_path(monkeypatch):
     assert result["current_snapshot"]["commit_hash"] == "curhash"
     assert result["midpoint_snapshot"]["snapshot_type"] == "midpoint"
     assert result["midpoint_snapshot"]["commit_hash"] == "midhash"
+
+
+def test_compare_current_and_midpoint_happy_path():
+    service = SnapshotService(db=None)
+    current_payload = {
+        "summary": {
+            "total_files": 12,
+            "total_lines": 220,
+            "analysis_metrics": {
+                "languages": ["Python", "JavaScript"],
+                "skills": ["Backend Development", "Automation"],
+                "libraries": ["fastapi", "sqlalchemy"],
+                "frameworks": ["FastAPI"],
+                "tools_and_technologies": ["Docker"],
+                "complexity_summary": {
+                    "total_functions": 25,
+                    "avg_complexity": 2.0,
+                    "max_complexity": 8,
+                    "high_complexity_count": 1,
+                },
+                "counts": {
+                    "language_count": 2,
+                    "skill_count": 2,
+                    "library_count": 2,
+                    "framework_count": 1,
+                    "tool_count": 1,
+                },
+            },
+        }
+    }
+    midpoint_payload = {
+        "summary": {
+            "total_files": 10,
+            "total_lines": 180,
+            "analysis_metrics": {
+                "languages": ["Python"],
+                "skills": ["Backend Development"],
+                "libraries": ["fastapi"],
+                "frameworks": ["FastAPI"],
+                "tools_and_technologies": [],
+                "complexity_summary": {
+                    "total_functions": 20,
+                    "avg_complexity": 1.5,
+                    "max_complexity": 6,
+                    "high_complexity_count": 0,
+                },
+                "counts": {
+                    "language_count": 1,
+                    "skill_count": 1,
+                    "library_count": 1,
+                    "framework_count": 1,
+                    "tool_count": 0,
+                },
+            },
+        }
+    }
+    service.snapshot_repo = SimpleNamespace(
+        get_latest_for_project=lambda project_id, snapshot_type: {
+            "current": SimpleNamespace(
+                id=301, project_id=project_id, commit_hash="curhash", payload_json=json_dumps(current_payload)
+            ),
+            "midpoint": SimpleNamespace(
+                id=302, project_id=project_id, commit_hash="midhash", payload_json=json_dumps(midpoint_payload)
+            ),
+        }[snapshot_type]
+    )
+
+    result = service.compare_current_and_midpoint(project_id=9)
+
+    assert result["project_id"] == 9
+    assert result["totals"]["files"]["delta"] == 2
+    assert result["counts"]["languages"]["delta"] == 1
+    assert "JavaScript" in result["languages"]["added"]
+    assert result["complexity"]["max_complexity"]["delta"] == 2
+
+
+def test_compare_current_and_midpoint_missing_snapshot():
+    service = SnapshotService(db=None)
+    service.snapshot_repo = SimpleNamespace(
+        get_latest_for_project=lambda _project_id, snapshot_type: None if snapshot_type == "midpoint" else object()
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        service.compare_current_and_midpoint(project_id=9)
+
+    assert exc.value.status_code == 404
+
+
+def json_dumps(obj: dict) -> str:
+    import json
+    return json.dumps(obj)

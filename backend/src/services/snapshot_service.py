@@ -108,6 +108,106 @@ class SnapshotService:
                 "midpoint_snapshot": midpoint_saved,
             }
 
+    def compare_current_and_midpoint(self, project_id: int) -> dict:
+        """Compare latest current snapshot with latest midpoint snapshot for a project."""
+        current = self.snapshot_repo.get_latest_for_project(project_id, snapshot_type="current")
+        midpoint = self.snapshot_repo.get_latest_for_project(project_id, snapshot_type="midpoint")
+        if not current:
+            raise HTTPException(status_code=404, detail=f"Current snapshot not found for project {project_id}")
+        if not midpoint:
+            raise HTTPException(status_code=404, detail=f"Midpoint snapshot not found for project {project_id}")
+
+        current_payload = json.loads(current.payload_json)
+        midpoint_payload = json.loads(midpoint.payload_json)
+        current_summary = current_payload.get("summary", {})
+        midpoint_summary = midpoint_payload.get("summary", {})
+        current_metrics = current_summary.get("analysis_metrics", {})
+        midpoint_metrics = midpoint_summary.get("analysis_metrics", {})
+
+        current_files = int(current_summary.get("total_files", 0) or 0)
+        midpoint_files = int(midpoint_summary.get("total_files", 0) or 0)
+        current_lines = int(current_summary.get("total_lines", 0) or 0)
+        midpoint_lines = int(midpoint_summary.get("total_lines", 0) or 0)
+
+        current_counts = current_metrics.get("counts", {}) or {}
+        midpoint_counts = midpoint_metrics.get("counts", {}) or {}
+
+        current_complexity = current_metrics.get("complexity_summary", {}) or {}
+        midpoint_complexity = midpoint_metrics.get("complexity_summary", {}) or {}
+
+        return {
+            "project_id": project_id,
+            "current_snapshot_id": current.id,
+            "midpoint_snapshot_id": midpoint.id,
+            "current_commit_hash": current.commit_hash,
+            "midpoint_commit_hash": midpoint.commit_hash,
+            "totals": {
+                "files": self._count_delta(current_files, midpoint_files),
+                "lines": self._count_delta(current_lines, midpoint_lines),
+            },
+            "counts": {
+                "languages": self._count_delta(
+                    int(current_counts.get("language_count", 0) or 0),
+                    int(midpoint_counts.get("language_count", 0) or 0),
+                ),
+                "skills": self._count_delta(
+                    int(current_counts.get("skill_count", 0) or 0),
+                    int(midpoint_counts.get("skill_count", 0) or 0),
+                ),
+                "libraries": self._count_delta(
+                    int(current_counts.get("library_count", 0) or 0),
+                    int(midpoint_counts.get("library_count", 0) or 0),
+                ),
+                "frameworks": self._count_delta(
+                    int(current_counts.get("framework_count", 0) or 0),
+                    int(midpoint_counts.get("framework_count", 0) or 0),
+                ),
+                "tools_and_technologies": self._count_delta(
+                    int(current_counts.get("tool_count", 0) or 0),
+                    int(midpoint_counts.get("tool_count", 0) or 0),
+                ),
+            },
+            "languages": self._set_delta(
+                current_metrics.get("languages", []), midpoint_metrics.get("languages", [])
+            ),
+            "skills": self._set_delta(
+                current_metrics.get("skills", []), midpoint_metrics.get("skills", [])
+            ),
+            "libraries": self._set_delta(
+                current_metrics.get("libraries", []), midpoint_metrics.get("libraries", [])
+            ),
+            "frameworks": self._set_delta(
+                current_metrics.get("frameworks", []), midpoint_metrics.get("frameworks", [])
+            ),
+            "tools_and_technologies": self._set_delta(
+                current_metrics.get("tools_and_technologies", []),
+                midpoint_metrics.get("tools_and_technologies", []),
+            ),
+            "complexity": {
+                "total_functions": self._count_delta(
+                    int(current_complexity.get("total_functions", 0) or 0),
+                    int(midpoint_complexity.get("total_functions", 0) or 0),
+                ),
+                "avg_complexity": {
+                    "current": float(current_complexity.get("avg_complexity", 0.0) or 0.0),
+                    "midpoint": float(midpoint_complexity.get("avg_complexity", 0.0) or 0.0),
+                    "delta": round(
+                        float(current_complexity.get("avg_complexity", 0.0) or 0.0)
+                        - float(midpoint_complexity.get("avg_complexity", 0.0) or 0.0),
+                        4,
+                    ),
+                },
+                "max_complexity": self._count_delta(
+                    int(current_complexity.get("max_complexity", 0) or 0),
+                    int(midpoint_complexity.get("max_complexity", 0) or 0),
+                ),
+                "high_complexity_count": self._count_delta(
+                    int(current_complexity.get("high_complexity_count", 0) or 0),
+                    int(midpoint_complexity.get("high_complexity_count", 0) or 0),
+                ),
+            },
+        }
+
     def _create_snapshot(self, project_id: int, snapshot_type: str) -> dict:
         project = self.project_repo.get(project_id)
         if not project:
@@ -458,3 +558,20 @@ class SnapshotService:
                 detail=f"Git command failed: {' '.join(args)}. {proc.stderr.strip()}",
             )
         return proc.stdout
+
+    @staticmethod
+    def _count_delta(current_value: int, midpoint_value: int) -> dict:
+        return {
+            "current": current_value,
+            "midpoint": midpoint_value,
+            "delta": current_value - midpoint_value,
+        }
+
+    @staticmethod
+    def _set_delta(current_values, midpoint_values) -> dict:
+        current_set = {str(v) for v in (current_values or [])}
+        midpoint_set = {str(v) for v in (midpoint_values or [])}
+        return {
+            "added": sorted(current_set - midpoint_set),
+            "removed": sorted(midpoint_set - current_set),
+        }
