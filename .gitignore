@@ -103,6 +103,7 @@ tmpclaude-*/
 # User data directory (runtime-generated config and logs)
 backend/data/workmine.db
 backend/data/*.db
+backend/data/
 
 # Frontend build files
 frontend/node_modules/
