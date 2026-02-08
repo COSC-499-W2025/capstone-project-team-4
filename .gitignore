@@ -104,6 +104,10 @@ tmpclaude-*/
 backend/data/workmine.db
 backend/data/*.db
 
+# Embedded repositories in test data
+backend/data/projects/PATH_04554360/the-project-jtzc/
+backend/data/projects/PathFix_456369ba/the-project-jtzc/
+
 # Frontend build files
 frontend/node_modules/
 frontend/dist/
