@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from types import SimpleNamespace
+from typing import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,20 +14,24 @@ from src.services.analysis_service import AnalysisService
 
 
 @pytest.fixture()
-def client() -> TestClient:
+def client() -> Iterator[TestClient]:
     @asynccontextmanager
     async def no_lifespan(_app):
         yield
 
+    original_lifespan = app.router.lifespan_context
     app.router.lifespan_context = no_lifespan
 
     def _get_db_override():
         yield SimpleNamespace()
 
     app.dependency_overrides[get_db] = _get_db_override
-    with TestClient(app) as test_client:
-        yield test_client
-    app.dependency_overrides.clear()
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()
+        app.router.lifespan_context = original_lifespan
 
 
 def _now() -> datetime:
@@ -59,7 +64,11 @@ def test_analyze_upload_invalid_extension(client):
 
 def test_analyze_upload_status_and_data(client, monkeypatch):
     # Stub analysis so we only validate HTTP status and response shape.
-    monkeypatch.setattr(AnalysisService, "analyze_from_zip", lambda *_args, **_kwargs: _analysis_result_payload())
+    monkeypatch.setattr(
+        AnalysisService,
+        "analyze_from_zip",
+        lambda *_args, **_kwargs: [_analysis_result_payload()],
+    )
 
     response = client.post(
         "/api/projects/analyze/upload",
