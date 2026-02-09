@@ -165,7 +165,7 @@ docker compose down
 - [🤝 Contributing Guidelines](.github/CONTRIBUTING.md) - How to contribute to the project
 - [📜 Team Contract](docs/contract/CapstoneTeamContract.pdf) - Team agreements and responsibilities
 - [📊 Work Breakdown Structure (WBS)](docs/design/WBS.md) - Project planning and task breakdown
-- [🏛️ System Architecture](docs/SYSTEM_ARCHITECTURE.md) - Detailed architecture documentation
+- [🏛️ System Architecture](docs/design/Architecture.md) - Detailed architecture documentation
 
 ### 📋 Project Planning
 

@@ -47,5 +47,7 @@ class UserLogin(BaseModel):
 class LoginResponse(BaseModel):
     """Schema for login response."""
 
+    access_token: str
+    token_type: str
     message: str
     user: UserResponse

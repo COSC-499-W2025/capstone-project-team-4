@@ -44,9 +44,9 @@ class ContributorAnalysisService:
         try:
             with open(mapping_path, "r") as f:
                 self._domain_mapping = yaml.safe_load(f) or {}
-                logger.info("Loaded domain mapping from %s", mapping_path)
+                logger.info(f"Loaded domain mapping from {mapping_path}")
         except Exception as e:
-            logger.warning("Failed to load domain mapping: %s", e)
+            logger.warning(f"Failed to load domain mapping: {e}")
             self._domain_mapping = {}
 
         return self._domain_mapping
@@ -116,6 +116,7 @@ class ContributorAnalysisService:
         if not files or not files.files_modified:
             return []
 
+        allowed_areas = {"backend", "frontend"}
         area_stats: Dict[str, int] = defaultdict(int)
         for file_obj in files.files_modified:
             filename = file_obj.filename
@@ -123,7 +124,7 @@ class ContributorAnalysisService:
             if modifications <= 0:
                 continue
             area = self._classify_file_to_area(filename)
-            if area:
+            if area and area in allowed_areas:
                 area_stats[area] += modifications
 
         if not area_stats:
@@ -176,20 +177,19 @@ class ContributorAnalysisService:
                 "--pretty=%aN <%aE>",
             ]
 
-            logger.debug("Running git command: %s", " ".join(cmd))
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            logger.debug(f"Running git command: {' '.join(cmd)}")
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=30
+            )
 
             if result.returncode != 0:
                 logger.warning(
-                    "Git command failed for %s: returncode=%s, stderr=%s",
-                    filename,
-                    result.returncode,
-                    result.stderr,
+                    f"Git command failed for {filename}: returncode={result.returncode}, stderr={result.stderr}"
                 )
                 return 0
 
             if not result.stdout.strip():
-                logger.debug("No git output for %s with email %s", filename, contributor_email)
+                logger.debug(f"No git output for {filename} with email {contributor_email}")
                 return 0
 
             total_added = 0
@@ -198,6 +198,7 @@ class ContributorAnalysisService:
             # Parse the output line by line
             lines = result.stdout.strip().split("\n")
             current_author = None
+            file_found = False
 
             for line in lines:
                 if not line.strip():
@@ -234,37 +235,23 @@ class ContributorAnalysisService:
                                 deleted = int(deleted_str)
                                 total_added += added
                                 total_deleted += deleted
-                                logger.debug(
-                                    "  Match: %s -> +%d -%d",
-                                    file_in_commit,
-                                    added,
-                                    deleted,
-                                )
+                                file_found = True
+                                logger.debug(f"  Match: {file_in_commit} -> +{added} -{deleted}")
                             except ValueError:
                                 pass
 
-            logger.debug(
-                "File %s: total_added=%d, total_deleted=%d, total=%d",
-                filename,
-                total_added,
-                total_deleted,
-                total_added + total_deleted,
-            )
+            logger.debug(f"File {filename}: total_added={total_added}, total_deleted={total_deleted}, total={total_added + total_deleted}")
             return total_added + total_deleted
 
         except subprocess.TimeoutExpired:
-            logger.warning("Git command timed out for file %s", filename)
+            logger.warning(f"Git command timed out for file {filename}")
             return 0
         except Exception as e:
-            logger.debug("Error getting file stats for %s: %s", filename, e)
+            logger.debug(f"Error getting file stats for {filename}: {e}")
             return 0
 
     def calculate_top_files(
-        self,
-        contributor_id: int,
-        repo_path: str,
-        branch: str = "HEAD",
-        top_n: int = 10,
+        self, contributor_id: int, repo_path: str, branch: str = "HEAD", top_n: int = 10
     ) -> List[TopFileItemSchema]:
         """Calculate top files by lines changed for a contributor.
 
@@ -280,28 +267,20 @@ class ContributorAnalysisService:
         # Get contributor
         contributor = self.contributor_repo.get(contributor_id)
         if not contributor or not contributor.email:
-            logger.warning("Contributor %s not found or has no email", contributor_id)
+            logger.warning(
+                f"Contributor {contributor_id} not found or has no email"
+            )
             return []
 
-        logger.info(
-            "Calculating top files for contributor %s (email: %s), repo: %s, branch: %s",
-            contributor_id,
-            contributor.email,
-            repo_path,
-            branch,
-        )
+        logger.info(f"Calculating top files for contributor {contributor_id} (email: {contributor.email}), repo: {repo_path}, branch: {branch}")
 
         # Get all files modified by this contributor
         files = self.contributor_repo.get_with_files(contributor_id)
         if not files or not files.files_modified:
-            logger.debug("No files found for contributor %s", contributor_id)
+            logger.debug(f"No files found for contributor {contributor_id}")
             return []
 
-        logger.info(
-            "Found %d files modified by contributor %s",
-            len(files.files_modified),
-            contributor_id,
-        )
+        logger.info(f"Found {len(files.files_modified)} files modified by contributor {contributor_id}")
 
         # Calculate lines changed for each file
         file_stats: List[Tuple[str, int]] = []
@@ -314,40 +293,26 @@ class ContributorAnalysisService:
 
             # Log details for first file only (for debugging)
             if idx == 0:
-                logger.info("FIRST FILE DEBUG: %s", filename)
-                logger.info("  repo_path=%s", repo_path)
-                logger.info("  contributor.email=%s", contributor.email)
-                logger.info("  branch=%s", branch)
-                logger.info("  lines_changed=%d", lines_changed)
+                logger.info(f"FIRST FILE DEBUG: {filename}")
+                logger.info(f"  repo_path={repo_path}")
+                logger.info(f"  contributor.email={contributor.email}")
+                logger.info(f"  branch={branch}")
+                logger.info(f"  lines_changed={lines_changed}")
 
             # Log files with changes or sample files
             if idx < 10 or lines_changed > 0:
-                logger.info(
-                    "  [%d/%d] %s: %d lines",
-                    idx + 1,
-                    len(files.files_modified),
-                    filename,
-                    lines_changed,
-                )
+                logger.info(f"  [{idx+1}/{len(files.files_modified)}] {filename}: {lines_changed} lines")
 
             if lines_changed > 0:
                 file_stats.append((filename, lines_changed))
 
-        logger.info(
-            "Found %d files with actual changes (total: %d files)",
-            len(file_stats),
-            len(files.files_modified),
-        )
+        logger.info(f"Found {len(file_stats)} files with actual changes (total: {len(files.files_modified)} files)")
 
         # Sort by lines changed descending and take top N
         file_stats.sort(key=lambda x: x[1], reverse=True)
         top_files = file_stats[:top_n]
 
-        logger.info(
-            "Returning %d top files out of %d total",
-            len(top_files),
-            len(file_stats),
-        )
+        logger.info(f"Returning {len(top_files)} top files out of {len(file_stats)} total")
 
         return [
             TopFileItemSchema(file=filename, lines_changed=lines_changed)
@@ -359,39 +324,36 @@ class ContributorAnalysisService:
     ) -> List[AreaShareSchema]:
         """Calculate top contributing areas for a contributor.
 
+        Focuses on Backend and Frontend areas only.
+
         Args:
             contributor_id: Contributor ID
             repo_path: Path to git repository
             branch: Branch to analyze
 
         Returns:
-            List of areas with their share (0-1.0) sorted by share descending
+            List of Backend/Frontend areas with their share (0-1.0) sorted by share descending
         """
+        # Allowed areas (Backend and Frontend only)
+        ALLOWED_AREAS = {"backend", "frontend"}
+
         # Get contributor
         contributor = self.contributor_repo.get(contributor_id)
         if not contributor or not contributor.email:
-            logger.warning("Contributor %s not found or has no email", contributor_id)
+            logger.warning(
+                f"Contributor {contributor_id} not found or has no email"
+            )
             return []
 
-        logger.info(
-            "Calculating top areas for contributor %s (email: %s), repo: %s, branch: %s",
-            contributor_id,
-            contributor.email,
-            repo_path,
-            branch,
-        )
+        logger.info(f"Calculating top areas for contributor {contributor_id} (email: {contributor.email}), repo: {repo_path}, branch: {branch}")
 
         # Get all files modified by this contributor
         files = self.contributor_repo.get_with_files(contributor_id)
         if not files or not files.files_modified:
-            logger.debug("No files found for contributor %s", contributor_id)
+            logger.debug(f"No files found for contributor {contributor_id}")
             return []
 
-        logger.info(
-            "Found %d files modified by contributor %s",
-            len(files.files_modified),
-            contributor_id,
-        )
+        logger.info(f"Found {len(files.files_modified)} files modified by contributor {contributor_id}")
 
         # Calculate lines changed for each file
         file_stats: Dict[str, int] = {}
@@ -404,24 +366,27 @@ class ContributorAnalysisService:
                 file_stats[filename] = lines_changed
 
         if not file_stats:
-            logger.warning("No file stats found for contributor %s", contributor_id)
+            logger.warning(f"No file stats found for contributor {contributor_id}")
             return []
 
-        logger.info("Found %d files with actual changes", len(file_stats))
+        logger.info(f"Found {len(file_stats)} files with actual changes")
 
-        # Group files by area
+        # Group files by area (only counting Backend/Frontend)
         area_stats: Dict[str, int] = defaultdict(int)
         for filename, lines_changed in file_stats.items():
             area = self._classify_file_to_area(filename)
-            logger.debug("  %s -> %s: %d lines", filename, area, lines_changed)
-            if area:
+            logger.debug(f"  {filename} -> {area}: {lines_changed} lines")
+            # Only count Backend and Frontend contributions
+            if area and area in ALLOWED_AREAS:
                 area_stats[area] += lines_changed
+            elif area:
+                logger.debug(f"  Skipping non-Backend/Frontend area: {area}")
 
         if not area_stats:
-            logger.warning("No areas classified for contributor %s", contributor_id)
+            logger.warning(f"No Backend/Frontend areas classified for contributor {contributor_id}")
             return []
 
-        logger.info("Classified into %d areas", len(area_stats))
+        logger.info(f"Classified into {len(area_stats)} Backend/Frontend areas")
 
         # Calculate shares
         total_lines = sum(area_stats.values())
@@ -436,7 +401,7 @@ class ContributorAnalysisService:
         # Sort by share descending
         top_areas.sort(key=lambda x: x.share, reverse=True)
 
-        logger.info("Returning %d areas", len(top_areas))
+        logger.info(f"Returning {len(top_areas)} Backend/Frontend areas")
 
         return top_areas
 
@@ -459,20 +424,18 @@ class ContributorAnalysisService:
         # Verify project exists
         project = self.project_repo.get(project_id)
         if not project:
-            logger.warning("Project %s not found", project_id)
+            logger.warning(f"Project {project_id} not found")
             return None
 
         # Verify contributor exists and belongs to project
         contributor = self.contributor_repo.get(contributor_id)
         if not contributor:
-            logger.warning("Contributor %s not found", contributor_id)
+            logger.warning(f"Contributor {contributor_id} not found")
             return None
 
         if contributor.project_id != project_id:
             logger.warning(
-                "Contributor %s does not belong to project %s",
-                contributor_id,
-                project_id,
+                f"Contributor {contributor_id} does not belong to project {project_id}"
             )
             return None
 
@@ -495,23 +458,27 @@ class ContributorAnalysisService:
                 else:
                     branch = "HEAD"
             except Exception as e:
-                logger.debug("Failed to determine default branch: %s", e)
+                logger.debug(f"Failed to determine default branch: {e}")
                 branch = "HEAD"
 
-        logger.info("PROJECT INFO:")
-        logger.info("  project.root_path=%s", project.root_path)
-        logger.info("  repo_path=%s", repo_path)
-        logger.info("  branch=%s", branch)
-        logger.info("  contributor.email=%s", contributor.email)
+        logger.info(f"PROJECT INFO:")
+        logger.info(f"  project.root_path={project.root_path}")
+        logger.info(f"  repo_path={repo_path}")
+        logger.info(f"  branch={branch}")
+        logger.info(f"  contributor.email={contributor.email}")
 
         use_git = self._is_valid_git_repo(repo_path)
         if not use_git:
-            logger.warning("Repo path is not a valid git repo: %s", repo_path)
+            logger.warning(f"Repo path is not a valid git repo: {repo_path}")
 
         # Calculate top areas and top files
         if use_git:
-            top_areas = self.calculate_top_areas(contributor_id, repo_path, branch)
-            top_files = self.calculate_top_files(contributor_id, repo_path, branch, top_n=10)
+            top_areas = self.calculate_top_areas(
+                contributor_id, repo_path, branch
+            )
+            top_files = self.calculate_top_files(
+                contributor_id, repo_path, branch, top_n=10
+            )
         else:
             top_areas = self._calculate_top_areas_from_db(contributor_id)
             top_files = self._calculate_top_files_from_db(contributor_id, top_n=10)
