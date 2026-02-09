@@ -105,6 +105,9 @@ backend/data/workmine.db
 backend/data/*.db
 backend/data/
 
+# Embedded repositories in test data
+backend/data/projects/**/the-project-jtzc/
+
 # Frontend build files
 frontend/node_modules/
 frontend/dist/

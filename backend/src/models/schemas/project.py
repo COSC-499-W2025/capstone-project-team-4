@@ -64,3 +64,35 @@ class ProjectList(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+class SnapshotSummary(BaseModel):
+    """Compact snapshot summary."""
+
+    total_files: int = 0
+    total_lines: int = 0
+    file_type_distribution: List[tuple[str, int]] = []
+    project_breakdown: List[dict] = []
+    content_type_totals: dict = {}
+    analysis_metrics: dict = {}
+
+
+class ProjectSnapshotResponse(BaseModel):
+    """Response for project snapshot creation."""
+
+    snapshot_id: int
+    project_id: int
+    snapshot_type: str
+    commit_hash: str
+    commit_index: int
+    total_commits: int
+    created_at: datetime
+    summary: SnapshotSummary
+
+
+class SnapshotPairResponse(BaseModel):
+    """Response for creating current and midpoint snapshots together."""
+
+    project_id: int
+    current_snapshot: ProjectSnapshotResponse
+    midpoint_snapshot: ProjectSnapshotResponse
