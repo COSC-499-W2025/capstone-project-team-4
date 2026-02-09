@@ -59,6 +59,7 @@ class FileRepository(BaseRepository[File]):
         blank_lines: Optional[int] = None,
         created_timestamp: Optional[float] = None,
         last_modified: Optional[float] = None,
+        content_hash: Optional[str] = None,
     ) -> File:
         """Create a new file record."""
         language_id = None
@@ -76,6 +77,7 @@ class FileRepository(BaseRepository[File]):
             blank_lines=blank_lines,
             created_timestamp=created_timestamp,
             last_modified=last_modified,
+            content_hash=content_hash,
         )
         return self.create(file)
 
@@ -102,6 +104,7 @@ class FileRepository(BaseRepository[File]):
                 blank_lines=data.get("blank_lines"),
                 created_timestamp=data.get("created_timestamp"),
                 last_modified=data.get("last_modified"),
+                content_hash=data.get("content_hash"),
             )
             files.append(file)
 
