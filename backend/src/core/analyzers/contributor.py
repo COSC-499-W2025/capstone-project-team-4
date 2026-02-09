@@ -39,7 +39,7 @@ def get_first_commit_date(project_path: str) -> Optional[datetime]:
         return None
     
     try:
-        repo = Repo(project_path)
+        repo = Repo(project_path, search_parent_directories=True)
         
         # Get the first (oldest) commit
         try:
@@ -81,7 +81,7 @@ def get_project_creation_date(project_path: str) -> Optional[datetime]:
     
     # Try Git first
     try:
-        repo = Repo(project_path)
+        repo = Repo(project_path, search_parent_directories=True)
         
         # Get the first (oldest) commit
         try:
@@ -129,7 +129,7 @@ def get_project_creation_date(project_path: str) -> Optional[datetime]:
 def analyze_contributors(
     project_path: str = ".",
     use_all_branches: bool = False,
-    max_commits: Optional[int] = MAX_COMMITS
+    max_commits: Optional[int] = None
 ) -> List[Dict[str, Any]]:
     """
     Analyze Git commit history and extract contributor statistics.
@@ -137,7 +137,7 @@ def analyze_contributors(
     Args:
         project_path: Path to the Git repository
         use_all_branches: If True, analyze all branches
-        max_commits: Maximum commits to process (None = unlimited)
+        max_commits: Maximum commits to process (None = unlimited, default changed to None to match GitHub Web)
 
     Returns:
         List of contributor dictionaries with stats
@@ -145,6 +145,8 @@ def analyze_contributors(
     if Repo is None:
         logger.warning("GitPython not installed")
         return []
+
+    logger.info(f"analyze_contributors called with max_commits={max_commits}, use_all_branches={use_all_branches}")
 
     # Open repository
     try:
@@ -174,7 +176,30 @@ def analyze_contributors(
     )
     
     try:
-        commit_iter = repo.iter_commits("--all" if use_all_branches else None)
+        # Determine branch to analyze
+        if use_all_branches:
+            branch_spec = "--all"
+        else:
+            # Use default branch (usually 'main' or 'master')
+            try:
+                default_branch = repo.active_branch.name
+            except:
+                # If HEAD is detached, try common default branch names
+                for branch_name in ['main', 'master']:
+                    try:
+                        repo.commit(branch_name)
+                        default_branch = branch_name
+                        break
+                    except:
+                        continue
+                else:
+                    default_branch = "HEAD"
+            
+            branch_spec = default_branch
+            logger.info(f"Analyzing branch: {branch_spec}")
+        
+        # GitHub Web UI excludes merge commits from contributor stats
+        commit_iter = repo.iter_commits(branch_spec, no_merges=True)
         commit_count = 0
 
         for commit in commit_iter:
@@ -192,9 +217,9 @@ def analyze_contributors(
             except Exception:
                 continue
 
-            # Skip bots
-            if "[bot]" in raw_name.lower():
-                continue
+            # Skip bots - DISABLED to match GitHub Web behavior
+            # if "[bot]" in raw_name.lower():
+            #     continue
 
             # Apply mailmap if available
             canonical_name, canonical_email = _apply_mailmap(mailmap, raw_name, raw_email)
@@ -205,13 +230,42 @@ def analyze_contributors(
             stats_by_author[author_key]["commits"] += 1
 
             try:
-                commit_stats = commit.stats
-                stats_by_author[author_key]["total_lines_added"] += commit_stats.total.get("insertions", 0)
-                stats_by_author[author_key]["total_lines_deleted"] += commit_stats.total.get("deletions", 0)
+                # Use --no-renames to match GitHub Web UI behavior
+                # GitHub counts renames/moves as delete + add
+                # Default git stats detect renames and count them as 0/0
+                stats_output = repo.git.show(
+                    commit.hexsha,
+                    numstat=True,
+                    no_renames=True,
+                    format=""
+                )
+                
+                lines_added = 0
+                lines_deleted = 0
+                files_in_commit = set()
+                
+                for line in stats_output.strip().split('\n'):
+                    if not line:
+                        continue
+                    parts = line.split('\t')
+                    if len(parts) >= 3:
+                        added, deleted, filename = parts[0], parts[1], parts[2]
+                        # Skip binary files (marked with -)
+                        if added != '-' and deleted != '-':
+                            try:
+                                lines_added += int(added)
+                                lines_deleted += int(deleted)
+                                files_in_commit.add(filename)
+                            except ValueError:
+                                pass
+                
+                stats_by_author[author_key]["total_lines_added"] += lines_added
+                stats_by_author[author_key]["total_lines_deleted"] += lines_deleted
 
-                # Count touched files; add 1 per file per commit
-                for fname in commit_stats.files.keys():
+                # Count touched files
+                for fname in files_in_commit:
                     stats_by_author[author_key]["files_modified"][fname] += 1
+                    
             except Exception as e:
                 logger.debug(f"Error collecting stats for commit {commit.hexsha[:8]}: {e}")
 
@@ -257,6 +311,10 @@ def analyze_contributors(
 
     # Sort by commits descending
     result.sort(key=lambda x: x["commits"], reverse=True)
+
+    logger.info(f"Returning {len(result)} contributors, total_commits from sum: {total_commits}")
+    for c in result:
+        logger.info(f"  - {c['name']}: {c['commits']} commits")
 
     return result
 
@@ -490,14 +548,31 @@ def _cluster_contributors(
         github_username = sorted(all_github_usernames)[0] if all_github_usernames else None
         github_email = next((e for e in sorted(all_emails) if "github" in e), None)
         
-        # Get aggregated stats for this contributor's canonical identity
-        # Use the first identity's canonical info to look up stats
-        first_identity = cluster_identities[0]
-        author_key = (
-            first_identity.get("canonical_name") or first_identity.get("name"),
-            _normalize_email(first_identity.get("canonical_email") or first_identity.get("email")),
-        )
-        author_stats = stats_by_author.get(author_key, {})
+        # Aggregate stats from ALL identities in this cluster (not just the first one)
+        total_commits = 0
+        total_lines_added = 0
+        total_lines_deleted = 0
+        all_files_modified: Dict[str, int] = defaultdict(int)
+        all_commit_dates = []
+        
+        # Collect all unique author_keys from this cluster
+        author_keys_seen = set()
+        for identity in cluster_identities:
+            author_key = (
+                identity.get("canonical_name") or identity.get("name"),
+                _normalize_email(identity.get("canonical_email") or identity.get("email")),
+            )
+            # Only process each author_key once
+            if author_key not in author_keys_seen:
+                author_keys_seen.add(author_key)
+                author_stats = stats_by_author.get(author_key, {})
+                if author_stats:
+                    total_commits += author_stats.get("commits", 0)
+                    total_lines_added += author_stats.get("total_lines_added", 0)
+                    total_lines_deleted += author_stats.get("total_lines_deleted", 0)
+                    for fname, count in author_stats.get("files_modified", {}).items():
+                        all_files_modified[fname] += count
+                    all_commit_dates.extend(author_stats.get("commit_dates", []))
         
         contributors.append({
             "name": display_name,
@@ -505,14 +580,14 @@ def _cluster_contributors(
             "primary_email": primary_email,
             "github_username": github_username,
             "github_email": github_email,
-            "commits": author_stats.get("commits", len(cluster_identities)),
+            "commits": total_commits if total_commits > 0 else len(cluster_identities),
             "history": history,
-            "total_lines_added": author_stats.get("total_lines_added", 0),
-            "total_lines_deleted": author_stats.get("total_lines_deleted", 0),
-            "files_modified": dict(author_stats.get("files_modified", {})),
+            "total_lines_added": total_lines_added,
+            "total_lines_deleted": total_lines_deleted,
+            "files_modified": dict(all_files_modified),
             "all_emails": sorted(e for e in all_emails if e),
             "all_names": sorted(n for n in all_names if n),
-            "commit_dates": author_stats.get("commit_dates", []),
+            "commit_dates": all_commit_dates,
         })
     
     return contributors

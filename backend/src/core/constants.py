@@ -52,17 +52,23 @@ SKIP_EXTENSIONS: FrozenSet[str] = frozenset({
     # Compiled files
     '.pyc', '.pyo', '.class', '.o', '.obj', '.so', '.dylib', '.dll', '.exe',
 
-    # Logs
-    '.log',
+    # Logs / temp
+    '.log', '.tmp', '.temp', '.swp', '.swo', '.bak', '.backup',
 
-    # Temporary files
-    '.tmp', '.temp', '.swp', '.swo', '.bak', '.backup',
+    # OS / cache
+    '.DS_Store', '.cache',
 
-    # OS files
-    '.DS_Store',
+    # Documents
+    '.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx',
 
-    # Cache files
-    '.cache',
+    # Images
+    '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.svg',
+
+    # Archives
+    '.zip', '.rar', '.7z', '.tar', '.gz',
+
+    # Media
+    '.mp3', '.mp4', '.mov', '.wav',
 })
 
 
