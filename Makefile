@@ -1,4 +1,4 @@
-.PHONY: up down logs ps test test-backend test-frontend test-all shell-backend shell-frontend
+.PHONY: up up-build down down-v logs ps test test-backend test-backend-cov test-frontend test-frontend-cov test-all shell-backend shell-frontend health
 
 # Start all services
 up:
