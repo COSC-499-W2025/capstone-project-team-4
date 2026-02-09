@@ -122,3 +122,4 @@ backend/.env
 backend/.venv/
 backend/__pycache__/
 backend/src/__pycache__/
+backend/data/projects/

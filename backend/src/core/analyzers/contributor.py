@@ -150,7 +150,8 @@ def analyze_contributors(
 
     # Open repository
     try:
-        repo = Repo(project_path)
+        # Allow analysis from nested folders by resolving the nearest git root.
+        repo = Repo(project_path, search_parent_directories=True)
     except InvalidGitRepositoryError:
         logger.warning("Not a git repository: %s", project_path)
         return []
