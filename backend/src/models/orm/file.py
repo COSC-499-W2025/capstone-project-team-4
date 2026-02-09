@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Float, ForeignKey, Index, Integer, String, Text, Column, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.database import Base
@@ -43,7 +43,10 @@ class File(Base):
     blank_lines: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_timestamp: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     last_modified: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-
+    content_hash = Column(String(64), index=True, nullable=True) # SHA-256 hash of file content for deduplication
+    #__table_args__ = (UniqueConstraint("project_id", "path", name="uq_files_project_path"),) # Unique constraint on content_hash for deduplication
+    #Index("ix_files_project_id", "project_id")
+    #Index("ix_files_content_hash", "content_hash")
     # Relationships
     project: Mapped["Project"] = relationship("Project", back_populates="files")
     language: Mapped[Optional["Language"]] = relationship("Language", back_populates="files")

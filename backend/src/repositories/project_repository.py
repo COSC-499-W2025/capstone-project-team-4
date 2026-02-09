@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, desc
 from sqlalchemy.orm import Session, joinedload
 
 from src.models.orm.project import Project
@@ -42,13 +42,23 @@ class ProjectRepository(BaseRepository[Project]):
         """Get project by name."""
         stmt = select(Project).where(Project.name == name)
         return self.db.scalar(stmt)
+    
+    def get_latest_by_analysis_key(self, analysis_key: str) -> Optional[Project]:
+        """Get most recent project with the given analysis_key (for cache reuse)."""
+        stmt = (
+            select(Project)
+            .where(Project.analysis_key == analysis_key)
+            .order_by(Project.created_at.desc())
+            .limit(1)
+        )
+        return self.db.scalar(stmt)
 
     def get_summary(self, project_id: int) -> Optional[dict]:
         """Get project summary with counts."""
         project = self.get(project_id)
         if not project:
             return None
-
+    
         # Get counts
         file_count = self.db.scalar(
             select(func.count(File.id)).where(File.project_id == project_id)
@@ -114,6 +124,9 @@ class ProjectRepository(BaseRepository[Project]):
         first_file_created: Optional[datetime] = None,
         first_commit_date: Optional[datetime] = None,
         project_started_at: Optional[datetime] = None,
+        content_hash: Optional[str] = None,
+        analysis_key: Optional[str] = None,
+        reused_from_project_id: Optional[int] = None,
     ) -> Project:
         """Create a new project."""
         project = Project(
@@ -127,6 +140,9 @@ class ProjectRepository(BaseRepository[Project]):
             first_file_created=first_file_created,
             first_commit_date=first_commit_date,
             project_started_at=project_started_at,
+            content_hash=content_hash,
+            analysis_key=analysis_key,
+            reused_from_project_id=reused_from_project_id,
         )
         return self.create(project)
 
