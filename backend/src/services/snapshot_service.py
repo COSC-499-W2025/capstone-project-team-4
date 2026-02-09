@@ -6,6 +6,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+import zipfile
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -96,7 +97,8 @@ class SnapshotService:
             current_saved = self._persist_snapshot(project_id, current_snapshot)
 
             midpoint_commit = self._resolve_commit_point(repo_root, snapshot_type="midpoint")
-            self._git(repo_root, "checkout", "--detach", midpoint_commit.hash)
+            self._git(repo_root, "checkout", "--force", "--detach", midpoint_commit.hash)
+            self._git(repo_root, "clean", "-fd")
             midpoint_snapshot = self._build_snapshot(
                 project_id, repo_root, midpoint_commit, snapshot_type="midpoint"
             )
@@ -118,7 +120,8 @@ class SnapshotService:
             repo_root = self._materialize_repo(project.root_path, project.source_url, workspace)
             commit_point = self._resolve_commit_point(repo_root, snapshot_type=snapshot_type)
             if snapshot_type == "midpoint":
-                self._git(repo_root, "checkout", "--detach", commit_point.hash)
+                self._git(repo_root, "checkout", "--force", "--detach", commit_point.hash)
+                self._git(repo_root, "clean", "-fd")
             snapshot = self._build_snapshot(project_id, repo_root, commit_point, snapshot_type=snapshot_type)
             return self._persist_snapshot(project_id, snapshot)
 
@@ -135,7 +138,7 @@ class SnapshotService:
             zip_path = Path(source_url)
             if zip_path.exists() and zip_path.suffix.lower() == ".zip":
                 extracted = workspace / "unzipped"
-                shutil.unpack_archive(str(zip_path), str(extracted))
+                self._extract_zip(zip_path, extracted)
                 git_root = self._find_git_root(extracted)
                 if git_root:
                     return git_root
@@ -149,12 +152,25 @@ class SnapshotService:
         )
 
     def _find_git_root(self, base_path: Path) -> Optional[Path]:
-        if (base_path / ".git").exists():
-            return base_path
+        candidates = []
+        if (base_path / ".git").is_dir():
+            candidates.append(base_path)
         for git_dir in base_path.rglob(".git"):
             if git_dir.is_dir():
-                return git_dir.parent
+                candidates.append(git_dir.parent)
+        for candidate in candidates:
+            if self._is_valid_git_repo(candidate):
+                return candidate
         return None
+
+    def _is_valid_git_repo(self, path: Path) -> bool:
+        """Check that the path contains a working git repository."""
+        result = subprocess.run(
+            ["git", "-C", str(path), "rev-parse", "--git-dir"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        return result.returncode == 0
 
     def _get_midpoint_commit(self, repo_root: Path) -> MidpointCommit:
         output = self._git(repo_root, "rev-list", "--reverse", "HEAD")
@@ -448,6 +464,20 @@ class SnapshotService:
         if stats.get("image_file_count", 0) > 0:
             return "image"
         return "mixed"
+
+    @staticmethod
+    def _extract_zip(zip_path: Path, dest: Path) -> None:
+        """Extract ZIP while skipping macOS junk (__MACOSX, .DS_Store, ._ files)."""
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            for info in zf.infolist():
+                name = info.filename.replace("\\", "/")
+                if (
+                    name.startswith("__MACOSX/") or "/__MACOSX/" in name
+                    or Path(name).name == ".DS_Store"
+                    or Path(name).name.startswith("._")
+                ):
+                    continue
+                zf.extract(info, dest)
 
     def _git(self, repo_root: Path, *args: str) -> str:
         cmd = ["git", "-C", str(repo_root), *args]
