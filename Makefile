@@ -55,4 +55,4 @@ shell-frontend:
 health:
 	@echo "Database:" && docker compose exec -T db pg_isready -U workmine -d workmine || echo "Not ready"
 	@echo "Backend:" && curl -sf http://localhost:8000/health && echo " OK" || echo "Not ready"
-	@echo "Frontend:" && curl -sf http://localhost:5173 -o nul && echo "OK" || echo "Not ready"
+	@echo "Frontend:" && curl -sf http://localhost:5173 -o /dev/null && echo "OK" || echo "Not ready"
