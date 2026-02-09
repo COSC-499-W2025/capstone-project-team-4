@@ -1,14 +1,6 @@
-# Service layer
-from src.services.analysis_service import AnalysisService
-from src.services.project_service import ProjectService
-from src.services.skill_service import SkillService
-from src.services.resume_service import ResumeService
-from src.services.user_profile_service import UserProfileService
+"""Service package.
 
-__all__ = [
-    "AnalysisService",
-    "ProjectService",
-    "SkillService",
-    "ResumeService",
-    "UserProfileService",
-]
+Keep package import lightweight to avoid pulling optional dependencies during tests.
+"""
+
+__all__ = []
