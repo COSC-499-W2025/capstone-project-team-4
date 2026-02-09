@@ -2,10 +2,11 @@
 
 from typing import List, Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 from sqlalchemy.orm import Session, joinedload
 
 from src.models.orm.contributor import Contributor, ContributorFile
+from src.models.orm.project import Project
 from src.repositories.base import BaseRepository
 
 
@@ -150,3 +151,28 @@ class ContributorRepository(BaseRepository[Contributor]):
             select(func.sum(Contributor.commits)).where(Contributor.project_id == project_id)
         )
         return result or 0
+
+    def get_projects_by_identity(self, identity: str) -> List[tuple[Contributor, Project]]:
+        """Get contributor records and projects matching GitHub username or identity fields."""
+        identity_normalized = identity.strip().lower()
+        if not identity_normalized:
+            return []
+
+        stmt = (
+            select(Contributor, Project)
+            .join(Project, Project.id == Contributor.project_id)
+            .where(
+                or_(
+                    func.lower(Contributor.github_username) == identity_normalized,
+                    func.lower(Contributor.github_email) == identity_normalized,
+                    func.lower(Contributor.email) == identity_normalized,
+                    func.lower(Contributor.name) == identity_normalized,
+                )
+            )
+        )
+        return list(self.db.execute(stmt).all())
+
+    def get_all_with_projects(self) -> List[tuple[Contributor, Project]]:
+        """Get all contributors with their projects."""
+        stmt = select(Contributor, Project).join(Project, Project.id == Contributor.project_id)
+        return list(self.db.execute(stmt).all())
