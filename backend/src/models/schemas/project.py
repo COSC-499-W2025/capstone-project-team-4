@@ -96,3 +96,45 @@ class SnapshotPairResponse(BaseModel):
     project_id: int
     current_snapshot: ProjectSnapshotResponse
     midpoint_snapshot: ProjectSnapshotResponse
+
+
+class SnapshotCountDelta(BaseModel):
+    """Count delta between current and midpoint snapshots."""
+
+    current: int
+    midpoint: int
+    delta: int
+
+
+class SnapshotComplexityDelta(BaseModel):
+    """Complexity delta between current and midpoint snapshots."""
+
+    total_functions: SnapshotCountDelta
+    avg_complexity: dict
+    max_complexity: SnapshotCountDelta
+    high_complexity_count: SnapshotCountDelta
+
+
+class SnapshotSetDelta(BaseModel):
+    """Added/removed values from midpoint to current."""
+
+    added: List[str]
+    removed: List[str]
+
+
+class SnapshotCurrentMidpointComparisonResponse(BaseModel):
+    """Comparison response between current and midpoint snapshots."""
+
+    project_id: int
+    current_snapshot_id: int
+    midpoint_snapshot_id: int
+    current_commit_hash: str
+    midpoint_commit_hash: str
+    totals: dict
+    counts: dict
+    languages: SnapshotSetDelta
+    skills: SnapshotSetDelta
+    libraries: SnapshotSetDelta
+    frameworks: SnapshotSetDelta
+    tools_and_technologies: SnapshotSetDelta
+    complexity: SnapshotComplexityDelta

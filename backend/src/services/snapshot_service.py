@@ -80,6 +80,87 @@ class SnapshotService:
         """Create a snapshot representing the uploaded project's current state."""
         return self._create_snapshot(project_id=project_id, snapshot_type="current")
 
+    def compare_current_and_midpoint(self, project_id: int) -> dict:
+        """Compare the latest current and midpoint snapshots for a project."""
+        current_snap = self.snapshot_repo.get_latest_for_project(project_id, "current")
+        midpoint_snap = self.snapshot_repo.get_latest_for_project(project_id, "midpoint")
+        if not current_snap or not midpoint_snap:
+            raise HTTPException(
+                status_code=404,
+                detail="Both current and midpoint snapshots are required for comparison.",
+            )
+
+        current_payload = json.loads(current_snap.payload_json)
+        midpoint_payload = json.loads(midpoint_snap.payload_json)
+
+        cur_metrics = current_payload.get("summary", {}).get("analysis_metrics", {})
+        mid_metrics = midpoint_payload.get("summary", {}).get("analysis_metrics", {})
+
+        cur_summary = current_payload.get("summary", {})
+        mid_summary = midpoint_payload.get("summary", {})
+
+        def set_delta(key: str) -> dict:
+            cur_set = set(cur_metrics.get(key, []))
+            mid_set = set(mid_metrics.get(key, []))
+            return {"added": sorted(cur_set - mid_set), "removed": sorted(mid_set - cur_set)}
+
+        def count_delta(cur_val: int, mid_val: int) -> dict:
+            return {"current": cur_val, "midpoint": mid_val, "delta": cur_val - mid_val}
+
+        cur_complexity = cur_metrics.get("complexity_summary", {})
+        mid_complexity = mid_metrics.get("complexity_summary", {})
+
+        cur_counts = cur_metrics.get("counts", {})
+        mid_counts = mid_metrics.get("counts", {})
+
+        return {
+            "project_id": project_id,
+            "current_snapshot_id": current_snap.id,
+            "midpoint_snapshot_id": midpoint_snap.id,
+            "current_commit_hash": current_snap.commit_hash,
+            "midpoint_commit_hash": midpoint_snap.commit_hash,
+            "totals": {
+                "total_files": count_delta(
+                    cur_summary.get("total_files", 0), mid_summary.get("total_files", 0)
+                ),
+                "total_lines": count_delta(
+                    cur_summary.get("total_lines", 0), mid_summary.get("total_lines", 0)
+                ),
+            },
+            "counts": {
+                k: count_delta(cur_counts.get(k, 0), mid_counts.get(k, 0))
+                for k in ("language_count", "framework_count", "library_count", "tool_count", "skill_count")
+            },
+            "languages": set_delta("languages"),
+            "skills": set_delta("skills"),
+            "libraries": set_delta("libraries"),
+            "frameworks": set_delta("frameworks"),
+            "tools_and_technologies": set_delta("tools_and_technologies"),
+            "complexity": {
+                "total_functions": count_delta(
+                    cur_complexity.get("total_functions", 0),
+                    mid_complexity.get("total_functions", 0),
+                ),
+                "avg_complexity": {
+                    "current": cur_complexity.get("avg_complexity", 0.0),
+                    "midpoint": mid_complexity.get("avg_complexity", 0.0),
+                    "delta": round(
+                        cur_complexity.get("avg_complexity", 0.0)
+                        - mid_complexity.get("avg_complexity", 0.0),
+                        4,
+                    ),
+                },
+                "max_complexity": count_delta(
+                    cur_complexity.get("max_complexity", 0),
+                    mid_complexity.get("max_complexity", 0),
+                ),
+                "high_complexity_count": count_delta(
+                    cur_complexity.get("high_complexity_count", 0),
+                    mid_complexity.get("high_complexity_count", 0),
+                ),
+            },
+        }
+
     def create_current_and_midpoint_snapshots(self, project_id: int) -> dict:
         """Create both current and midpoint snapshots in one request."""
         project = self.project_repo.get(project_id)
@@ -464,20 +545,6 @@ class SnapshotService:
         if stats.get("image_file_count", 0) > 0:
             return "image"
         return "mixed"
-
-    @staticmethod
-    def _extract_zip(zip_path: Path, dest: Path) -> None:
-        """Extract ZIP while skipping macOS junk (__MACOSX, .DS_Store, ._ files)."""
-        with zipfile.ZipFile(zip_path, "r") as zf:
-            for info in zf.infolist():
-                name = info.filename.replace("\\", "/")
-                if (
-                    name.startswith("__MACOSX/") or "/__MACOSX/" in name
-                    or Path(name).name == ".DS_Store"
-                    or Path(name).name.startswith("._")
-                ):
-                    continue
-                zf.extract(info, dest)
 
     @staticmethod
     def _extract_zip(zip_path: Path, dest: Path) -> None:
