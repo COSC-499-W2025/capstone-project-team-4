@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     rules_dir: Path = base_dir / "src" / "core" / "rules"
     temp_dir: Path = base_dir / "temp"
     outputs_dir: Path = base_dir / "outputs"
+    uploads_dir: Path = data_dir / "uploads"
 
     # Analysis settings
     max_file_size: int = 10 * 1024 * 1024  # 10MB
