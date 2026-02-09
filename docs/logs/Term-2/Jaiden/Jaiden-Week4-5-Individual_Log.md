@@ -26,7 +26,7 @@ In previous weeks we had neglected testing in our features, now we have starting
 my code through several tests which all pass. Both features have instructions on manual testing and automatic testing.
 
 ## Review/Collaboration Tasks 
-> Reviewed: PR #183, #184, #185, #188 
+- Reviewed: PR #183, #184, #185, #188, #192, #193 
 
 ## Plans/Goals for Next Week
 Continue working on Milestone requirements and refactor aspects of PR 189 to read files faster (hashing before unzipping) 
