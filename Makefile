@@ -1,5 +1,17 @@
 .PHONY: up up-build down down-v logs ps test test-backend test-backend-cov test-frontend test-frontend-cov test-all shell-backend shell-frontend health
 
+# Allow shorthand: make test path/to/test
+ifneq (,$(filter test,$(MAKECMDGOALS)))
+TEST_GOAL := $(filter-out test,$(MAKECMDGOALS))
+TEST_PATH := $(subst \,/,$(TEST_GOAL))
+IS_FRONTEND := $(filter frontend/%,$(TEST_PATH))
+BACKEND_TEST_PATH := $(patsubst backend/%,%,$(TEST_PATH))
+FRONTEND_TEST_PATH := $(patsubst frontend/%,%,$(TEST_PATH))
+.PHONY: $(TEST_GOAL)
+$(TEST_GOAL):
+	@:
+endif
+
 # Start all services
 up:
 	docker compose up -d
@@ -32,6 +44,7 @@ test-backend:
 test-backend-cov:
 	docker compose exec -T backend pytest tests --cov=src --cov-report=term-missing --cov-report=html -v
 
+
 # Run frontend tests
 test-frontend:
 	docker compose exec -T frontend npm run test:run
@@ -40,8 +53,17 @@ test-frontend:
 test-frontend-cov:
 	docker compose exec -T frontend npm run test:coverage
 
-# Run all tests
-test: test-backend test-frontend
+
+# Run all tests, or a specific backend test when given a path
+test:
+ifeq ($(strip $(TEST_GOAL)),)
+	docker compose exec -T backend pytest tests -v
+	docker compose exec -T frontend npm run test:run
+else ifneq ($(strip $(IS_FRONTEND)),)
+	docker compose exec -T frontend npm run test:run -- $(FRONTEND_TEST_PATH)
+else
+	docker compose exec -T backend pytest $(BACKEND_TEST_PATH) -v
+endif
 
 # Open shell in backend container
 shell-backend:
