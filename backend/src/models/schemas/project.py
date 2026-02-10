@@ -39,6 +39,9 @@ class ProjectSummary(ProjectBase):
     skill_count: int = 0
     library_count: int = 0
     tool_count: int = 0
+    has_thumbnail: bool = False
+    thumbnail_updated_at: Optional[datetime] = None
+    thumbnail_endpoint: Optional[str] = None
 
 
 class ProjectDetail(ProjectSummary):
