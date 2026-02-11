@@ -1,0 +1,24 @@
+services:
+  db:
+    restart: always
+
+  backend:
+    ports: []
+    volumes:
+      - ./backend/data:/app/data
+    environment:
+      - PYTHONPATH=/app
+      - DATABASE_URL=postgresql://workmine:workmine@db:5432/workmine
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --workers 4
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "80:80"
+    volumes: []
+    environment: []
+    restart: always
