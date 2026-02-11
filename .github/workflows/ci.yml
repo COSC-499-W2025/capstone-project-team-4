@@ -11,6 +11,18 @@ on:
       - development
 
 jobs:
+  assign-copilot-reviewer:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Assign Copilot as reviewer
+        run: gh pr edit "$PR_URL" --add-reviewer copilot
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   lint-backend:
     runs-on: ubuntu-latest
 
