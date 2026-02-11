@@ -11,14 +11,13 @@ on:
       - development
 
 jobs:
-  lint:
+  lint-backend:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Backend linting with Ruff
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -33,7 +32,13 @@ jobs:
       - name: Run Ruff format check (backend)
         run: ruff format --check backend/src
 
-      # Frontend linting with ESLint
+  lint-frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
