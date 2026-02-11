@@ -1,4 +1,4 @@
-name: CI - Full Stack Tests
+name: CI - Lint & Full Stack Tests
 
 on:
   push:
@@ -11,6 +11,42 @@ on:
       - development
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Backend linting with Ruff
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Run Ruff linter (backend)
+        run: ruff check backend/src
+
+      - name: Run Ruff format check (backend)
+        run: ruff format --check backend/src
+
+      # Frontend linting with ESLint
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Run ESLint (frontend)
+        run: npm run lint
+        working-directory: frontend
+
   test:
     runs-on: ubuntu-latest
 
