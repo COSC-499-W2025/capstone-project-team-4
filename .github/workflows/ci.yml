@@ -23,6 +23,59 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  pr-size-label:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Label PR by size
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          # Get diff stats against base branch
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD | wc -l)
+          CHANGED_LINES=$(git diff --stat origin/${{ github.event.pull_request.base.ref }}...HEAD | tail -1 | grep -oP '\d+ insertion' | grep -oP '\d+' || echo 0)
+          DELETED_LINES=$(git diff --stat origin/${{ github.event.pull_request.base.ref }}...HEAD | tail -1 | grep -oP '\d+ deletion' | grep -oP '\d+' || echo 0)
+          TOTAL_LINES=$((CHANGED_LINES + DELETED_LINES))
+
+          echo "Changed files: $CHANGED_FILES"
+          echo "Total line changes: $TOTAL_LINES"
+
+          # Remove existing size labels
+          for label in "size/S" "size/M" "size/L" "size/XL: oversized"; do
+            gh pr edit "$PR_URL" --remove-label "$label" 2>/dev/null || true
+          done
+
+          # Apply label based on thresholds from course requirements:
+          # < 3 files AND < 200 lines = Small
+          # < 10 files AND < 500 lines = Medium
+          # >= 10 files OR >= 500 lines = Large (oversized, must request changes)
+          if [ "$CHANGED_FILES" -lt 3 ] && [ "$TOTAL_LINES" -lt 200 ]; then
+            LABEL="size/S"
+          elif [ "$CHANGED_FILES" -lt 10 ] && [ "$TOTAL_LINES" -lt 500 ]; then
+            LABEL="size/M"
+          else
+            LABEL="size/XL: oversized"
+          fi
+
+          # Create label if it doesn't exist, then apply
+          gh label create "$LABEL" --force --repo "${{ github.repository }}" 2>/dev/null || true
+          gh pr edit "$PR_URL" --add-label "$LABEL"
+
+          # Warn on oversized PRs
+          if [ "$LABEL" = "size/XL: oversized" ]; then
+            echo "::warning::PR is oversized ($CHANGED_FILES files, $TOTAL_LINES lines). Course rules: limit PRs to <10 files and <500 lines. Reviewers must request changes on oversized PRs."
+          fi
+
   lint-backend:
     runs-on: ubuntu-latest
 
@@ -44,6 +97,26 @@ jobs:
       - name: Run Ruff format check (backend)
         run: ruff format --check backend/src
 
+  typecheck-backend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install mypy
+          pip install -r backend/requirements.txt
+
+      - name: Run mypy type check (backend)
+        run: mypy backend/src --ignore-missing-imports
+
   lint-frontend:
     runs-on: ubuntu-latest
 
@@ -62,6 +135,26 @@ jobs:
 
       - name: Run ESLint (frontend)
         run: npm run lint
+        working-directory: frontend
+
+  build-frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
         working-directory: frontend
 
   test:
