@@ -2,24 +2,25 @@
 
 import logging
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import yaml
-from src.core.detectors.language import EXTENSION_MAP
 from sqlalchemy.orm import Session
 
-from src.models.schemas.project import ProjectSummary, ProjectList, ProjectDetail
+from src.core.detectors.language import EXTENSION_MAP
 from src.models.schemas.analysis import AnalysisResult, AnalysisStatus, ComplexitySummary
 from src.models.schemas.contributor import (
+    ChangeStatsSchema,
     ContributorAnalysisSchema,
     ProjectContributorsAnalysisResponse,
-    ChangeStatsSchema,
 )
-from src.repositories.project_repository import ProjectRepository
-from src.repositories.file_repository import FileRepository
-from src.repositories.contributor_repository import ContributorRepository
+from src.models.schemas.project import ProjectList, ProjectSummary
 from src.repositories.complexity_repository import ComplexityRepository
+from src.repositories.contributor_repository import ContributorRepository
+from src.repositories.file_repository import FileRepository
+from src.repositories.project_repository import ProjectRepository
 from src.repositories.skill_repository import SkillRepository
 
 logger = logging.getLogger(__name__)
@@ -239,6 +240,24 @@ class ProjectService:
 
         logger.info(f"Deleting project {project_id}: {project.name}")
         return self.project_repo.delete(project_id)
+
+    def set_thumbnail(
+        self,
+        project_id: int,
+        *,
+        content_type: str,
+        bytes_data: bytes,
+        size_bytes: int,
+        etag: str,
+        thumbnail_endpoint: str,
+    ) -> dict:
+        """
+        Store/replace a project's thumbnail.
+
+        PR3 note: route tests monkeypatch this method, so they don't require a real DB.
+        Real DB upsert can be implemented here later without changing the route/tests contract.
+        """
+        raise NotImplementedError
 
     def get_contributor_analysis(self, project_id: int) -> Optional[ProjectContributorsAnalysisResponse]:
         """

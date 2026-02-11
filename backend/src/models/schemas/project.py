@@ -58,6 +58,13 @@ class ProjectDetail(ProjectSummary):
     avg_complexity: float = 0.0
     max_complexity: int = 0
 
+class ProjectThumbnailResponse(BaseModel):
+    """Response after setting a project thumbnail."""
+
+    project_id: int
+    has_thumbnail: bool
+    thumbnail_updated_at: datetime
+    thumbnail_endpoint: str
 
 class ProjectList(BaseModel):
     """Schema for paginated project list."""

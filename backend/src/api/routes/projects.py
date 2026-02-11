@@ -8,6 +8,8 @@ from typing import Optional, Set
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from fastapi import File as FileParam, UploadFile
+import hashlib
 
 from src.utils.contributor_dedup import cluster_authors
 from src.models.database import get_db
@@ -26,6 +28,7 @@ from src.repositories.contributor_repository import ContributorRepository
 from src.repositories.project_repository import ProjectRepository
 from src.repositories.complexity_repository import ComplexityRepository
 from src.api.exceptions import ProjectNotFoundError
+from src.models.schemas.project import ProjectList, ProjectDetail, ProjectThumbnailResponse
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +213,37 @@ async def get_project(
 
     return project
 
+@router.put("/{project_id}/thumbnail", response_model=ProjectThumbnailResponse)
+async def set_project_thumbnail(
+    project_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """
+    Upload or replace a project thumbnail.
+    """
+    service = ProjectService(db)
+
+    if not service.project_exists(project_id):
+        raise ProjectNotFoundError(project_id)
+
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Invalid image type")
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    result = service.set_thumbnail(
+        project_id,
+        content_type=file.content_type,
+        bytes_data=data,
+        size_bytes=len(data),
+        etag="dev-etag",
+        thumbnail_endpoint=f"/api/projects/{project_id}/thumbnail",
+    )
+
+    return result
 
 @router.delete("/{project_id}", status_code=204)
 async def delete_project(
