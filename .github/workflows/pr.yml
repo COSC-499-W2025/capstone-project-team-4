@@ -217,4 +217,34 @@ jobs:
           # Warn on oversized PRs
           if [ "$LABEL" = "size/XL: oversized" ]; then
             echo "::warning::PR is oversized ($FEATURE_COUNT feature files, $FEATURE_LINES feature lines). Course rules: limit PRs to <10 files and <500 lines. Docs and test changes are excluded from thresholds."
+            WARNING="> ⚠️ **This PR is oversized.** Please consider splitting it into smaller PRs."
+          else
+            WARNING=""
           fi
+
+          # Build the comment body
+          COMMENT_BODY=$(cat <<EOF
+          ## 📏 PR Size: \`$LABEL\`
+
+          | Type | Files | Lines |
+          |------|-------|-------|
+          | Feature | $FEATURE_COUNT | $FEATURE_LINES |
+          | Tests | $TEST_COUNT | $TEST_LINES |
+          | Docs | $DOCS_COUNT | $DOCS_LINES |
+          | **Total** | **$TOTAL_FILES** | **$TOTAL_LINES** |
+
+          > Only feature changes count toward size thresholds.
+
+          $WARNING
+          EOF
+          )
+
+          # Delete previous size comment if it exists, then post new one
+          EXISTING=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" --jq '.[] | select(.body | startswith("## 📏 PR Size")) | .id' 2>/dev/null || true)
+          if [ -n "$EXISTING" ]; then
+            for id in $EXISTING; do
+              gh api -X DELETE "repos/${{ github.repository }}/issues/comments/$id" 2>/dev/null || true
+            done
+          fi
+
+          gh pr comment "$PR_URL" --body "$COMMENT_BODY"
