@@ -1,4 +1,4 @@
-.PHONY: up up-build down down-v logs ps test test-backend test-backend-cov test-frontend test-frontend-cov test-all shell-backend shell-frontend health lint-backend lint-frontend lint typecheck-backend
+.PHONY: up up-build down down-v logs ps test test-backend test-backend-cov test-frontend test-frontend-cov test-all shell-backend shell-frontend health lint-backend lint-frontend lint typecheck-backend test-schema
 
 # Allow shorthand: make test path/to/test
 ifneq (,$(filter test,$(MAKECMDGOALS)))
@@ -102,6 +102,10 @@ else ifneq ($(strip $(IS_FRONTEND)),)
 else
 	docker compose exec -T backend pytest $(BACKEND_TEST_PATH) -v
 endif
+
+# Run Schemathesis API contract tests against the OpenAPI schema
+test-schema:
+	docker compose exec -T backend schemathesis run http://localhost:8000/openapi.json --url http://localhost:8000
 
 # Open shell in backend container
 shell-backend:

@@ -100,6 +100,7 @@ make test backend/tests/test_api.py    # Run a specific backend test
 make test frontend/src/App.test.tsx    # Run a specific frontend test
 make test-backend-cov                  # Backend tests with coverage (report: backend/htmlcov)
 make test-frontend-cov                 # Frontend tests with coverage (report: frontend/coverage)
+make test-schema                       # API tests
 
 # Shell access
 make shell-backend   # Open a shell in the backend container
