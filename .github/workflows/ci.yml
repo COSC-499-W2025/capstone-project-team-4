@@ -40,28 +40,71 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
-          # Get diff stats against base branch
+          BASE_REF="origin/${{ github.event.pull_request.base.ref }}"
           git fetch origin ${{ github.event.pull_request.base.ref }}
-          CHANGED_FILES=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD | wc -l)
-          CHANGED_LINES=$(git diff --stat origin/${{ github.event.pull_request.base.ref }}...HEAD | tail -1 | grep -oP '\d+ insertion' | grep -oP '\d+' || echo 0)
-          DELETED_LINES=$(git diff --stat origin/${{ github.event.pull_request.base.ref }}...HEAD | tail -1 | grep -oP '\d+ deletion' | grep -oP '\d+' || echo 0)
-          TOTAL_LINES=$((CHANGED_LINES + DELETED_LINES))
 
-          echo "Changed files: $CHANGED_FILES"
-          echo "Total line changes: $TOTAL_LINES"
+          # Categorize changed files into docs, tests, and feature
+          DOCS_FILES=""
+          TEST_FILES=""
+          FEATURE_FILES=""
+
+          while IFS= read -r file; do
+            case "$file" in
+              docs/*|*.md|*.rst|*.txt|LICENSE*|CHANGELOG*)
+                DOCS_FILES="$DOCS_FILES $file" ;;
+              tests/*|test/*|*_test.py|*_test.ts|*_test.js|*.test.py|*.test.ts|*.test.js|*.test.tsx|*.test.jsx|*.spec.ts|*.spec.js|*.spec.tsx|*.spec.jsx|**/__tests__/*)
+                TEST_FILES="$TEST_FILES $file" ;;
+              *)
+                FEATURE_FILES="$FEATURE_FILES $file" ;;
+            esac
+          done < <(git diff --name-only "$BASE_REF"...HEAD)
+
+          # Count lines changed per category
+          count_lines() {
+            local files="$1"
+            if [ -z "$files" ]; then
+              echo 0
+              return
+            fi
+            local stats
+            stats=$(git diff --numstat "$BASE_REF"...HEAD -- $files | awk '{ added += $1; deleted += $2 } END { print added + deleted }')
+            echo "${stats:-0}"
+          }
+
+          DOCS_LINES=$(count_lines "$DOCS_FILES")
+          TEST_LINES=$(count_lines "$TEST_FILES")
+          FEATURE_LINES=$(count_lines "$FEATURE_FILES")
+          TOTAL_LINES=$((DOCS_LINES + TEST_LINES + FEATURE_LINES))
+
+          DOCS_COUNT=$(echo $DOCS_FILES | wc -w)
+          TEST_COUNT=$(echo $TEST_FILES | wc -w)
+          FEATURE_COUNT=$(echo $FEATURE_FILES | wc -w)
+          TOTAL_FILES=$((DOCS_COUNT + TEST_COUNT + FEATURE_COUNT))
+
+          # Print summary by type
+          echo "===== PR Change Summary ====="
+          echo "Type         Files   Lines"
+          echo "----------------------------"
+          printf "Feature      %5d   %5d\n" "$FEATURE_COUNT" "$FEATURE_LINES"
+          printf "Tests        %5d   %5d\n" "$TEST_COUNT" "$TEST_LINES"
+          printf "Docs         %5d   %5d\n" "$DOCS_COUNT" "$DOCS_LINES"
+          echo "----------------------------"
+          printf "Total        %5d   %5d\n" "$TOTAL_FILES" "$TOTAL_LINES"
+          echo ""
+          echo "Note: Only feature lines ($FEATURE_LINES) are counted for size thresholds."
 
           # Remove existing size labels
           for label in "size/S" "size/M" "size/L" "size/XL: oversized"; do
             gh pr edit "$PR_URL" --remove-label "$label" 2>/dev/null || true
           done
 
-          # Apply label based on thresholds from course requirements:
+          # Apply label based on course requirement thresholds using FEATURE changes only:
           # < 3 files AND < 200 lines = Small
           # < 10 files AND < 500 lines = Medium
           # >= 10 files OR >= 500 lines = Large (oversized, must request changes)
-          if [ "$CHANGED_FILES" -lt 3 ] && [ "$TOTAL_LINES" -lt 200 ]; then
+          if [ "$FEATURE_COUNT" -lt 3 ] && [ "$FEATURE_LINES" -lt 200 ]; then
             LABEL="size/S"
-          elif [ "$CHANGED_FILES" -lt 10 ] && [ "$TOTAL_LINES" -lt 500 ]; then
+          elif [ "$FEATURE_COUNT" -lt 10 ] && [ "$FEATURE_LINES" -lt 500 ]; then
             LABEL="size/M"
           else
             LABEL="size/XL: oversized"
@@ -73,7 +116,7 @@ jobs:
 
           # Warn on oversized PRs
           if [ "$LABEL" = "size/XL: oversized" ]; then
-            echo "::warning::PR is oversized ($CHANGED_FILES files, $TOTAL_LINES lines). Course rules: limit PRs to <10 files and <500 lines. Reviewers must request changes on oversized PRs."
+            echo "::warning::PR is oversized ($FEATURE_COUNT feature files, $FEATURE_LINES feature lines). Course rules: limit PRs to <10 files and <500 lines. Docs and test changes are excluded from thresholds."
           fi
 
   lint-backend:
@@ -161,52 +204,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Create .env file for backend
       - name: Create backend .env file
         run: cp backend/.env.example backend/.env
 
-      # Step 3: Build and start all services (db, backend, frontend)
       - name: Build and start containers
         run: docker compose up -d --build
 
-      # Step 3: Wait for database to be ready
       - name: Wait for database
         run: |
           echo "Waiting for database to be ready..."
           timeout 60 bash -c 'until docker compose exec -T db pg_isready -U workmine -d workmine; do sleep 2; done'
           echo "Database is ready!"
 
-      # Step 4: Wait for backend to be ready
       - name: Wait for backend
         run: |
           echo "Waiting for backend to be ready..."
           timeout 120 bash -c 'until curl -sf http://localhost:8000/health; do sleep 3; done'
           echo "Backend is ready!"
 
-      # Step 5: Wait for frontend to be ready
       - name: Wait for frontend
         run: |
           echo "Waiting for frontend to be ready..."
           timeout 120 bash -c 'until curl -sf http://localhost:5173; do sleep 3; done'
           echo "Frontend is ready!"
 
-      # Step 6: Show running containers
       - name: Show container status
         run: docker compose ps
 
-      # Step 7: Run backend tests
       - name: Run backend tests
         run: docker compose exec -T backend pytest tests --cov=src --cov-report=term-missing -v
 
-      # Step 8: Run frontend tests
       - name: Run frontend tests
         run: docker compose exec -T frontend npm run test:run
 
-      # Step 9: Cleanup
       - name: Stop and remove containers
         if: always()
         run: docker compose down -v
