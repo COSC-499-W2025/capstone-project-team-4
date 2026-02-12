@@ -1,0 +1,220 @@
+name: PR Automation
+
+on:
+  pull_request:
+    branches:
+      - main
+      - development
+
+jobs:
+  assign-copilot-reviewer:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Assign Copilot as reviewer
+        run: gh pr edit "$PR_URL" --add-reviewer copilot
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  auto-assign:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Assign PR author as assignee
+        run: gh pr edit "$PR_URL" --add-assignee "${{ github.event.pull_request.user.login }}"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  auto-milestone:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Add PR to current milestone
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Get the earliest open milestone by due date
+          MILESTONE=$(gh api "repos/$REPO/milestones?state=open&sort=due_on&direction=asc&per_page=1" --jq '.[0].title // empty')
+
+          if [ -z "$MILESTONE" ]; then
+            echo "No open milestone found. Skipping."
+            exit 0
+          fi
+
+          echo "Assigning PR #$PR_NUMBER to milestone: $MILESTONE"
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --milestone "$MILESTONE"
+
+  auto-label-type:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Label PR by change type
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          REPO: ${{ github.repository }}
+        run: |
+          BASE_REF="origin/${{ github.event.pull_request.base.ref }}"
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+
+          CHANGED_FILES=$(git diff --name-only "$BASE_REF"...HEAD)
+
+          HAS_FRONTEND=false
+          HAS_BACKEND=false
+          HAS_DOCS=false
+          HAS_TESTS=false
+          HAS_CI=false
+          HAS_CONFIG=false
+
+          while IFS= read -r file; do
+            case "$file" in
+              frontend/*)                                    HAS_FRONTEND=true ;;
+              backend/*)                                     HAS_BACKEND=true ;;
+              docs/*|*.md|*.rst|*.txt)                       HAS_DOCS=true ;;
+              *test*|*spec*|tests/*|*__tests__/*)            HAS_TESTS=true ;;
+              .github/*|Dockerfile*|docker-compose*|*.yml)   HAS_CI=true ;;
+              *.json|*.toml|*.cfg|*.ini|*.env*)              HAS_CONFIG=true ;;
+            esac
+          done <<< "$CHANGED_FILES"
+
+          # Determine type label from branch name prefix
+          BRANCH="${{ github.head_ref }}"
+          PREFIX="${BRANCH%%/*}"
+
+          LABELS=""
+          case "$PREFIX" in
+            feat|feature)      LABELS="type/feature" ;;
+            fix|bugfix|hotfix) LABELS="type/bug-fix" ;;
+            docs)              LABELS="type/docs" ;;
+            test)              LABELS="type/test" ;;
+            refactor)          LABELS="type/refactor" ;;
+            chore)             LABELS="type/chore" ;;
+            ci)                LABELS="type/ci" ;;
+          esac
+
+          # Add area labels based on changed files
+          if [ "$HAS_FRONTEND" = true ]; then LABELS="$LABELS area/frontend"; fi
+          if [ "$HAS_BACKEND" = true ]; then LABELS="$LABELS area/backend"; fi
+          if [ "$HAS_DOCS" = true ]; then LABELS="$LABELS area/docs"; fi
+          if [ "$HAS_TESTS" = true ]; then LABELS="$LABELS area/tests"; fi
+          if [ "$HAS_CI" = true ]; then LABELS="$LABELS area/ci"; fi
+          if [ "$HAS_CONFIG" = true ]; then LABELS="$LABELS area/config"; fi
+
+          # Create and apply each label
+          for label in $LABELS; do
+            gh label create "$label" --force --repo "$REPO" 2>/dev/null || true
+            gh pr edit "$PR_URL" --add-label "$label"
+          done
+
+          echo "Applied labels: $LABELS"
+
+  pr-size-label:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Label PR by size
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          BASE_REF="origin/${{ github.event.pull_request.base.ref }}"
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+
+          # Categorize changed files into docs, tests, and feature
+          DOCS_FILES=""
+          TEST_FILES=""
+          FEATURE_FILES=""
+
+          while IFS= read -r file; do
+            case "$file" in
+              docs/*|*.md|*.rst|*.txt|LICENSE*|CHANGELOG*)
+                DOCS_FILES="$DOCS_FILES $file" ;;
+              tests/*|test/*|*_test.py|*_test.ts|*_test.js|*.test.py|*.test.ts|*.test.js|*.test.tsx|*.test.jsx|*.spec.ts|*.spec.js|*.spec.tsx|*.spec.jsx|**/__tests__/*)
+                TEST_FILES="$TEST_FILES $file" ;;
+              *)
+                FEATURE_FILES="$FEATURE_FILES $file" ;;
+            esac
+          done < <(git diff --name-only "$BASE_REF"...HEAD)
+
+          # Count lines changed per category
+          count_lines() {
+            local files="$1"
+            if [ -z "$files" ]; then
+              echo 0
+              return
+            fi
+            local stats
+            stats=$(git diff --numstat "$BASE_REF"...HEAD -- $files | awk '{ added += $1; deleted += $2 } END { print added + deleted }')
+            echo "${stats:-0}"
+          }
+
+          DOCS_LINES=$(count_lines "$DOCS_FILES")
+          TEST_LINES=$(count_lines "$TEST_FILES")
+          FEATURE_LINES=$(count_lines "$FEATURE_FILES")
+          TOTAL_LINES=$((DOCS_LINES + TEST_LINES + FEATURE_LINES))
+
+          DOCS_COUNT=$(echo $DOCS_FILES | wc -w)
+          TEST_COUNT=$(echo $TEST_FILES | wc -w)
+          FEATURE_COUNT=$(echo $FEATURE_FILES | wc -w)
+          TOTAL_FILES=$((DOCS_COUNT + TEST_COUNT + FEATURE_COUNT))
+
+          # Print summary by type
+          echo "===== PR Change Summary ====="
+          echo "Type         Files   Lines"
+          echo "----------------------------"
+          printf "Feature      %5d   %5d\n" "$FEATURE_COUNT" "$FEATURE_LINES"
+          printf "Tests        %5d   %5d\n" "$TEST_COUNT" "$TEST_LINES"
+          printf "Docs         %5d   %5d\n" "$DOCS_COUNT" "$DOCS_LINES"
+          echo "----------------------------"
+          printf "Total        %5d   %5d\n" "$TOTAL_FILES" "$TOTAL_LINES"
+          echo ""
+          echo "Note: Only feature lines ($FEATURE_LINES) are counted for size thresholds."
+
+          # Remove existing size labels
+          for label in "size/S" "size/M" "size/L" "size/XL: oversized"; do
+            gh pr edit "$PR_URL" --remove-label "$label" 2>/dev/null || true
+          done
+
+          # Apply label based on course requirement thresholds using FEATURE changes only:
+          # < 3 files AND < 200 lines = Small
+          # < 10 files AND < 500 lines = Medium
+          # >= 10 files OR >= 500 lines = Large (oversized, must request changes)
+          if [ "$FEATURE_COUNT" -lt 3 ] && [ "$FEATURE_LINES" -lt 200 ]; then
+            LABEL="size/S"
+          elif [ "$FEATURE_COUNT" -lt 10 ] && [ "$FEATURE_LINES" -lt 500 ]; then
+            LABEL="size/M"
+          else
+            LABEL="size/XL: oversized"
+          fi
+
+          # Create label if it doesn't exist, then apply
+          gh label create "$LABEL" --force --repo "${{ github.repository }}" 2>/dev/null || true
+          gh pr edit "$PR_URL" --add-label "$LABEL"
+
+          # Warn on oversized PRs
+          if [ "$LABEL" = "size/XL: oversized" ]; then
+            echo "::warning::PR is oversized ($FEATURE_COUNT feature files, $FEATURE_LINES feature lines). Course rules: limit PRs to <10 files and <500 lines. Docs and test changes are excluded from thresholds."
+          fi
