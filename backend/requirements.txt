@@ -60,3 +60,7 @@ passlib[bcrypt]
 pytest>=7.4.0
 pytest-cov>=4.1.0
 pytest-asyncio>=0.23.0
+
+# Linting and type checking
+ruff>=0.5.0
+mypy>=1.10.0
