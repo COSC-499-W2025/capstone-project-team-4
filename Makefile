@@ -1,4 +1,4 @@
-.PHONY: up up-build down down-v logs ps test test-backend test-backend-cov test-frontend test-frontend-cov test-all shell-backend shell-frontend health lint-backend lint-frontend typecheck-backend
+.PHONY: up up-build down down-v logs ps test test-backend test-backend-cov test-frontend test-frontend-cov test-all shell-backend shell-frontend health lint-backend lint-frontend lint typecheck-backend
 
 # Allow shorthand: make test path/to/test
 ifneq (,$(filter test,$(MAKECMDGOALS)))
@@ -9,6 +9,18 @@ BACKEND_TEST_PATH := $(patsubst backend/%,%,$(TEST_PATH))
 FRONTEND_TEST_PATH := $(patsubst frontend/%,%,$(TEST_PATH))
 .PHONY: $(TEST_GOAL)
 $(TEST_GOAL):
+	@:
+endif
+
+# Allow shorthand: make lint path/to/file
+ifneq (,$(filter lint,$(MAKECMDGOALS)))
+LINT_GOAL := $(filter-out lint,$(MAKECMDGOALS))
+LINT_PATH := $(subst \,/,$(LINT_GOAL))
+IS_FRONTEND_LINT := $(filter frontend/%,$(LINT_PATH))
+BACKEND_LINT_PATH := $(patsubst backend/%,%,$(LINT_PATH))
+FRONTEND_LINT_PATH := $(patsubst frontend/%,%,$(LINT_PATH))
+.PHONY: $(LINT_GOAL)
+$(LINT_GOAL):
 	@:
 endif
 
@@ -56,6 +68,20 @@ test-frontend-cov:
 # Lint backend code
 lint-backend:
 	docker compose exec -T backend ruff check src tests
+
+# Lint specific path, or lint all if no args
+# make lint                        → lint both backend and frontend
+# make lint backend/src/api/main.py → ruff check on that file
+# make lint frontend/src/          → npm run lint on frontend
+lint:
+ifeq ($(strip $(LINT_GOAL)),)
+	docker compose exec -T backend ruff check src tests
+	docker compose exec -T frontend npm run lint
+else ifneq ($(strip $(IS_FRONTEND_LINT)),)
+	docker compose exec -T frontend npm run lint -- $(FRONTEND_LINT_PATH)
+else
+	docker compose exec -T backend ruff check $(BACKEND_LINT_PATH)
+endif
 
 # Lint frontend code
 lint-frontend:
