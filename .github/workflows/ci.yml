@@ -132,6 +132,12 @@ jobs:
       - name: Run frontend tests
         run: docker compose exec -T frontend npm run test:run
 
+      - name: Install Schemathesis
+        run: pip install schemathesis
+
+      - name: Run Schemathesis API tests
+        run: st run http://localhost:8000/openapi.json --checks all
+
       - name: Stop and remove containers
         if: always()
         run: docker compose down -v
