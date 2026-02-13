@@ -11,6 +11,7 @@ from src.models.database import Base
 if TYPE_CHECKING:
     from src.models.orm.user_profile import UserProfile
     from src.models.orm.experience import Experience
+    from src.models.orm.education import Education
     from src.models.orm.project import Project
     from src.models.orm.data_privacy_settings import DataPrivacySettings
 
@@ -35,6 +36,9 @@ class User(Base):
     )
     experiences: Mapped[List["Experience"]] = relationship(
         "Experience", back_populates="user", cascade="all, delete-orphan"
+    )
+    educations: Mapped[List["Education"]] = relationship(
+        "Education", back_populates="user", cascade="all, delete-orphan"
     )
     projects: Mapped[List["Project"]] = relationship(
         "Project", back_populates="user", cascade="all, delete-orphan"

@@ -77,6 +77,7 @@ def init_db() -> None:
         UserProfile,
         Experience,
         ExperienceType,
+        Education,
         DataPrivacySettings,
     )
 

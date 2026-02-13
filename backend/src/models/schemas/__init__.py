@@ -47,6 +47,11 @@ from src.models.schemas.user_profile import (
     ExperienceResponse,
     ExperienceTypeEnum,
 )
+from src.models.schemas.education import (
+    EducationCreate,
+    EducationUpdate,
+    EducationResponse,
+)
 from src.models.schemas.data_privacy_settings import (
     DataPrivacySettingsCreate,
     DataPrivacySettingsUpdate,
@@ -86,6 +91,9 @@ __all__ = [
     "ExperienceUpdate",
     "ExperienceResponse",
     "ExperienceTypeEnum",
+    "EducationCreate",
+    "EducationUpdate",
+    "EducationResponse",
     "DataPrivacySettingsCreate",
     "DataPrivacySettingsUpdate",
     "DataPrivacySettingsResponse",
