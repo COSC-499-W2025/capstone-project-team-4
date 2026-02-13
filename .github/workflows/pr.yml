@@ -7,16 +7,6 @@ on:
       - development
 
 jobs:
-  assign-copilot-reviewer:
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-    steps:
-      - name: Assign Copilot as reviewer
-        run: gh pr edit "$PR_URL" --add-reviewer copilot
-        env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   auto-assign:
     runs-on: ubuntu-latest
