@@ -299,6 +299,43 @@ def test_compare_current_and_midpoint_missing_snapshot():
     assert exc.value.status_code == 404
 
 
+def test_delete_snapshot_raises_when_not_found():
+    service = SnapshotService(db=None)
+    service.snapshot_repo = SimpleNamespace(get=lambda _id: None)
+
+    with pytest.raises(HTTPException) as exc:
+        service.delete_snapshot(project_id=7, snapshot_id=999)
+
+    assert exc.value.status_code == 404
+
+
+def test_delete_snapshot_raises_when_project_mismatch():
+    service = SnapshotService(db=None)
+    service.snapshot_repo = SimpleNamespace(
+        get=lambda _id: SimpleNamespace(id=10, project_id=99)
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        service.delete_snapshot(project_id=7, snapshot_id=10)
+
+    assert exc.value.status_code == 404
+
+
+def test_delete_snapshot_happy_path():
+    deleted_ids = []
+    service = SnapshotService(db=None)
+    service.snapshot_repo = SimpleNamespace(
+        get=lambda _id: SimpleNamespace(id=10, project_id=7),
+        delete=lambda sid: deleted_ids.append(sid) or True,
+    )
+
+    result = service.delete_snapshot(project_id=7, snapshot_id=10)
+
+    assert result["project_id"] == 7
+    assert result["snapshot_id"] == 10
+    assert deleted_ids == [10]
+
+
 def json_dumps(obj: dict) -> str:
     import json
     return json.dumps(obj)
