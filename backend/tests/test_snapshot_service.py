@@ -277,8 +277,8 @@ def test_compare_current_and_midpoint_happy_path():
     result = service.compare_current_and_midpoint(project_id=9)
 
     assert result["project_id"] == 9
-    assert result["totals"]["files"]["delta"] == 2
-    assert result["counts"]["languages"]["delta"] == 1
+    assert result["totals"]["total_files"]["delta"] == 2
+    assert result["counts"]["language_count"]["delta"] == 1
     assert "JavaScript" in result["languages"]["added"]
     assert result["complexity"]["max_complexity"]["delta"] == 2
 
