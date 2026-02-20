@@ -5,8 +5,9 @@ import os
 import subprocess
 from datetime import datetime, date
 from typing import Optional, Set
+import hashlib
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 
 from src.utils.contributor_dedup import cluster_authors
@@ -21,6 +22,7 @@ from src.models.schemas.contributor import (
 )
 
 from src.models.schemas.complexity import ComplexityReport, ComplexityByFile, ComplexitySchema, ComplexitySummary
+from src.models.schemas.project import ProjectThumbnailResponse
 from src.services.project_service import ProjectService
 from src.repositories.contributor_repository import ContributorRepository
 from src.repositories.project_repository import ProjectRepository
@@ -31,6 +33,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
+MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024
+ALLOWED_THUMBNAIL_TYPES = {"image/png", "image/jpeg", "image/webp"}
 
 def _find_git_root(start_path: str) -> Optional[str]:
     """Find nearest parent directory containing a .git folder.
@@ -210,6 +214,44 @@ async def get_project(
 
     return project
 
+@router.put("/{project_id}/thumbnail", response_model=ProjectThumbnailResponse)
+async def put_project_thumbnail(
+    project_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Upload or replace a project's thumbnail image."""
+    service = ProjectService(db)
+
+    if not service.project_exists(project_id):
+        raise ProjectNotFoundError(project_id)
+
+    if not file.content_type or file.content_type not in ALLOWED_THUMBNAIL_TYPES:
+        raise HTTPException(status_code=415, detail="Unsupported thumbnail content type")
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file")
+    if len(data) > MAX_THUMBNAIL_BYTES:
+        raise HTTPException(status_code=413, detail="Thumbnail too large")
+
+    etag = hashlib.sha256(data).hexdigest()
+    endpoint = f"/api/projects/{project_id}/thumbnail"
+
+    result = service.set_thumbnail(
+        project_id,
+        content_type=file.content_type,
+        bytes_data=data,
+        size_bytes=len(data),
+        etag=etag,
+        thumbnail_endpoint=endpoint,
+    )
+
+    # Defensive (shouldn't happen because we checked project_exists)
+    if result is None:
+        raise ProjectNotFoundError(project_id)
+
+    return result
 
 @router.delete("/{project_id}", status_code=204)
 async def delete_project(
