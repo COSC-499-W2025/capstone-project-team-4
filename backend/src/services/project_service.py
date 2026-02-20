@@ -4,12 +4,13 @@ import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from datetime import datetime
 
 import yaml
 from src.core.detectors.language import EXTENSION_MAP
 from sqlalchemy.orm import Session
 
-from src.models.schemas.project import ProjectSummary, ProjectList, ProjectDetail
+from src.models.schemas.project import ProjectSummary, ProjectList, ProjectDetail, ProjectThumbnailResponse
 from src.models.schemas.analysis import AnalysisResult, AnalysisStatus, ComplexitySummary
 from src.models.schemas.contributor import (
     ContributorAnalysisSchema,
@@ -21,6 +22,7 @@ from src.repositories.file_repository import FileRepository
 from src.repositories.contributor_repository import ContributorRepository
 from src.repositories.complexity_repository import ComplexityRepository
 from src.repositories.skill_repository import SkillRepository
+from src.models.orm.project_thumbnail import ProjectThumbnail
 
 logger = logging.getLogger(__name__)
 
@@ -239,6 +241,55 @@ class ProjectService:
 
         logger.info(f"Deleting project {project_id}: {project.name}")
         return self.project_repo.delete(project_id)
+
+    def set_thumbnail(
+        self,
+        project_id: int,
+        *,
+        content_type: str,
+        bytes_data: bytes,
+        size_bytes: int,
+        etag: Optional[str],
+        thumbnail_endpoint: str,
+    ) -> ProjectThumbnailResponse:
+        """Create or replace a project's thumbnail in the DB."""
+        project = self.project_repo.get(project_id)
+        if not project:
+            # Keep service consistent: callers can handle not-found however they want.
+            return None  # type: ignore[return-value]
+
+        thumb = self.db.get(ProjectThumbnail, project_id)
+
+        now = datetime.utcnow()
+        if thumb is None:
+            thumb = ProjectThumbnail(
+                project_id=project_id,
+                bytes=bytes_data,
+                content_type=content_type,
+                size_bytes=size_bytes,
+                etag=etag,
+                updated_at=now,
+            )
+            self.db.add(thumb)
+        else:
+            thumb.bytes = bytes_data
+            thumb.content_type = content_type
+            thumb.size_bytes = size_bytes
+            thumb.etag = etag
+            thumb.updated_at = now
+
+        self.db.commit()
+        self.db.refresh(thumb)
+
+        return ProjectThumbnailResponse(
+            project_id=project_id,
+            has_thumbnail=True,
+            thumbnail_updated_at=thumb.updated_at,
+            thumbnail_endpoint=thumbnail_endpoint,
+            content_type=thumb.content_type,
+            size_bytes=thumb.size_bytes,
+            etag=thumb.etag,
+        )
 
     def get_contributor_analysis(self, project_id: int) -> Optional[ProjectContributorsAnalysisResponse]:
         """

@@ -68,6 +68,16 @@ class ProjectList(BaseModel):
     page_size: int
     pages: int
 
+class ProjectThumbnailResponse(BaseModel):
+    """Response after uploading/replacing a project thumbnail."""
+
+    project_id: int
+    has_thumbnail: bool
+    thumbnail_updated_at: datetime
+    thumbnail_endpoint: str
+    content_type: str
+    size_bytes: int
+    etag: Optional[str] = None
 
 class SnapshotSummary(BaseModel):
     """Compact snapshot summary."""
