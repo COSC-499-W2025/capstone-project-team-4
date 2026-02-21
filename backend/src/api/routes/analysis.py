@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Optional, Union, List
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
+from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from src.models.database import get_db
@@ -142,6 +142,76 @@ def analyze_project_frameworks(
         return result
     except Exception as e:
         logger.exception(f"Framework analysis failed for project {project_id}")
+        raise AnalysisError(str(e))
+
+
+@router.post("/{project_id}/analyze-tech-stack", status_code=200)
+def analyze_project_tech_stack(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """Analyze project-wide libraries and frameworks in a single request."""
+    logger.info(f"Received request to analyze unified tech stack for project: {project_id}")
+
+    service = AnalysisService(db)
+    project = service.project_repo.get(project_id)
+
+    if not project:
+        logger.error(f"Project not found: {project_id}")
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+
+    try:
+        result = service.analyze_tech_stack(project_id, project.root_path, project.source_url)
+        logger.info(f"Unified tech-stack analysis completed for project {project_id}")
+        return result
+    except Exception as e:
+        logger.exception(f"Unified tech-stack analysis failed for project {project_id}")
+        raise AnalysisError(str(e))
+
+
+@router.post("/{project_id}/contributors/{contributor_id}/analyze-tech-stack", status_code=200)
+def analyze_contributor_tech_stack(
+    project_id: int,
+    contributor_id: int,
+    include_transitive: bool = Query(False, description="Include transitive dependencies from lockfiles"),
+    db: Session = Depends(get_db),
+):
+    """Analyze contributor-scoped libraries and frameworks from touched files."""
+    logger.info(
+        "Received request to analyze contributor tech stack for project %s, contributor %s",
+        project_id,
+        contributor_id,
+    )
+
+    service = AnalysisService(db)
+    project = service.project_repo.get(project_id)
+
+    if not project:
+        logger.error(f"Project not found: {project_id}")
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+
+    try:
+        result = service.analyze_contributor_tech_stack(
+            project_id=project_id,
+            contributor_id=contributor_id,
+            project_path=project.root_path,
+            source_url=project.source_url,
+            include_transitive=include_transitive,
+        )
+        logger.info(
+            "Contributor tech-stack analysis completed for project %s, contributor %s",
+            project_id,
+            contributor_id,
+        )
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(
+            "Contributor tech-stack analysis failed for project %s, contributor %s",
+            project_id,
+            contributor_id,
+        )
         raise AnalysisError(str(e))
 
 

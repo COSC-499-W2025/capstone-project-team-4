@@ -278,3 +278,132 @@ class TestAsyncEndpointResponse:
             assert isinstance(data["project_id"], int)
             assert isinstance(data["frameworks_found"], int)
             assert isinstance(data["duration_seconds"], float)
+
+
+class TestUnifiedTechStackEndpoints:
+    """Tests for unified project/contributor tech stack endpoints."""
+
+    def test_analyze_project_tech_stack_success(self, client, mock_db_session):
+        with patch("src.api.routes.analysis.get_db") as mock_get_db, \
+             patch("src.api.routes.analysis.AnalysisService") as mock_service_class:
+            mock_get_db.return_value = mock_db_session
+
+            mock_project = MagicMock()
+            mock_project.id = 10
+            mock_project.root_path = "/tmp/project"
+            mock_project.source_url = "/tmp/project.zip"
+
+            mock_service = MagicMock()
+            mock_service.project_repo.get.return_value = mock_project
+            mock_service.analyze_tech_stack.return_value = {
+                "project_id": 10,
+                "scope": "project",
+                "libraries_found": 12,
+                "frameworks_found": 4,
+                "libraries": ["fastapi", "pydantic"],
+                "frameworks": ["FastAPI"],
+                "duration_seconds": 1.2,
+            }
+            mock_service_class.return_value = mock_service
+
+            response = client.post("/api/projects/analyze/10/analyze-tech-stack")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["project_id"] == 10
+            assert data["scope"] == "project"
+            assert "libraries" in data
+            assert "frameworks" in data
+
+    def test_analyze_contributor_tech_stack_success(self, client, mock_db_session):
+        with patch("src.api.routes.analysis.get_db") as mock_get_db, \
+             patch("src.api.routes.analysis.AnalysisService") as mock_service_class:
+            mock_get_db.return_value = mock_db_session
+
+            mock_project = MagicMock()
+            mock_project.id = 10
+            mock_project.root_path = "/tmp/project"
+            mock_project.source_url = "/tmp/project.zip"
+
+            mock_service = MagicMock()
+            mock_service.project_repo.get.return_value = mock_project
+            mock_service.analyze_contributor_tech_stack.return_value = {
+                "project_id": 10,
+                "contributor_id": 7,
+                "scope": "contributor",
+                "files_considered": 18,
+                "include_transitive": False,
+                "libraries_found": 5,
+                "frameworks_found": 2,
+                "libraries": ["axios"],
+                "frameworks": ["React"],
+                "duration_seconds": 0.9,
+            }
+            mock_service_class.return_value = mock_service
+
+            response = client.post("/api/projects/analyze/10/contributors/7/analyze-tech-stack")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["project_id"] == 10
+            assert data["contributor_id"] == 7
+            assert data["scope"] == "contributor"
+            assert "files_considered" in data
+            assert data["include_transitive"] is False
+
+    def test_analyze_contributor_tech_stack_with_transitive(self, client, mock_db_session):
+        with patch("src.api.routes.analysis.get_db") as mock_get_db, \
+             patch("src.api.routes.analysis.AnalysisService") as mock_service_class:
+            mock_get_db.return_value = mock_db_session
+
+            mock_project = MagicMock()
+            mock_project.id = 10
+            mock_project.root_path = "/tmp/project"
+            mock_project.source_url = "/tmp/project.zip"
+
+            mock_service = MagicMock()
+            mock_service.project_repo.get.return_value = mock_project
+            mock_service.analyze_contributor_tech_stack.return_value = {
+                "project_id": 10,
+                "contributor_id": 7,
+                "scope": "contributor",
+                "files_considered": 18,
+                "include_transitive": True,
+                "libraries_found": 50,
+                "frameworks_found": 2,
+                "libraries": ["@babel/core", "axios"],
+                "frameworks": ["React"],
+                "duration_seconds": 1.5,
+            }
+            mock_service_class.return_value = mock_service
+
+            response = client.post("/api/projects/analyze/10/contributors/7/analyze-tech-stack?include_transitive=true")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["include_transitive"] is True
+
+    def test_analyze_contributor_tech_stack_contributor_not_found(self, client, mock_db_session):
+        with patch("src.api.routes.analysis.get_db") as mock_get_db, \
+             patch("src.api.routes.analysis.AnalysisService") as mock_service_class:
+            mock_get_db.return_value = mock_db_session
+
+            mock_project = MagicMock()
+            mock_project.id = 11
+            mock_project.root_path = "/tmp/project"
+            mock_project.source_url = "/tmp/project.zip"
+
+            from fastapi import HTTPException
+
+            mock_service = MagicMock()
+            mock_service.project_repo.get.return_value = mock_project
+            mock_service.analyze_contributor_tech_stack.side_effect = HTTPException(
+                status_code=404,
+                detail="Contributor not found: 999",
+            )
+            mock_service_class.return_value = mock_service
+
+            response = client.post("/api/projects/analyze/11/contributors/999/analyze-tech-stack")
+
+            assert response.status_code == 404
+            assert "Contributor not found" in response.json().get("detail", "")
