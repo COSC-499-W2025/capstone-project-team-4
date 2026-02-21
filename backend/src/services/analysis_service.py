@@ -1633,27 +1633,76 @@ class AnalysisService:
         except Exception as e:
             logger.error(f"Failed to save analysis summary for project {project_id}: {e}")
 
-    def analyze_libraries_and_tools(self, project_id: int, project_path: str) -> dict:
+    def _resolve_deferred_analysis_path(
+        self,
+        project_path: str,
+        source_url: Optional[str] = None,
+    ) -> Tuple[Path, Optional[tempfile.TemporaryDirectory]]:
+        """Resolve a usable project path for deferred analyses.
+
+        If the stored project path no longer exists (e.g., temp extraction path),
+        try to rehydrate from the persisted source ZIP.
+        """
+        project_root = Path(project_path)
+        if project_root.exists():
+            return project_root, None
+
+        if source_url:
+            source_path = Path(source_url)
+            if source_path.exists() and source_path.suffix.lower() == ".zip" and zipfile.is_zipfile(source_path):
+                temp_dir = tempfile.TemporaryDirectory()
+                extract_root = Path(temp_dir.name)
+
+                _extract_zip_skipping_macos_junk(source_path, extract_root)
+                _extract_inner_zips_recursively(extract_root, max_zip_depth=2)
+
+                roots = detect_project_roots_in_zip(extract_root)
+                return (roots[0] if roots else extract_root), temp_dir
+
+        raise FileNotFoundError(
+            f"Project path not found for deferred analysis: {project_path}. "
+            "Upload source may be unavailable."
+        )
+
+    def analyze_libraries_and_tools(
+        self,
+        project_id: int,
+        project_path: str,
+        source_url: Optional[str] = None,
+    ) -> dict:
         """
         Analyze libraries and tools for an existing project.
         Updates the database with detected libraries and tools.
         """
         logger.info("Starting library and tool analysis for project %d", project_id)
         start_time = time.time()
+        project_root, temp_dir = self._resolve_deferred_analysis_path(project_path, source_url)
         
-        # Delete existing libraries and tools
-        self.library_repo.delete_by_project(project_id)
-        self.tool_repo.delete_by_project(project_id)
-        
-        # Run analyses
-        library_report = detect_libraries_recursive(project_path)
-        tool_report = detect_tools_recursive(project_path)
-        
-        # Save to database
-        if library_report.get("libraries"):
-            self.library_repo.create_libraries_bulk(library_report["libraries"], project_id)
-        if tool_report.get("tools"):
-            self.tool_repo.create_tools_bulk(tool_report["tools"], project_id)
+        try:
+            # Delete existing libraries and tools
+            self.library_repo.delete_by_project(project_id)
+            self.tool_repo.delete_by_project(project_id)
+
+            # Run analyses
+            library_report = detect_libraries_recursive(project_root)
+            tool_report = detect_tools_recursive(project_root)
+
+            # Save to database
+            if library_report.get("libraries"):
+                self.library_repo.create_libraries_bulk(library_report["libraries"], project_id)
+            if tool_report.get("tools"):
+                self.tool_repo.create_tools_bulk(tool_report["tools"], project_id)
+
+            tool_names = sorted(
+                {
+                    tool.get("name", "").strip()
+                    for tool in tool_report.get("tools", [])
+                    if tool.get("name")
+                }
+            )
+        finally:
+            if temp_dir is not None:
+                temp_dir.cleanup()
         
         elapsed = time.time() - start_time
         logger.info(
@@ -1668,26 +1717,45 @@ class AnalysisService:
             "project_id": project_id,
             "libraries_found": library_report.get("total_count", 0),
             "tools_found": tool_report.get("total_count", 0),
+            "tools": tool_names,
             "duration_seconds": elapsed,
         }
 
-    def analyze_frameworks(self, project_id: int, project_path: str) -> dict:
+    def analyze_frameworks(
+        self,
+        project_id: int,
+        project_path: str,
+        source_url: Optional[str] = None,
+    ) -> dict:
         """
         Analyze frameworks for an existing project.
         Updates the database with detected frameworks.
         """
         logger.info("Starting framework analysis for project %d", project_id)
         start_time = time.time()
+        project_root, temp_dir = self._resolve_deferred_analysis_path(project_path, source_url)
         
-        # Delete existing frameworks
-        self.framework_repo.delete_by_project(project_id)
-        
-        # Run framework detection
-        frameworks_detected = self._detect_frameworks_best(project_path)
-        
-        # Save to database
-        if frameworks_detected:
-            self.framework_repo.create_frameworks_bulk(frameworks_detected, project_id)
+        try:
+            # Delete existing frameworks
+            self.framework_repo.delete_by_project(project_id)
+
+            # Run framework detection
+            frameworks_detected = self._detect_frameworks_best(project_root)
+
+            # Save to database
+            if frameworks_detected:
+                self.framework_repo.create_frameworks_bulk(frameworks_detected, project_id)
+
+            framework_names = sorted(
+                {
+                    framework.get("name", "").strip()
+                    for framework in frameworks_detected
+                    if framework.get("name")
+                }
+            )
+        finally:
+            if temp_dir is not None:
+                temp_dir.cleanup()
         
         elapsed = time.time() - start_time
         logger.info(
@@ -1700,6 +1768,7 @@ class AnalysisService:
         return {
             "project_id": project_id,
             "frameworks_found": len(frameworks_detected) if frameworks_detected else 0,
+            "frameworks": framework_names,
             "duration_seconds": elapsed,
         }
 

@@ -110,7 +110,7 @@ def analyze_project_libraries_tools(
         raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
     
     try:
-        result = service.analyze_libraries_and_tools(project_id, project.root_path)
+        result = service.analyze_libraries_and_tools(project_id, project.root_path, project.source_url)
         logger.info(f"Library/tool analysis completed for project {project_id}")
         return result
     except Exception as e:
@@ -137,7 +137,7 @@ def analyze_project_frameworks(
         raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
     
     try:
-        result = service.analyze_frameworks(project_id, project.root_path)
+        result = service.analyze_frameworks(project_id, project.root_path, project.source_url)
         logger.info(f"Framework analysis completed for project {project_id}")
         return result
     except Exception as e:
