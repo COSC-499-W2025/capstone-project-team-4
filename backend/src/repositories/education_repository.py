@@ -68,7 +68,7 @@ class EducationRepository(BaseRepository[Education]):
             return None
 
         for key, value in kwargs.items():
-            if hasattr(education, key) and value is not None:
+            if hasattr(education, key):
                 setattr(education, key, value)
 
         return self.update(education)

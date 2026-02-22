@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class EducationBase(BaseModel):
@@ -20,6 +20,14 @@ class EducationBase(BaseModel):
     description: Optional[str] = None
     honors: Optional[str] = None
     activities: Optional[str] = None
+
+    @model_validator(mode='after')
+    def validate_timeline(self) -> 'EducationBase':
+        if self.is_current and self.end_date is not None:
+            raise ValueError("end_date must be null when is_current is True")
+        if self.end_date is not None and self.end_date < self.start_date:
+            raise ValueError("end_date must be on or after start_date")
+        return self
 
 
 class EducationCreate(EducationBase):
@@ -42,6 +50,15 @@ class EducationUpdate(BaseModel):
     description: Optional[str] = None
     honors: Optional[str] = None
     activities: Optional[str] = None
+
+    @model_validator(mode='after')
+    def validate_timeline(self) -> 'EducationUpdate':
+        if self.is_current is True and self.end_date is not None:
+            raise ValueError("end_date must be null when is_current is True")
+        if self.end_date is not None and self.start_date is not None:
+            if self.end_date < self.start_date:
+                raise ValueError("end_date must be on or after start_date")
+        return self
 
 
 class EducationResponse(EducationBase):

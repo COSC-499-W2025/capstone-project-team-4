@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.database import Base
@@ -33,7 +33,7 @@ class Education(Base):
     is_current: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Additional details
-    gpa: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    gpa: Mapped[Optional[float]] = mapped_column(Numeric(precision=3, scale=2, asdecimal=False), nullable=True)
     location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     honors: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
