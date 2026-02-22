@@ -88,7 +88,7 @@ async def analyze_upload(
             tmp_path,
             name,
             use_cache=reuse_cached_analysis,
-            split_projects=split_projects,  # ✅ pass through
+            split_projects=split_projects,  
         )
 
         # Always return list to match response_model=List[AnalysisResult]
