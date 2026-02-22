@@ -291,6 +291,26 @@ class ProjectService:
             etag=thumb.etag,
         )
 
+    def get_thumbnail(
+        self, project_id: int
+    ) -> Optional[Tuple[bytes, str, Optional[str]]]:
+        """
+        Return (bytes, content_type, etag) for a project's thumbnail, or None if missing.
+        """
+        thumb = self.db.get(ProjectThumbnail, project_id)
+        if thumb is None:
+            return None
+        return (thumb.bytes, thumb.content_type, thumb.etag)
+    
+    def delete_thumbnail(self, project_id: int) -> bool:
+        """Delete a project's thumbnail. Returns True if deleted, False if not found."""
+        thumb = self.db.get(ProjectThumbnail, project_id)
+        if thumb is None:
+            return False
+        self.db.delete(thumb)
+        self.db.commit()
+        return True
+
     def get_contributor_analysis(self, project_id: int) -> Optional[ProjectContributorsAnalysisResponse]:
         """
         Get contributor analysis with contribution scores for a project.

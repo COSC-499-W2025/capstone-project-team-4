@@ -7,8 +7,9 @@ from datetime import datetime, date
 from typing import Optional, Set
 import hashlib
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Header
 from sqlalchemy.orm import Session
+from fastapi.responses import Response
 
 from src.utils.contributor_dedup import cluster_authors
 from src.models.database import get_db
@@ -252,6 +253,54 @@ async def put_project_thumbnail(
         raise ProjectNotFoundError(project_id)
 
     return result
+
+@router.get("/{project_id}/thumbnail")
+async def get_project_thumbnail(
+    project_id: int,
+    if_none_match: str | None = Header(default=None, alias="If-None-Match"),
+    db: Session = Depends(get_db),
+):
+    """Fetch project's thumbnail bytes with Content-Type and basic caching (ETag)."""
+    service = ProjectService(db)
+
+    if not service.project_exists(project_id):
+        raise ProjectNotFoundError(project_id)
+
+    thumb = service.get_thumbnail(project_id)
+    if thumb is None:
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+
+    data, content_type, etag = thumb
+
+    # Conditional GET: If-None-Match
+    if etag and if_none_match:
+        candidate = if_none_match.strip().strip('"')
+        if candidate == etag:
+            return Response(status_code=304, headers={"ETag": etag})
+
+    headers = {}
+    if etag:
+        headers["ETag"] = etag
+    headers["Cache-Control"] = "private, max-age=0, must-revalidate"
+
+    return Response(content=data, media_type=content_type, headers=headers)
+
+@router.delete("/{project_id}/thumbnail", status_code=204)
+async def delete_project_thumbnail(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """Delete project's thumbnail."""
+    service = ProjectService(db)
+
+    if not service.project_exists(project_id):
+        raise ProjectNotFoundError(project_id)
+
+    deleted = service.delete_thumbnail(project_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+
+    return None
 
 @router.delete("/{project_id}", status_code=204)
 async def delete_project(
