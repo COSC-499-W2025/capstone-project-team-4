@@ -311,6 +311,8 @@ class AnalysisService:
         zip_path: Path,
         project_name: Optional[str] = None,
         *,
+        use_cache: bool = True,
+        split_projects: bool = False,
         _depth: int = 0,
         _max_depth: int = 5,
     ) -> List["AnalysisResult"]:
@@ -357,17 +359,25 @@ class AnalysisService:
                     self.analyze_from_zip(
                         inner_zip_path,
                         nested_name,
+                        use_cache=use_cache,
+                        split_projects=split_projects,
                         _depth=_depth + 1,
                         _max_depth=_max_depth,
                     )
                 )
 
             # 2) analyze project roots in the extracted content
-            project_roots = detect_project_roots(temp_path)
-            logger.info(f"Detected {len(project_roots)} project(s) in extracted ZIP at depth {_depth}")
+            base_root = _normalize_zip_root(temp_path)  
 
+            if not split_projects:
+                project_roots = [base_root]
+            else:
+                project_roots = detect_project_roots(base_root)
+
+            logger.info(f"Detected {len(project_roots)} project(s) in extracted ZIP at depth {_depth} "f"(base_root={base_root})")
+    
             for idx, root in enumerate(project_roots, start=1):
-                rel = str(root.resolve().relative_to(temp_path.resolve())).replace("\\", "/")
+                rel = str(root.resolve().relative_to(base_root.resolve())).replace("\\", "/")
                 if _is_under_ignored_dir(rel):
                     continue
 
@@ -380,6 +390,7 @@ class AnalysisService:
                     source_url=str(zip_path),
                     zip_upload_time=datetime.utcnow(),
                     earliest_file_date_in_zip=earliest_file_date,
+                    use_cache=use_cache,
                 )
                 results.append(result)
 
@@ -503,13 +514,16 @@ class AnalysisService:
             for root in project_roots:
                 name = root.name if root != clone_path else project_name
 
-                result = self._run_analysis_pipeline(
-                    project_path=root,
-                    project_name=name,
-                    source_type="github",
-                    source_url=github_url,
-                )
-                results.append(result)
+            result = self._run_analysis_pipeline(
+                project_path=root,
+                project_name=derived_name,
+                source_type="zip",
+                source_url=str(zip_path),
+                zip_upload_time=datetime.utcnow(),
+                earliest_file_date_in_zip=earliest_file_date,
+                use_cache=use_cache,
+)
+            results.append(result)
 
             return results
 
@@ -518,9 +532,12 @@ class AnalysisService:
         project_path: Path,
         project_name: str,
         source_type: str,
-        source_url: Optional[str] = None,
-        zip_upload_time: Optional[datetime] = None,
-        earliest_file_date_in_zip: Optional[datetime] = None,
+        source_url: str,
+        zip_upload_time: datetime,
+        earliest_file_date_in_zip: datetime,
+        *,
+        use_cache: bool = True,
+
     ) -> AnalysisResult:
         """
         Run the full analysis pipeline on a project.
@@ -634,13 +651,13 @@ class AnalysisService:
             f"{project_tree_hash}:{settings.app_version}".encode("utf-8")
         ).hexdigest()
 
-        logger.info(
-            "[CACHE] project_tree_hash=%s analysis_key=%s",
-            project_tree_hash,
-            analysis_key,
-        )
+        logger.info("[CACHE] project_tree_hash=%s analysis_key=%s", project_tree_hash, analysis_key)
 
-        cached_project = self.project_repo.get_latest_by_analysis_key(analysis_key)
+        cached_project = None
+        if use_cache:
+            cached_project = self.project_repo.get_latest_by_analysis_key(analysis_key)
+        else:
+            logger.info("Cache BYPASSED (use_cache=False): analysis_key=%s", analysis_key)
 
         stage_timings["cache_lookup"] = time.time() - step_start
         if cached_project:
@@ -674,12 +691,9 @@ class AnalysisService:
                 cached_project.id,
                 project_id,
             )
-            self._clone_project_analysis(
-                from_project_id=cached_project.id,
-                to_project_id=project_id,
-            )
 
-            # Keep timestamps logic consistent (optional but recommended)
+            self._clone_project_analysis(from_project_id=cached_project.id, to_project_id=project_id)
+
             zip_uploaded_at = zip_upload_time if source_type == "zip" else datetime.utcnow()
             first_file_created = earliest_file_date_in_zip if earliest_file_date_in_zip else datetime.utcnow()
             first_commit_date = get_first_commit_date(str(project_path))
@@ -699,8 +713,9 @@ class AnalysisService:
                 project_started_at=project_started_at,
             )
 
-           
+            self.db.commit()
             return self.get_analysis_result(project_id)
+
         
         logger.info("Steps 3-6: Running parallel analysis")
         step_start = time.time()
