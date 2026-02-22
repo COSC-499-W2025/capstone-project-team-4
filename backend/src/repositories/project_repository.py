@@ -123,6 +123,7 @@ class ProjectRepository(BaseRepository[Project]):
         self,
         name: str,
         root_path: str,
+        user_id: Optional[int] = None,
         source_type: str = "local",
         source_url: Optional[str] = None,
         zip_uploaded_at: Optional[datetime] = None,
@@ -135,6 +136,7 @@ class ProjectRepository(BaseRepository[Project]):
     ) -> Project:
         """Create a new project."""
         project = Project(
+            user_id=user_id,
             name=name,
             root_path=root_path,
             source_type=source_type,
