@@ -1,3 +1,7 @@
+# This is literally the same as `docker-compose.yml`, but for Dokploy/deployment, it won't conflict
+# with ports on the server
+
+# Also, under backend:, I removed the .env as that is handled on Dokploy itself.
 services:
   db:
     image: postgres:15-alpine
@@ -6,8 +10,8 @@ services:
       - POSTGRES_USER=workmine
       - POSTGRES_PASSWORD=workmine
       - POSTGRES_DB=workmine
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -23,13 +27,11 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: project-analyzer-backend
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     volumes:
       - ./backend:/app
       - ./backend/data:/app/data
-    env_file:
-      - ./backend/.env
     environment:
       - PYTHONPATH=/app
       - DATABASE_URL=postgresql://workmine:workmine@db:5432/workmine
@@ -52,8 +54,8 @@ services:
       dockerfile: Dockerfile
       target: development
     container_name: project-analyzer-frontend
-    ports:
-      - "5173:5173"
+    expose:
+      - "5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
