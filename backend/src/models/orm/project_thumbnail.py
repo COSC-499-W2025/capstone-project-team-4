@@ -21,9 +21,7 @@ class ProjectThumbnail(Base):
         Integer,
         ForeignKey("projects.id", ondelete="CASCADE"),
         primary_key=True,
-        index=True,
     )
-
     bytes: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     content_type: Mapped[str] = mapped_column(String(100), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
