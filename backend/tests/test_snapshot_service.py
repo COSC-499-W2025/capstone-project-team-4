@@ -273,12 +273,16 @@ def test_compare_current_and_midpoint_happy_path():
             ),
         }[snapshot_type]
     )
+    service.comparison_repo = SimpleNamespace(
+        get_by_snapshot_ids=lambda _cur_id, _mid_id: None,
+        create=lambda _row: None,
+    )
 
     result = service.compare_current_and_midpoint(project_id=9)
 
     assert result["project_id"] == 9
-    assert result["totals"]["files"]["delta"] == 2
-    assert result["counts"]["languages"]["delta"] == 1
+    assert result["totals"]["total_files"]["delta"] == 2
+    assert result["counts"]["language_count"]["delta"] == 1
     assert "JavaScript" in result["languages"]["added"]
     assert result["complexity"]["max_complexity"]["delta"] == 2
 
@@ -293,6 +297,43 @@ def test_compare_current_and_midpoint_missing_snapshot():
         service.compare_current_and_midpoint(project_id=9)
 
     assert exc.value.status_code == 404
+
+
+def test_delete_snapshot_raises_when_not_found():
+    service = SnapshotService(db=None)
+    service.snapshot_repo = SimpleNamespace(get=lambda _id: None)
+
+    with pytest.raises(HTTPException) as exc:
+        service.delete_snapshot(project_id=7, snapshot_id=999)
+
+    assert exc.value.status_code == 404
+
+
+def test_delete_snapshot_raises_when_project_mismatch():
+    service = SnapshotService(db=None)
+    service.snapshot_repo = SimpleNamespace(
+        get=lambda _id: SimpleNamespace(id=10, project_id=99)
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        service.delete_snapshot(project_id=7, snapshot_id=10)
+
+    assert exc.value.status_code == 404
+
+
+def test_delete_snapshot_happy_path():
+    deleted_ids = []
+    service = SnapshotService(db=None)
+    service.snapshot_repo = SimpleNamespace(
+        get=lambda _id: SimpleNamespace(id=10, project_id=7),
+        delete=lambda sid: deleted_ids.append(sid) or True,
+    )
+
+    result = service.delete_snapshot(project_id=7, snapshot_id=10)
+
+    assert result["project_id"] == 7
+    assert result["snapshot_id"] == 10
+    assert deleted_ids == [10]
 
 
 def json_dumps(obj: dict) -> str:

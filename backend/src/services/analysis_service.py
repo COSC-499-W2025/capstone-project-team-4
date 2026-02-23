@@ -648,7 +648,11 @@ class AnalysisService:
             analysis_key,
         )
 
-        cached_project = self.project_repo.get_latest_by_analysis_key(analysis_key)
+        cached_project = None
+        if settings.skip_analysis_cache:
+            logger.info("Cache bypass enabled via SKIP_ANALYSIS_CACHE")
+        else:
+            cached_project = self.project_repo.get_latest_by_analysis_key(analysis_key)
 
         stage_timings["cache_lookup"] = time.time() - step_start
         if cached_project:
@@ -723,52 +727,76 @@ class AnalysisService:
         frameworks_detected: List[dict] = []
 
         with ThreadPoolExecutor(max_workers=6) as executor:
-            futures = {
-                executor.submit(git_analyze_contributors, project_root): "contributors",
-                executor.submit(
-                    lambda: project_analysis_to_dict(analyze_project(project_path, file_paths))
-                ): "complexity",
-                executor.submit(detect_libraries_recursive, project_path): "libraries",
-                executor.submit(detect_tools_recursive, project_path): "tools",
-                executor.submit(lambda: ProjectAnalyzer().analyze_project_languages(project_root)): "languages",
-                executor.submit(self._detect_frameworks_best, project_path): "frameworks",
-            }
+            task_start_times = {}  # Track start time for each task
+            futures = {}
+            
+            # Submit all tasks and record their start times
+            task_configs = [
+                ("contributors", git_analyze_contributors, project_root),
+                ("complexity", lambda: project_analysis_to_dict(analyze_project(project_path, file_paths)), None),
+                ("languages", lambda: ProjectAnalyzer().analyze_project_languages(project_root), None),
+            ]
+            
+            # Conditionally add library and tool detection
+            if settings.enable_library_tool_detection:
+                task_configs.extend([
+                    ("libraries", detect_libraries_recursive, project_path),
+                    ("tools", detect_tools_recursive, project_path),
+                ])
+            
+            # Conditionally add framework detection
+            if settings.enable_framework_detection:
+                task_configs.append(
+                    ("frameworks", self._detect_frameworks_best, project_path)
+                )
+            
+            for task_name, task_func, arg in task_configs:
+                task_start_times[task_name] = time.time()
+                if arg is not None:
+                    future = executor.submit(task_func, arg)
+                else:
+                    future = executor.submit(task_func)
+                futures[future] = task_name
 
             for future in as_completed(futures):
                 task_name = futures[future]
+                elapsed = time.time() - task_start_times[task_name]
                 try:
                     result = future.result()
                     if task_name == "contributors":
                         contributors = result
-                        logger.info("Git analysis complete: Found %d contributors", len(contributors))
+                        logger.info("Git analysis complete: Found %d contributors in %.2fs", len(contributors), elapsed)
                     elif task_name == "complexity":
                         complexity_dict = result
                         logger.info(
-                            "Complexity analysis complete: Found %d functions",
+                            "Complexity analysis complete: Found %d functions in %.2fs",
                             len(complexity_dict.get("functions", [])),
+                            elapsed,
                         )
                     elif task_name == "libraries":
                         library_report = result
                         logger.info(
-                            "Library detection complete: Found %d libraries",
+                            "Library detection complete: Found %d libraries in %.2fs",
                             library_report.get("total_count", 0),
+                            elapsed,
                         )
                     elif task_name == "tools":
                         tool_report = result
                         logger.info(
-                            "Tool detection complete: Found %d tools",
+                            "Tool detection complete: Found %d tools in %.2fs",
                             tool_report.get("total_count", 0),
+                            elapsed,
                         )
                     elif task_name == "languages":
                         languages_detected = sorted(
                             [lang for lang, count in result.items() if lang != "Unknown" and count > 0]
                         )
-                        logger.info("Language detection complete: Found %d languages", len(languages_detected))
+                        logger.info("Language detection complete: Found %d languages in %.2fs", len(languages_detected), elapsed)
                     elif task_name == "frameworks":
                         frameworks_detected = result or []
-                        logger.info("Framework detection complete: Found %d frameworks", len(frameworks_detected))
+                        logger.info("Framework detection complete: Found %d frameworks in %.2fs", len(frameworks_detected), elapsed)
                 except Exception as e:
-                    logger.warning("%s analysis failed: %s", task_name, e)
+                    logger.warning("%s analysis failed in %.2fs: %s", task_name, elapsed, e)
 
         stage_timings["parallel_analysis"] = time.time() - step_start
         logger.info(
@@ -1613,6 +1641,145 @@ class AnalysisService:
                 
         except Exception as e:
             logger.error(f"Failed to save analysis summary for project {project_id}: {e}")
+
+    def _resolve_deferred_analysis_path(
+        self,
+        project_path: str,
+        source_url: Optional[str] = None,
+    ) -> Tuple[Path, Optional[tempfile.TemporaryDirectory]]:
+        """Resolve a usable project path for deferred analyses.
+
+        If the stored project path no longer exists (e.g., temp extraction path),
+        try to rehydrate from the persisted source ZIP.
+        """
+        project_root = Path(project_path)
+        if project_root.exists():
+            return project_root, None
+
+        if source_url:
+            source_path = Path(source_url)
+            if source_path.exists() and source_path.suffix.lower() == ".zip" and zipfile.is_zipfile(source_path):
+                temp_dir = tempfile.TemporaryDirectory()
+                extract_root = Path(temp_dir.name)
+
+                _extract_zip_skipping_macos_junk(source_path, extract_root)
+                _extract_inner_zips_recursively(extract_root, max_zip_depth=2)
+
+                roots = detect_project_roots_in_zip(extract_root)
+                return (roots[0] if roots else extract_root), temp_dir
+
+        raise FileNotFoundError(
+            f"Project path not found for deferred analysis: {project_path}. "
+            "Upload source may be unavailable."
+        )
+
+    def analyze_libraries_and_tools(
+        self,
+        project_id: int,
+        project_path: str,
+        source_url: Optional[str] = None,
+    ) -> dict:
+        """
+        Analyze libraries and tools for an existing project.
+        Updates the database with detected libraries and tools.
+        """
+        logger.info("Starting library and tool analysis for project %d", project_id)
+        start_time = time.time()
+        project_root, temp_dir = self._resolve_deferred_analysis_path(project_path, source_url)
+        
+        try:
+            # Delete existing libraries and tools
+            self.library_repo.delete_by_project(project_id)
+            self.tool_repo.delete_by_project(project_id)
+
+            # Run analyses
+            library_report = detect_libraries_recursive(project_root)
+            tool_report = detect_tools_recursive(project_root)
+
+            # Save to database
+            if library_report.get("libraries"):
+                self.library_repo.create_libraries_bulk(library_report["libraries"], project_id)
+            if tool_report.get("tools"):
+                self.tool_repo.create_tools_bulk(tool_report["tools"], project_id)
+
+            tool_names = sorted(
+                {
+                    tool.get("name", "").strip()
+                    for tool in tool_report.get("tools", [])
+                    if tool.get("name")
+                }
+            )
+        finally:
+            if temp_dir is not None:
+                temp_dir.cleanup()
+        
+        elapsed = time.time() - start_time
+        logger.info(
+            "Library and tool analysis complete for project %d: %d libraries, %d tools in %.2fs",
+            project_id,
+            library_report.get("total_count", 0),
+            tool_report.get("total_count", 0),
+            elapsed,
+        )
+        
+        return {
+            "project_id": project_id,
+            "libraries_found": library_report.get("total_count", 0),
+            "tools_found": tool_report.get("total_count", 0),
+            "tools": tool_names,
+            "duration_seconds": elapsed,
+        }
+
+    def analyze_frameworks(
+        self,
+        project_id: int,
+        project_path: str,
+        source_url: Optional[str] = None,
+    ) -> dict:
+        """
+        Analyze frameworks for an existing project.
+        Updates the database with detected frameworks.
+        """
+        logger.info("Starting framework analysis for project %d", project_id)
+        start_time = time.time()
+        project_root, temp_dir = self._resolve_deferred_analysis_path(project_path, source_url)
+        
+        try:
+            # Delete existing frameworks
+            self.framework_repo.delete_by_project(project_id)
+
+            # Run framework detection
+            frameworks_detected = self._detect_frameworks_best(project_root)
+
+            # Save to database
+            if frameworks_detected:
+                self.framework_repo.create_frameworks_bulk(frameworks_detected, project_id)
+
+            framework_names = sorted(
+                {
+                    framework.get("name", "").strip()
+                    for framework in frameworks_detected
+                    if framework.get("name")
+                }
+            )
+        finally:
+            if temp_dir is not None:
+                temp_dir.cleanup()
+        
+        elapsed = time.time() - start_time
+        logger.info(
+            "Framework analysis complete for project %d: %d frameworks in %.2fs",
+            project_id,
+            len(frameworks_detected) if frameworks_detected else 0,
+            elapsed,
+        )
+        
+        return {
+            "project_id": project_id,
+            "frameworks_found": len(frameworks_detected) if frameworks_detected else 0,
+            "frameworks": framework_names,
+            "duration_seconds": elapsed,
+        }
 
     def get_analysis_result(self, project_id: int) -> Optional[AnalysisResult]:
         """Get analysis result for a project."""

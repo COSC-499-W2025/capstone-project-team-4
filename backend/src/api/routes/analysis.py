@@ -94,6 +94,60 @@ async def analyze_upload(
         raise AnalysisError(str(e))
 
 
+@router.post("/{project_id}/analyze-libraries-tools", status_code=200)
+def analyze_project_libraries_tools(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Analyze libraries and tools for an existing project.
+    This can be called after upload to run detailed detection.
+    """
+    logger.info(f"Received request to analyze libraries/tools for project: {project_id}")
+    
+    service = AnalysisService(db)
+    project = service.project_repo.get(project_id)
+    
+    if not project:
+        logger.error(f"Project not found: {project_id}")
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+    
+    try:
+        result = service.analyze_libraries_and_tools(project_id, project.root_path, project.source_url)
+        logger.info(f"Library/tool analysis completed for project {project_id}")
+        return result
+    except Exception as e:
+        logger.exception(f"Library/tool analysis failed for project {project_id}")
+        raise AnalysisError(str(e))
+
+
+@router.post("/{project_id}/analyze-frameworks", status_code=200)
+def analyze_project_frameworks(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Analyze frameworks for an existing project.
+    This can be called after upload to run detailed detection.
+    """
+    logger.info(f"Received request to analyze frameworks for project: {project_id}")
+    
+    service = AnalysisService(db)
+    project = service.project_repo.get(project_id)
+    
+    if not project:
+        logger.error(f"Project not found: {project_id}")
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+    
+    try:
+        result = service.analyze_frameworks(project_id, project.root_path, project.source_url)
+        logger.info(f"Framework analysis completed for project {project_id}")
+        return result
+    except Exception as e:
+        logger.exception(f"Framework analysis failed for project {project_id}")
+        raise AnalysisError(str(e))
+
+
 @router.post("/github", response_model=Union[AnalysisResult, List[AnalysisResult]], status_code=201)
 async def analyze_github(
     request: GitHubAnalysisRequest,

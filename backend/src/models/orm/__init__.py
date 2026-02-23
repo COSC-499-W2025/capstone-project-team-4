@@ -15,6 +15,7 @@ from src.models.orm.user_profile import UserProfile
 from src.models.orm.experience import Experience, ExperienceType
 from src.models.orm.data_privacy_settings import DataPrivacySettings
 from src.models.orm.portfolio import Portfolio
+from src.models.orm.snapshot_comparison import SnapshotComparison
 
 __all__ = [
     "User",
@@ -42,4 +43,5 @@ __all__ = [
     "ExperienceType",
     "DataPrivacySettings",
     "Portfolio",
+    "SnapshotComparison",
 ]

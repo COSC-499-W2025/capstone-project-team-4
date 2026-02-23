@@ -17,7 +17,9 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from src.models.orm.project_snapshot import ProjectSnapshot
+from src.models.orm.snapshot_comparison import SnapshotComparison
 from src.repositories.project_repository import ProjectRepository
+from src.repositories.snapshot_comparison_repository import SnapshotComparisonRepository
 from src.repositories.snapshot_repository import SnapshotRepository
 
 IGNORED_DIRS = {
@@ -72,6 +74,19 @@ class SnapshotService:
         self.db = db
         self.project_repo = ProjectRepository(db)
         self.snapshot_repo = SnapshotRepository(db)
+        self.comparison_repo = SnapshotComparisonRepository(db)
+
+    def delete_snapshot(self, project_id: int, snapshot_id: int) -> dict:
+        """Delete a specific snapshot (and cascaded comparisons) by ID."""
+        snapshot = self.snapshot_repo.get(snapshot_id)
+        if not snapshot or snapshot.project_id != project_id:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Snapshot {snapshot_id} not found for project {project_id}.",
+            )
+
+        self.snapshot_repo.delete(snapshot_id)
+        return {"project_id": project_id, "snapshot_id": snapshot_id, "message": "Snapshot deleted successfully."}
 
     def create_midpoint_snapshot(self, project_id: int) -> dict:
         return self._create_snapshot(project_id=project_id, snapshot_type="midpoint")
@@ -81,7 +96,11 @@ class SnapshotService:
         return self._create_snapshot(project_id=project_id, snapshot_type="current")
 
     def compare_current_and_midpoint(self, project_id: int) -> dict:
-        """Compare the latest current and midpoint snapshots for a project."""
+        """Compare the latest current and midpoint snapshots for a project.
+
+        Returns a cached comparison if one exists for the same snapshot pair,
+        otherwise computes and persists a new comparison.
+        """
         current_snap = self.snapshot_repo.get_latest_for_project(project_id, "current")
         midpoint_snap = self.snapshot_repo.get_latest_for_project(project_id, "midpoint")
         if not current_snap or not midpoint_snap:
@@ -90,6 +109,27 @@ class SnapshotService:
                 detail="Both current and midpoint snapshots are required for comparison.",
             )
 
+        # Return cached comparison if it exists for this snapshot pair
+        cached = self.comparison_repo.get_by_snapshot_ids(current_snap.id, midpoint_snap.id)
+        if cached:
+            return json.loads(cached.payload_json)
+
+        # Compute comparison
+        comparison = self._build_comparison(project_id, current_snap, midpoint_snap)
+
+        # Persist
+        row = SnapshotComparison(
+            project_id=project_id,
+            current_snapshot_id=current_snap.id,
+            midpoint_snapshot_id=midpoint_snap.id,
+            payload_json=json.dumps(comparison),
+        )
+        self.comparison_repo.create(row)
+
+        return comparison
+
+    def _build_comparison(self, project_id: int, current_snap, midpoint_snap) -> dict:
+        """Compute the delta between a current and midpoint snapshot."""
         current_payload = json.loads(current_snap.payload_json)
         midpoint_payload = json.loads(midpoint_snap.payload_json)
 
@@ -104,7 +144,7 @@ class SnapshotService:
             mid_set = set(mid_metrics.get(key, []))
             return {"added": sorted(cur_set - mid_set), "removed": sorted(mid_set - cur_set)}
 
-        def count_delta(cur_val: int, mid_val: int) -> dict:
+        def count_delta(cur_val, mid_val) -> dict:
             return {"current": cur_val, "midpoint": mid_val, "delta": cur_val - mid_val}
 
         cur_complexity = cur_metrics.get("complexity_summary", {})
