@@ -124,6 +124,16 @@ class AccountDeactivatedError(HTTPException):
         )
 
 
+class PortfolioNotFoundError(HTTPException):
+    """Exception raised when a portfolio is not found."""
+
+    def __init__(self, user_id: int):
+        super().__init__(
+            status_code=404,
+            detail=f"Portfolio not found for user {user_id}",
+        )
+
+
 class PrivacySettingsNotFoundError(HTTPException):
     """Exception raised when privacy settings are not found."""
 

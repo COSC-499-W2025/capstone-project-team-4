@@ -311,6 +311,7 @@ class AnalysisService:
         zip_path: Path,
         project_name: Optional[str] = None,
         *,
+        user_id: Optional[int] = None,
         _depth: int = 0,
         _max_depth: int = 5,
     ) -> List["AnalysisResult"]:
@@ -357,6 +358,7 @@ class AnalysisService:
                     self.analyze_from_zip(
                         inner_zip_path,
                         nested_name,
+                        user_id=user_id,
                         _depth=_depth + 1,
                         _max_depth=_max_depth,
                     )
@@ -378,6 +380,7 @@ class AnalysisService:
                     project_name=derived_name,
                     source_type="zip",
                     source_url=str(zip_path),
+                    user_id=user_id,
                     zip_upload_time=datetime.utcnow(),
                     earliest_file_date_in_zip=earliest_file_date,
                 )
@@ -390,6 +393,7 @@ class AnalysisService:
         self,
         directory_path: Path,
         project_name: Optional[str] = None,
+        user_id: Optional[int] = None,
     ) -> AnalysisResult:
         """
         Analyze a project from a local directory.
@@ -414,6 +418,7 @@ class AnalysisService:
             project_name=name,
             source_type="local",
             source_url=str(directory_path),
+            user_id=user_id,
         )
     
     def _compute_project_tree_hash(files_meta: list[dict]) -> str:
@@ -444,6 +449,7 @@ class AnalysisService:
         self,
         github_url: str,
         branch: Optional[str] = None,
+        user_id: Optional[int] = None,
     ) -> List[AnalysisResult]:
         """
         Analyze one or more projects from a GitHub repository.
@@ -508,6 +514,7 @@ class AnalysisService:
                     project_name=name,
                     source_type="github",
                     source_url=github_url,
+                    user_id=user_id,
                 )
                 results.append(result)
 
@@ -519,6 +526,7 @@ class AnalysisService:
         project_name: str,
         source_type: str,
         source_url: Optional[str] = None,
+        user_id: Optional[int] = None,
         zip_upload_time: Optional[datetime] = None,
         earliest_file_date_in_zip: Optional[datetime] = None,
     ) -> AnalysisResult:
@@ -662,6 +670,7 @@ class AnalysisService:
         project = self.project_repo.create_project(
             name=project_name,
             root_path=project_root,
+            user_id=user_id,
             source_type=source_type,
             source_url=source_url,
             content_hash=project_tree_hash,

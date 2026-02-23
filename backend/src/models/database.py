@@ -78,6 +78,7 @@ def init_db() -> None:
         Experience,
         ExperienceType,
         DataPrivacySettings,
+        Portfolio,
     )
 
     Base.metadata.create_all(bind=engine)

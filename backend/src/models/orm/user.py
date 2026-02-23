@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from src.models.orm.experience import Experience
     from src.models.orm.project import Project
     from src.models.orm.data_privacy_settings import DataPrivacySettings
+    from src.models.orm.portfolio import Portfolio
 
 
 class User(Base):
@@ -41,6 +42,9 @@ class User(Base):
     )
     privacy_settings: Mapped[Optional["DataPrivacySettings"]] = relationship(
         "DataPrivacySettings", back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
+    portfolios: Mapped[List["Portfolio"]] = relationship(
+        "Portfolio", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
