@@ -86,7 +86,7 @@ class SnapshotService:
             )
 
         self.snapshot_repo.delete(snapshot_id)
-        return {"project_id": project_id, "snapshot_id": snapshot_id}
+        return {"project_id": project_id, "snapshot_id": snapshot_id, "message": "Snapshot deleted successfully."}
 
     def create_midpoint_snapshot(self, project_id: int) -> dict:
         return self._create_snapshot(project_id=project_id, snapshot_type="midpoint")
