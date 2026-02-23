@@ -35,7 +35,8 @@ services:
     environment:
       - PYTHONPATH=/app
       - DATABASE_URL=postgresql://workmine:workmine@db:5432/workmine
-    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+      # Remove reload here because yeah that's only for local stuff
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000
     depends_on:
       db:
         condition: service_healthy
