@@ -64,7 +64,7 @@ async def get_portfolio(
     return result
 
 
-@router.put("/{portfolio_id}/edit", response_model=PortfolioResponse)
+@router.post("/{portfolio_id}/edit", response_model=PortfolioResponse)
 async def edit_portfolio(
     portfolio_id: int,
     data: PortfolioUpdate,

@@ -474,15 +474,15 @@ def test_edit_portfolio_forbidden():
 
 
 def test_edit_portfolio_requires_auth():
-    """PUT /api/portfolio/1/edit returns 401 without auth token."""
-    response = client.put("/api/portfolio/1/edit", json={"title": "New"})
+    """POST /api/portfolio/1/edit returns 401 without auth token."""
+    response = client.post("/api/portfolio/1/edit", json={"title": "New"})
 
     assert response.status_code == 401
 
 
 @patch("src.api.routes.portfolio.PortfolioService")
 def test_edit_portfolio_endpoint_success(mock_service_class):
-    """PUT /api/portfolio/1/edit returns 200 with updated data."""
+    """POST /api/portfolio/1/edit returns 200 with updated data."""
     from src.api.dependencies import get_current_user
 
     now = datetime.now(timezone.utc)
@@ -502,7 +502,7 @@ def test_edit_portfolio_endpoint_success(mock_service_class):
 
     app.dependency_overrides[get_current_user] = lambda: fake_user
     try:
-        response = client.put(
+        response = client.post(
             "/api/portfolio/1/edit",
             json={"title": "Updated Title", "summary": "Updated summary."},
         )
@@ -517,7 +517,7 @@ def test_edit_portfolio_endpoint_success(mock_service_class):
 
 @patch("src.api.routes.portfolio.PortfolioService")
 def test_edit_portfolio_endpoint_not_found(mock_service_class):
-    """PUT /api/portfolio/999/edit returns 404 when portfolio doesn't exist."""
+    """POST /api/portfolio/999/edit returns 404 when portfolio doesn't exist."""
     from src.api.dependencies import get_current_user
 
     fake_user = SimpleNamespace(id=10, email="test@example.com", is_active=True)
@@ -528,7 +528,7 @@ def test_edit_portfolio_endpoint_not_found(mock_service_class):
 
     app.dependency_overrides[get_current_user] = lambda: fake_user
     try:
-        response = client.put("/api/portfolio/999/edit", json={"title": "New"})
+        response = client.post("/api/portfolio/999/edit", json={"title": "New"})
     finally:
         app.dependency_overrides.pop(get_current_user, None)
 
@@ -537,7 +537,7 @@ def test_edit_portfolio_endpoint_not_found(mock_service_class):
 
 @patch("src.api.routes.portfolio.PortfolioService")
 def test_edit_portfolio_endpoint_forbidden(mock_service_class):
-    """PUT /api/portfolio/1/edit returns 403 when user doesn't own it."""
+    """POST /api/portfolio/1/edit returns 403 when user doesn't own it."""
     from src.api.dependencies import get_current_user
 
     fake_user = SimpleNamespace(id=10, email="test@example.com", is_active=True)
@@ -548,7 +548,7 @@ def test_edit_portfolio_endpoint_forbidden(mock_service_class):
 
     app.dependency_overrides[get_current_user] = lambda: fake_user
     try:
-        response = client.put("/api/portfolio/1/edit", json={"title": "Hacked"})
+        response = client.post("/api/portfolio/1/edit", json={"title": "Hacked"})
     finally:
         app.dependency_overrides.pop(get_current_user, None)
 
