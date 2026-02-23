@@ -251,12 +251,12 @@ class ProjectService:
         size_bytes: int,
         etag: Optional[str],
         thumbnail_endpoint: str,
-    ) -> ProjectThumbnailResponse:
+    ) -> Optional[ProjectThumbnailResponse]:
         """Create or replace a project's thumbnail in the DB."""
         project = self.project_repo.get(project_id)
         if not project:
             # Keep service consistent: callers can handle not-found however they want.
-            return None  # type: ignore[return-value]
+            return None
 
         thumb = self.db.get(ProjectThumbnail, project_id)
 
