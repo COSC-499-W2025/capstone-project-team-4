@@ -6,7 +6,7 @@ import { defineConfig, loadEnv } from "vite";
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd());
+  const env = loadEnv(mode, process.cwd(), "");
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
@@ -17,6 +17,13 @@ export default defineConfig(({ mode }) => {
     server: {
       host: "0.0.0.0",
       allowedHosts: ["capstoneteam4.com", "test-frontend.capstoneteam4.com"],
+      // Without this, Dokploy will just load forever (the frontend)
+      hmr: env.VITE_API_URL
+        ? {
+            protocol: "wss",
+            clientPort: 443,
+          }
+        : true,
       proxy: {
         "/api": {
           target: env.VITE_API_URL || "http://backend:8000",
