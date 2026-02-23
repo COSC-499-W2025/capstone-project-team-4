@@ -9,8 +9,14 @@ from datetime import datetime
 import yaml
 from src.core.detectors.language import EXTENSION_MAP
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
-from src.models.schemas.project import ProjectSummary, ProjectList, ProjectDetail, ProjectThumbnailResponse
+from src.models.schemas.project import (
+    ProjectSummary,
+    ProjectList,
+    ProjectDetail,
+    ProjectThumbnailResponse,
+)
 from src.models.schemas.analysis import AnalysisResult, AnalysisStatus, ComplexitySummary
 from src.models.schemas.contributor import (
     ContributorAnalysisSchema,
@@ -107,31 +113,35 @@ class ProjectService:
                 return domain_index["languages"][lang_key]
         return None
 
-    def list_projects(
-        self,
-        page: int = 1,
-        page_size: int = 20,
-    ) -> ProjectList:
-        """
-        List all projects with pagination.
-
-        Args:
-            page: Page number (1-indexed)
-            page_size: Number of items per page
-
-        Returns:
-            ProjectList with paginated results
-        """
+    def list_projects(self, page: int = 1, page_size: int = 20) -> ProjectList:
         skip = (page - 1) * page_size
         total = self.project_repo.count()
         pages = (total + page_size - 1) // page_size
 
         summaries = self.project_repo.get_all_summaries(skip=skip, limit=page_size)
 
-        items = []
+        # Populate thumbnail fields (feedback #4 / #9)
+        project_ids = [s["id"] for s in summaries if s]
+        thumb_map: dict[int, datetime] = {}
+
+        if project_ids:
+            rows = self.db.execute(
+                select(ProjectThumbnail.project_id, ProjectThumbnail.updated_at).where(
+                    ProjectThumbnail.project_id.in_(project_ids)
+                )
+            ).all()
+            thumb_map = {pid: updated_at for pid, updated_at in rows}
+
+        items: list[ProjectSummary] = []
         for s in summaries:
-            if s:
-                items.append(ProjectSummary(
+            if not s:
+                continue
+
+            thumb_updated_at = thumb_map.get(s["id"])
+            has_thumb = thumb_updated_at is not None
+
+            items.append(
+                ProjectSummary(
                     id=s["id"],
                     name=s["name"],
                     source_type=s["source_type"],
@@ -147,7 +157,11 @@ class ProjectService:
                     tool_count=s["tool_count"],
                     contributor_count=s["contributor_count"],
                     skill_count=s["skill_count"],
-                ))
+                    has_thumbnail=has_thumb,
+                    thumbnail_updated_at=thumb_updated_at,
+                    thumbnail_endpoint=None,  # filled at route level via url_for
+                )
+            )
 
         return ProjectList(
             items=items,
@@ -155,6 +169,56 @@ class ProjectService:
             page=page,
             page_size=page_size,
             pages=pages,
+        )
+
+    def get_project_detail(self, project_id: int) -> Optional[ProjectDetail]:
+        """Get project detail (used by GET /projects/{id}) including thumbnail metadata."""
+        project = self.project_repo.get(project_id)
+        if not project:
+            return None
+
+        languages = self.project_repo.get_languages(project_id)
+        frameworks = self.project_repo.get_frameworks(project_id)
+        libraries = self.project_repo.get_libraries(project_id)
+        tools = self.project_repo.get_tools(project_id)
+        total_loc = self.project_repo.get_total_lines_of_code(project_id)
+        complexity_summary = self.complexity_repo.get_summary(project_id)
+
+        summary = self.project_repo.get_summary(project_id) or {}
+
+        thumb = self.db.get(ProjectThumbnail, project_id)
+        has_thumb = thumb is not None
+        thumb_updated_at = thumb.updated_at if thumb else None
+
+        return ProjectDetail(
+            id=project.id,
+            name=project.name,
+            source_type=project.source_type,
+            created_at=project.created_at,
+            updated_at=project.updated_at,
+            root_path=project.root_path,
+            source_url=project.source_url,
+            zip_uploaded_at=project.zip_uploaded_at,
+            first_file_created=project.first_file_created,
+            first_commit_date=project.first_commit_date,
+            project_started_at=project.project_started_at,
+            file_count=summary.get("file_count", 0),
+            contributor_count=summary.get("contributor_count", 0),
+            skill_count=summary.get("skill_count", 0),
+            framework_count=summary.get("framework_count", 0),
+            language_count=summary.get("language_count", 0),
+            library_count=summary.get("library_count", 0),
+            tool_count=summary.get("tool_count", 0),
+            languages=languages,
+            frameworks=frameworks,
+            libraries=libraries,
+            tools=tools,
+            total_lines_of_code=total_loc,
+            avg_complexity=complexity_summary.get("avg_complexity", 0.0),
+            max_complexity=complexity_summary.get("max_complexity", 0),
+            has_thumbnail=has_thumb,
+            thumbnail_updated_at=thumb_updated_at,
+            thumbnail_endpoint=None,  # set in route via url_for
         )
 
     def get_project(self, project_id: int) -> Optional[AnalysisResult]:
@@ -195,7 +259,6 @@ class ProjectService:
             first_file_created=project.first_file_created,
             first_commit_date=project.first_commit_date,
             project_started_at=project.project_started_at,
-
             file_count=summary["file_count"] if summary else 0,
             contributor_count=summary["contributor_count"] if summary else 0,
             skill_count=summary["skill_count"] if summary else 0,
@@ -206,7 +269,9 @@ class ProjectService:
                 total_functions=complexity_summary.get("total_functions", 0),
                 avg_complexity=complexity_summary.get("avg_complexity", 0.0),
                 max_complexity=complexity_summary.get("max_complexity", 0),
-                high_complexity_count=complexity_summary.get("high_complexity_count", 0),
+                high_complexity_count=complexity_summary.get(
+                    "high_complexity_count", 0
+                ),
             ),
         )
 
@@ -248,23 +313,24 @@ class ProjectService:
         *,
         content_type: str,
         bytes_data: bytes,
-        size_bytes: int,
         etag: Optional[str],
         thumbnail_endpoint: str,
-    ) -> ProjectThumbnailResponse:
+    ) -> Optional[ProjectThumbnailResponse]:
         """Create or replace a project's thumbnail in the DB."""
         project = self.project_repo.get(project_id)
         if not project:
-            # Keep service consistent: callers can handle not-found however they want.
-            return None  # type: ignore[return-value]
+            return None
+
+        # Compute internally to avoid caller inconsistency (feedback #2)
+        size_bytes = len(bytes_data)
 
         thumb = self.db.get(ProjectThumbnail, project_id)
-
         now = datetime.utcnow()
+
         if thumb is None:
             thumb = ProjectThumbnail(
                 project_id=project_id,
-                bytes=bytes_data,
+                image_bytes=bytes_data,
                 content_type=content_type,
                 size_bytes=size_bytes,
                 etag=etag,
@@ -272,7 +338,7 @@ class ProjectService:
             )
             self.db.add(thumb)
         else:
-            thumb.bytes = bytes_data
+            thumb.image_bytes = bytes_data
             thumb.content_type = content_type
             thumb.size_bytes = size_bytes
             thumb.etag = etag
@@ -294,14 +360,12 @@ class ProjectService:
     def get_thumbnail(
         self, project_id: int
     ) -> Optional[Tuple[bytes, str, Optional[str]]]:
-        """
-        Return (bytes, content_type, etag) for a project's thumbnail, or None if missing.
-        """
+        """Return (bytes, content_type, etag) for a project's thumbnail, or None if missing."""
         thumb = self.db.get(ProjectThumbnail, project_id)
         if thumb is None:
             return None
-        return (thumb.bytes, thumb.content_type, thumb.etag)
-    
+        return (thumb.image_bytes, thumb.content_type, thumb.etag)
+
     def delete_thumbnail(self, project_id: int) -> bool:
         """Delete a project's thumbnail. Returns True if deleted, False if not found."""
         thumb = self.db.get(ProjectThumbnail, project_id)
@@ -311,7 +375,9 @@ class ProjectService:
         self.db.commit()
         return True
 
-    def get_contributor_analysis(self, project_id: int) -> Optional[ProjectContributorsAnalysisResponse]:
+    def get_contributor_analysis(
+        self, project_id: int
+    ) -> Optional[ProjectContributorsAnalysisResponse]:
         """
         Get contributor analysis with contribution scores for a project.
 
@@ -348,7 +414,11 @@ class ProjectService:
             normalized = self._normalize_path(f.path)
             file_lang_map[normalized] = f.language.name if f.language else None
 
-        project_frameworks = self.project_repo.get_frameworks(project_id) if hasattr(self.project_repo, "get_frameworks") else []
+        project_frameworks = (
+            self.project_repo.get_frameworks(project_id)
+            if hasattr(self.project_repo, "get_frameworks")
+            else []
+        )
 
         # Calculate totals
         total_commits = sum(c.commits for c in contributors)
@@ -370,16 +440,20 @@ class ProjectService:
             files_norm = len(c.files_modified) / total_files if total_files > 0 else 0.0
 
             # Apply weights (4:4:2 ratio)
-            weighted_score = (commits_norm * 0.40) + (lines_norm * 0.40) + (files_norm * 0.20)
+            weighted_score = (
+                (commits_norm * 0.40) + (lines_norm * 0.40) + (files_norm * 0.20)
+            )
             contribution_score = round(weighted_score * 100, 2)
 
             # Calculate net lines
             net_lines = c.total_lines_added - c.total_lines_deleted
-            
+
             # Calculate change statistics
             contributor_total_lines_changed = c.total_lines_added + c.total_lines_deleted
             lines_changed_per_commit = (
-                round(contributor_total_lines_changed / c.commits, 2) if c.commits > 0 else 0.0
+                round(contributor_total_lines_changed / c.commits, 2)
+                if c.commits > 0
+                else 0.0
             )
             files_changed = len(c.files_modified)
 
@@ -403,22 +477,26 @@ class ProjectService:
                 domain_counts[domain] += weight
                 debug_files.append((filename, language, domain))
 
-            logger.debug(f"Contributor {c.name}: domain_counts={dict(domain_counts)}, sample_files={debug_files[:3]}")
+            logger.debug(
+                f"Contributor {c.name}: domain_counts={dict(domain_counts)}, sample_files={debug_files[:3]}"
+            )
             domain_total = sum(domain_counts.values())
             area_scores = {}
             if domain_total > 0:
                 for domain, count in domain_counts.items():
                     area_scores[domain] = round((count / domain_total) * 100, 2)
 
-            scores_and_data.append({
-                "contributor": c,
-                "contribution_score": contribution_score,
-                "net_lines": net_lines,
-                "files_touched": len(c.files_modified),
-                "total_lines_changed": contributor_total_lines_changed,
-                "lines_changed_per_commit": lines_changed_per_commit,
-                "files_changed": files_changed,
-            })
+            scores_and_data.append(
+                {
+                    "contributor": c,
+                    "contribution_score": contribution_score,
+                    "net_lines": net_lines,
+                    "files_touched": len(c.files_modified),
+                    "total_lines_changed": contributor_total_lines_changed,
+                    "lines_changed_per_commit": lines_changed_per_commit,
+                    "files_changed": files_changed,
+                }
+            )
 
         # Calculate total score for percentage calculation
         total_score = sum(item["contribution_score"] for item in scores_and_data)
@@ -426,14 +504,12 @@ class ProjectService:
         # Second pass: build analysis schema with percentages
         analysis_list = []
         for item in scores_and_data:
-            # Calculate contribution percentage
             contribution_percentage = (
                 round((item["contribution_score"] / total_score) * 100, 2)
                 if total_score > 0
                 else 0.0
             )
-            
-            # Build change statistics
+
             changes = ChangeStatsSchema(
                 total_lines_added=item["contributor"].total_lines_added,
                 total_lines_deleted=item["contributor"].total_lines_deleted,
