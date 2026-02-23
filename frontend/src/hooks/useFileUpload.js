@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import axiosClient from "@/lib/axiosClient";
 
 export const useFileUpload = () => {
   // Initialize state from localStorage if available
@@ -83,7 +83,10 @@ export const useFileUpload = () => {
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await axios.post("/api/projects/analyze/upload", formData);
+        const response = await axiosClient.post(
+          "/api/projects/analyze/upload",
+          formData,
+        );
 
         const payload = response.data;
         const items = Array.isArray(payload) ? payload : [payload];
@@ -92,7 +95,9 @@ export const useFileUpload = () => {
         const filteredItems = items.filter((p) => {
           if (!p) return false;
 
-          const hasName = typeof p.project_name === "string" && p.project_name.trim().length > 0;
+          const hasName =
+            typeof p.project_name === "string" &&
+            p.project_name.trim().length > 0;
 
           const hasContent =
             (p.file_count ?? 0) > 0 ||
@@ -111,17 +116,19 @@ export const useFileUpload = () => {
 
           if (data.project_id) {
             try {
-              const contributorResponse = await axios.get(
+              const contributorResponse = await axiosClient.get(
                 `/api/projects/${data.project_id}/contributors/default-branch-stats`,
               );
               contributorDetails = contributorResponse.data;
             } catch (contributorError) {
-              console.warn("Could not fetch contributor details:", contributorError);
+              console.warn(
+                "Could not fetch contributor details:",
+                contributorError,
+              );
             }
           }
 
           results.push({
-          
             name: data.project_name,
             contributions: data.file_count || 0,
             date: data.zip_uploaded_at || new Date().toISOString(),
