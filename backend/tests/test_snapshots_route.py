@@ -44,6 +44,24 @@ def test_create_current_and_midpoint_snapshots_route_calls_service(monkeypatch):
     assert result == expected
 
 
+def test_delete_snapshot_route_calls_service(monkeypatch):
+    expected = {"project_id": 7, "snapshot_id": 10}
+
+    class FakeSnapshotService:
+        def __init__(self, db):
+            self.db = db
+
+        def delete_snapshot(self, project_id: int, snapshot_id: int):
+            assert project_id == 7
+            assert snapshot_id == 10
+            return expected
+
+    monkeypatch.setattr(snapshots_route, "SnapshotService", FakeSnapshotService)
+    result = asyncio.run(snapshots_route.delete_snapshot(project_id=7, snapshot_id=10, db=object()))
+
+    assert result == expected
+
+
 def test_compare_current_and_midpoint_snapshots_route_calls_service(monkeypatch):
     expected = {
         "project_id": 7,
