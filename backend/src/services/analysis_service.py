@@ -212,18 +212,6 @@ def get_earliest_file_date_from_zip(zip_path: Path) -> Optional[datetime]:
     except Exception:
         return None
 
-def _extract_zip_skipping_macos_junk(zip_path: Path, dest: Path) -> None:
-    """
-    Extract all members except macOS junk.
-    Keeps directory structure intact.
-    """
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        for info in zf.infolist():
-            name = info.filename.replace("\\", "/")
-            if _is_macos_junk_zip_name(name):
-                continue
-            zf.extract(info, dest)
-
 def _normalize_zip_root(extracted_root: Path) -> Path:
     """
     If ZIP has exactly one visible top-level folder, treat that as the root.
@@ -372,7 +360,7 @@ class AnalysisService:
             if not split_projects:
                 project_roots = [base_root]
             else:
-                project_roots = detect_project_roots(base_root)
+                project_roots = detect_project_roots_in_zip(base_root)
 
             logger.info(f"Detected {len(project_roots)} project(s) in extracted ZIP at depth {_depth} "f"(base_root={base_root})")
     
@@ -512,20 +500,21 @@ class AnalysisService:
             results: List[AnalysisResult] = []
 
             for root in project_roots:
-                name = root.name if root != clone_path else project_name
+                derived_name = root.name if root != clone_path else project_name
 
-            result = self._run_analysis_pipeline(
-                project_path=root,
-                project_name=derived_name,
-                source_type="zip",
-                source_url=str(zip_path),
-                zip_upload_time=datetime.utcnow(),
-                earliest_file_date_in_zip=earliest_file_date,
-                use_cache=use_cache,
-)
-            results.append(result)
+                result = self._run_analysis_pipeline(
+                    project_path=root,
+                    project_name=derived_name,
+                    source_type="github",
+                    source_url=github_url,
+                    zip_upload_time=datetime.utcnow(),            
+                    earliest_file_date_in_zip=datetime.utcnow(),   
+                    use_cache=True,
+                )
 
-            return results
+                results.append(result)
+
+return results
 
     def _run_analysis_pipeline(
         self,
@@ -533,8 +522,8 @@ class AnalysisService:
         project_name: str,
         source_type: str,
         source_url: str,
-        zip_upload_time: datetime,
-        earliest_file_date_in_zip: datetime,
+        zip_upload_time: Optional[datetime] = None,
+        earliest_file_date_in_zip: Optional[datetime] = None,
         *,
         use_cache: bool = True,
 
@@ -646,7 +635,7 @@ class AnalysisService:
 
             return h.hexdigest()
 
-        project_tree_hash = _compute_project_tree_hash(file_list)
+        project_tree_hash = self._compute_project_tree_hash(file_list)
         analysis_key = hashlib.sha256(
             f"{project_tree_hash}:{settings.app_version}".encode("utf-8")
         ).hexdigest()
