@@ -225,13 +225,13 @@ async def put_project_thumbnail(
         raise HTTPException(status_code=413, detail="Thumbnail too large")
 
     etag = hashlib.sha256(data).hexdigest()
-
-    endpoint = str(request.url_for("get_project_thumbnail", project_id=str(project_id)))
+    endpoint = f"/api/projects/{project_id}/thumbnail"
 
     result = service.set_thumbnail(
         project_id,
         content_type=file.content_type,
         bytes_data=data,
+        size_bytes=len(data),
         etag=etag,
         thumbnail_endpoint=endpoint,
     )
