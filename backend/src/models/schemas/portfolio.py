@@ -21,8 +21,16 @@ class PortfolioResponse(BaseModel):
 
 class PortfolioProjectCustomize(BaseModel):
     """Data to customize a specific project inside a portfolio."""
+    # Include the generated fields so that the user can also replace them if they want
+    name: Optional[str] = None 
+    languages: Optional[List[str]] = None
+    frameworks: Optional[List[str]] = None
+    resume_highlights: Optional[List[str]] = None
+
+    # Custom field stuff
+    # Next time when working on the frontend we can add any field below to make it match the form on the frontend
+    # for now, these 3 will do.
     custom_name: Optional[str] = None
     description: Optional[str] = None
     live_demo_url: Optional[str] = None
-    # Next time when working on the frontend we can add any field below to make it match the form on the frontend
-    # for now, these 3 up above will do.
+    

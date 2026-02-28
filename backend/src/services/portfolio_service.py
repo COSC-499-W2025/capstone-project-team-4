@@ -190,7 +190,16 @@ class PortfolioService:
             if proj.get("name") == project_name:
                 project_found = True
                 
-                # Apply the customizations (NOTE: edit this too if we're going to add anymore customization fields)
+                # Apply the customizations
+                if update_data.name is not None:
+                    proj["name"] = update_data.name 
+                if update_data.languages is not None:
+                    proj["languages"] = update_data.languages
+                if update_data.frameworks is not None:
+                    proj["frameworks"] = update_data.frameworks
+                if update_data.resume_highlights is not None:
+                    proj["resume_highlights"] = update_data.resume_highlights
+                # Custom stuff here 
                 if update_data.custom_name is not None:
                     proj["custom_name"] = update_data.custom_name
                 if update_data.description is not None:
