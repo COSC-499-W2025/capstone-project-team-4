@@ -31,6 +31,10 @@ class Project(Base):
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    # To make things more "editable" we'll then add 3 more url's to make them more usable
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_public: Mapped[bool] = mapped_column(default=False)
+    live_demo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     root_path: Mapped[str] = mapped_column(Text, nullable=False)
     source_type: Mapped[str] = mapped_column(String(50), default="local")
     source_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
