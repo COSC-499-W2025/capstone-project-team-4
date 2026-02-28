@@ -65,6 +65,13 @@ class ProjectList(BaseModel):
     page_size: int
     pages: int
 
+# This is the data sent from React to customize a portfolio project
+class ProjectCustomizeRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_public: Optional[bool] = None
+    live_demo_url: Optional[str] = None
+
 
 class SnapshotSummary(BaseModel):
     """Compact snapshot summary."""
