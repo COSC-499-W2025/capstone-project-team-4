@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from src.models.database import get_db
 from src.models.orm.user import User
-from src.models.schemas.portfolio import PortfolioResponse
+from src.models.schemas.portfolio import PortfolioResponse, PortfolioProjectCustomize
 from src.services.portfolio_service import PortfolioService
 from src.api.dependencies import get_current_user
 
@@ -39,4 +39,31 @@ async def generate_portfolio(
             status_code=500,
             detail=f"Portfolio generation failed: {str(e)}",
         )
+    return result
+
+@router.put("/{portfolio_id}/projects/{project_name}/customize", response_model=PortfolioResponse)
+def customize_portfolio_project(
+    portfolio_id: int,
+    project_name: str,
+    update_data: PortfolioProjectCustomize,
+    current_user: User = Depends(get_current_user), # 🔒 The Bouncer
+    db: Session = Depends(get_db)
+):
+    """
+    Add custom names, descriptions, or URLs to a generated portfolio project.
+    """
+    service = PortfolioService(db)
+    
+    result, error = service.customize_project(
+        portfolio_id=portfolio_id,
+        user_id=current_user.id,
+        project_name=project_name,
+        update_data=update_data
+    )
+    
+    if error:
+        if error == "Not authorized to edit this portfolio":
+            raise HTTPException(status_code=403, detail=error)
+        raise HTTPException(status_code=404, detail=error)
+        
     return result

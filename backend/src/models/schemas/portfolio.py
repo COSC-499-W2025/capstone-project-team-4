@@ -18,3 +18,11 @@ class PortfolioResponse(BaseModel):
     content: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
+
+class PortfolioProjectCustomize(BaseModel):
+    """Data to customize a specific project inside a portfolio."""
+    custom_name: Optional[str] = None
+    description: Optional[str] = None
+    live_demo_url: Optional[str] = None
+    # Next time when working on the frontend we can add any field below to make it match the form on the frontend
+    # for now, these 3 up above will do.
