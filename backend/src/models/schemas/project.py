@@ -64,3 +64,77 @@ class ProjectList(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+class SnapshotSummary(BaseModel):
+    """Compact snapshot summary."""
+
+    total_files: int = 0
+    total_lines: int = 0
+    file_type_distribution: List[tuple[str, int]] = []
+    project_breakdown: List[dict] = []
+    content_type_totals: dict = {}
+    analysis_metrics: dict = {}
+
+
+class ProjectSnapshotResponse(BaseModel):
+    """Response for project snapshot creation."""
+
+    snapshot_id: int
+    project_id: int
+    snapshot_type: str
+    commit_hash: str
+    commit_index: int
+    total_commits: int
+    created_at: datetime
+    summary: SnapshotSummary
+
+
+class SnapshotPairResponse(BaseModel):
+    """Response for creating current and midpoint snapshots together."""
+
+    project_id: int
+    current_snapshot: ProjectSnapshotResponse
+    midpoint_snapshot: ProjectSnapshotResponse
+
+
+class SnapshotCountDelta(BaseModel):
+    """Count delta between current and midpoint snapshots."""
+
+    current: int
+    midpoint: int
+    delta: int
+
+
+class SnapshotComplexityDelta(BaseModel):
+    """Complexity delta between current and midpoint snapshots."""
+
+    total_functions: SnapshotCountDelta
+    avg_complexity: dict
+    max_complexity: SnapshotCountDelta
+    high_complexity_count: SnapshotCountDelta
+
+
+class SnapshotSetDelta(BaseModel):
+    """Added/removed values from midpoint to current."""
+
+    added: List[str]
+    removed: List[str]
+
+
+class SnapshotCurrentMidpointComparisonResponse(BaseModel):
+    """Comparison response between current and midpoint snapshots."""
+
+    project_id: int
+    current_snapshot_id: int
+    midpoint_snapshot_id: int
+    current_commit_hash: str
+    midpoint_commit_hash: str
+    totals: dict
+    counts: dict
+    languages: SnapshotSetDelta
+    skills: SnapshotSetDelta
+    libraries: SnapshotSetDelta
+    frameworks: SnapshotSetDelta
+    tools_and_technologies: SnapshotSetDelta
+    complexity: SnapshotComplexityDelta

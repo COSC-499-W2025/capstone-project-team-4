@@ -74,6 +74,73 @@ class ContributorAnalysisService:
 
         return None
 
+    def _is_valid_git_repo(self, repo_path: str) -> bool:
+        if not repo_path or not Path(repo_path).exists():
+            return False
+
+        try:
+            result = subprocess.run(
+                ["git", "-C", repo_path, "rev-parse", "--is-inside-work-tree"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return result.returncode == 0 and result.stdout.strip() == "true"
+        except Exception:
+            return False
+
+    def _calculate_top_files_from_db(
+        self, contributor_id: int, top_n: int = 10
+    ) -> List[TopFileItemSchema]:
+        files = self.contributor_repo.get_with_files(contributor_id)
+        if not files or not files.files_modified:
+            return []
+
+        file_stats = []
+        for file_obj in files.files_modified:
+            filename = file_obj.filename
+            modifications = file_obj.modifications or 0
+            if modifications > 0:
+                file_stats.append((filename, modifications))
+
+        file_stats.sort(key=lambda x: x[1], reverse=True)
+        top_files = file_stats[:top_n]
+
+        return [
+            TopFileItemSchema(file=filename, lines_changed=modifications)
+            for filename, modifications in top_files
+        ]
+
+    def _calculate_top_areas_from_db(self, contributor_id: int) -> List[AreaShareSchema]:
+        files = self.contributor_repo.get_with_files(contributor_id)
+        if not files or not files.files_modified:
+            return []
+
+        allowed_areas = {"backend", "frontend"}
+        area_stats: Dict[str, int] = defaultdict(int)
+        for file_obj in files.files_modified:
+            filename = file_obj.filename
+            modifications = file_obj.modifications or 0
+            if modifications <= 0:
+                continue
+            area = self._classify_file_to_area(filename)
+            if area and area in allowed_areas:
+                area_stats[area] += modifications
+
+        if not area_stats:
+            return []
+
+        total_lines = sum(area_stats.values())
+        if total_lines == 0:
+            return []
+
+        top_areas = [
+            AreaShareSchema(area=area, share=round(count / total_lines, 4))
+            for area, count in area_stats.items()
+        ]
+        top_areas.sort(key=lambda x: x.share, reverse=True)
+        return top_areas
+
     def _get_file_lines_changed(
         self,
         repo_path: str,
@@ -94,7 +161,7 @@ class ContributorAnalysisService:
         """
         # Log every call (commented out for performance, enable for debugging)
         # logger.info(f"_get_file_lines_changed: {filename} by {contributor_email}")
-        
+
         try:
             # Use git log with case-insensitive author search (-i flag)
             # This ensures we match emails regardless of case differences
@@ -127,7 +194,7 @@ class ContributorAnalysisService:
 
             total_added = 0
             total_deleted = 0
-            
+
             # Parse the output line by line
             lines = result.stdout.strip().split("\n")
             current_author = None
@@ -158,10 +225,11 @@ class ContributorAnalysisService:
                         # Check if this is the file we're looking for
                         # Use exact path matching to avoid matching different files with same basename
                         # (e.g., skill.py in different directories)
-                        if (file_normalized == filename_normalized or
-                            file_normalized.endswith("/" + filename_normalized) or
-                            file_normalized.endswith("\\" + filename_normalized)):
-                            
+                        if (
+                            file_normalized == filename_normalized
+                            or file_normalized.endswith("/" + filename_normalized)
+                            or file_normalized.endswith("\\" + filename_normalized)
+                        ):
                             try:
                                 added = int(added_str)
                                 deleted = int(deleted_str)
@@ -222,7 +290,7 @@ class ContributorAnalysisService:
             lines_changed = self._get_file_lines_changed(
                 repo_path, filename, contributor.email, branch
             )
-            
+
             # Log details for first file only (for debugging)
             if idx == 0:
                 logger.info(f"FIRST FILE DEBUG: {filename}")
@@ -230,11 +298,11 @@ class ContributorAnalysisService:
                 logger.info(f"  contributor.email={contributor.email}")
                 logger.info(f"  branch={branch}")
                 logger.info(f"  lines_changed={lines_changed}")
-            
+
             # Log files with changes or sample files
             if idx < 10 or lines_changed > 0:
                 logger.info(f"  [{idx+1}/{len(files.files_modified)}] {filename}: {lines_changed} lines")
-            
+
             if lines_changed > 0:
                 file_stats.append((filename, lines_changed))
 
@@ -268,7 +336,7 @@ class ContributorAnalysisService:
         """
         # Allowed areas (Backend and Frontend only)
         ALLOWED_AREAS = {"backend", "frontend"}
-        
+
         # Get contributor
         contributor = self.contributor_repo.get(contributor_id)
         if not contributor or not contributor.email:
@@ -399,13 +467,21 @@ class ContributorAnalysisService:
         logger.info(f"  branch={branch}")
         logger.info(f"  contributor.email={contributor.email}")
 
+        use_git = self._is_valid_git_repo(repo_path)
+        if not use_git:
+            logger.warning(f"Repo path is not a valid git repo: {repo_path}")
+
         # Calculate top areas and top files
-        top_areas = self.calculate_top_areas(
-            contributor_id, repo_path, branch
-        )
-        top_files = self.calculate_top_files(
-            contributor_id, repo_path, branch, top_n=10
-        )
+        if use_git:
+            top_areas = self.calculate_top_areas(
+                contributor_id, repo_path, branch
+            )
+            top_files = self.calculate_top_files(
+                contributor_id, repo_path, branch, top_n=10
+            )
+        else:
+            top_areas = self._calculate_top_areas_from_db(contributor_id)
+            top_files = self._calculate_top_files_from_db(contributor_id, top_n=10)
 
         # Build response
         summary = ContributorSummarySchema(

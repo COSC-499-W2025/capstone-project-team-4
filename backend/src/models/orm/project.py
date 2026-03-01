@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.database import Base
@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from src.models.orm.library import ProjectLibrary
     from src.models.orm.tool import ProjectTool
     from src.models.orm.user import User
+    from src.models.orm.project_snapshot import ProjectSnapshot
 
 
 class Project(Base):
@@ -39,6 +40,10 @@ class Project(Base):
     first_file_created: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     first_commit_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     project_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    content_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    analysis_key: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
+    reused_from_project_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("projects.id", ondelete="SET NULL"),nullable=True,index=True,)
+    reused_from_project: Mapped[Optional["Project"]] = relationship("Project",remote_side=[id],uselist=False,)
 
     # Relationships
     files: Mapped[List["File"]] = relationship(
@@ -71,11 +76,15 @@ class Project(Base):
     tools: Mapped[List["ProjectTool"]] = relationship(
         "ProjectTool", back_populates="project", cascade="all, delete-orphan"
     )
+    snapshots: Mapped[List["ProjectSnapshot"]] = relationship(
+        "ProjectSnapshot", back_populates="project", cascade="all, delete-orphan"
+    )
     user: Mapped[Optional["User"]] = relationship("User", back_populates="projects")
 
     def __repr__(self) -> str:
         return f"<Project(id={self.id}, name='{self.name}', user_id={self.user_id})>"
 
+    reused_from_project = relationship("Project", remote_side=[id], foreign_keys=[reused_from_project_id], uselist=False)
 
 class ProjectAnalysisSummary(Base):
     """ProjectAnalysisSummary model for project analysis statistics and timing."""

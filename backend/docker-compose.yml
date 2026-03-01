@@ -10,7 +10,7 @@ services:
       - ./data:/app/data
     environment:
       - PYTHONPATH=/app
-      - DATABASE_URL=sqlite:///./data/workmine.db
+      - DATABASE_URL=postgresql://student:capstoneteam4@5.78.88.162:5434/capstone_db_dev
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

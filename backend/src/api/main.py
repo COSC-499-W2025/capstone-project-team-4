@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.config.settings import settings
 from src.models.database import init_db
 
-from src.api.routes import analysis, projects, skills, resume, user_profiles, auth, privacy_settings, experience, default_branch_stats, contributor_analysis, debug, contributors
+from src.api.routes import analysis, projects, skills, resume, user_profiles, auth, privacy_settings, experience, default_branch_stats, snapshots, contributor_analysis, debug, contributors
 
 # Configure logging
 logging.basicConfig(
@@ -82,6 +82,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(analysis.router, prefix=settings.api_prefix)
 app.include_router(projects.router, prefix=settings.api_prefix)
+app.include_router(snapshots.router, prefix=settings.api_prefix)
 app.include_router(skills.router, prefix=settings.api_prefix)
 app.include_router(resume.router, prefix=settings.api_prefix)
 app.include_router(user_profiles.router, prefix=settings.api_prefix)

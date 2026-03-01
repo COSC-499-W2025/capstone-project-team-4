@@ -105,12 +105,13 @@ class ComplexityRepository(BaseRepository[Complexity]):
         )
         return self.create(complexity)
 
-    def create_complexities_bulk(self, complexities_data: List[dict]) -> List[Complexity]:
+    def create_complexities_bulk(self, project_id: int, complexity_data: List[dict]) -> List[Complexity]:
+
         """Create multiple complexity records efficiently."""
         complexities = []
-        for data in complexities_data:
+        for data in complexity_data:
             complexity = Complexity(
-                project_id=data["project_id"],
+                project_id=project_id,
                 file_path=data["file_path"],
                 function_name=data["function_name"],
                 cyclomatic_complexity=data.get("cyclomatic_complexity", 1),

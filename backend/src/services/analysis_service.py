@@ -6,6 +6,7 @@ import zipfile
 import tempfile
 import shutil
 import os
+import hashlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -13,6 +14,17 @@ from typing import Optional, Tuple, List, Dict, Union
 from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
+from sqlalchemy import select
+from src.models.orm.file import File
+from src.models.orm.complexity import Complexity
+from src.models.orm.skill import ProjectSkill, ProjectSkillTimeline
+from src.models.orm.framework import ProjectFramework
+from src.models.orm.library import ProjectLibrary
+from src.models.orm.tool import ProjectTool
+from src.models.orm.resume import ResumeItem
+from src.models.orm.project import ProjectAnalysisSummary
+from src.models.orm.contributor import Contributor, ContributorFile
+from src.models.orm.contributor_commit import ContributorCommit
 
 from src.models.schemas.analysis import AnalysisResult, AnalysisStatus, ComplexitySummary
 from src.config.settings import settings
@@ -81,6 +93,7 @@ IGNORE_DIRS = {
 }
 
 logger = logging.getLogger(__name__)
+logger.info("LOADED analysis_service from: %s", __file__)
 
 def _is_macos_junk_zip_name(name: str) -> bool:
     n = name.replace("\\", "/")
@@ -303,7 +316,7 @@ class AnalysisService:
     ) -> List["AnalysisResult"]:
         """
         Analyze one or more projects from a ZIP.
-        - Supports ZIPs inside ZIPs (recursively), but skips ones under ignored dirs (.venv, node_modules, etc.)
+        - Supports ZIPs inside ZIPs (recursively), but skips ones under ignored dirs
         - Skips macOS junk entries (__MACOSX, .DS_Store, ._ files)
         - Detects multiple projects per extracted zip and analyzes each root
 
@@ -321,8 +334,7 @@ class AnalysisService:
             raise ValueError("ZIP nesting too deep. Please upload fewer nested ZIP layers.")
 
         base_name = project_name or zip_path.stem
-
-        # Compute earliest date from this zip’s metadata
+    
         earliest_file_date = get_earliest_file_date_from_zip(zip_path)
 
         results: List["AnalysisResult"] = []
@@ -333,57 +345,47 @@ class AnalysisService:
             logger.info(f"[zip depth={_depth}] Extracting ZIP to {temp_path}")
             _extract_zip_skipping_macos_junk(zip_path, temp_path)
 
-            # 1) Recurse into nested zips (if any) — but only those not under ignored dirs
             inner_zip_entries = list_inner_zip_entries(zip_path)
-            if inner_zip_entries:
-                for inner_name in sorted(inner_zip_entries):
-                    inner_zip_path = temp_path / inner_name  # extraction keeps relative paths
-                    if not inner_zip_path.exists():
-                        # Safety: some zips can store odd paths; skip if missing
-                        logger.warning(f"Inner zip listed but not extracted: {inner_name}")
-                        continue
+            for inner_name in sorted(inner_zip_entries):
+                inner_zip_path = temp_path / inner_name
+                if not inner_zip_path.exists():
+                    logger.warning(f"Inner zip listed but not extracted: {inner_name}")
+                    continue
 
-                    nested_name = f"{base_name} - {Path(inner_name).stem}"
-                    nested_results = self.analyze_from_zip(
+                nested_name = f"{base_name} - {Path(inner_name).stem}"
+                results.extend(
+                    self.analyze_from_zip(
                         inner_zip_path,
                         nested_name,
                         _depth=_depth + 1,
                         _max_depth=_max_depth,
                     )
-                    results.extend(nested_results)
+                )
 
-            # 2) Also analyze projects contained directly in this extracted zip (folders/files)
-            #    This ensures you still analyze “real” project roots even if nested zips exist.
+            # 2) analyze project roots in the extracted content
             project_roots = detect_project_roots(temp_path)
             logger.info(f"Detected {len(project_roots)} project(s) in extracted ZIP at depth {_depth}")
 
             for idx, root in enumerate(project_roots, start=1):
-                # Avoid analyzing extracted inner-zip dirs as "projects" if they live under ignored dirs
-                if _is_under_ignored_dir(str(root.resolve().relative_to(temp_path.resolve())).replace("\\", "/")):
+                rel = str(root.resolve().relative_to(temp_path.resolve())).replace("\\", "/")
+                if _is_under_ignored_dir(rel):
                     continue
 
-                derived_name = (
-                    base_name
-                    if len(project_roots) == 1
-                    else f"{base_name} - {root.name or f'project-{idx}'}"
-                )
+                derived_name = base_name if len(project_roots) == 1 else f"{base_name} - {root.name or f'project-{idx}'}"
 
-                results.append(
-                    self._run_analysis_pipeline(
-                        project_path=root,
-                        project_name=derived_name,
-                        source_type="zip",
-                        
-                        source_url=str(zip_path),
-                        zip_upload_time=datetime.utcnow(),
-                        earliest_file_date_in_zip=earliest_file_date,
-                    )
+                result = self._run_analysis_pipeline(
+                    project_path=root,
+                    project_name=derived_name,
+                    source_type="zip",
+                    source_url=str(zip_path),
+                    zip_upload_time=datetime.utcnow(),
+                    earliest_file_date_in_zip=earliest_file_date,
                 )
+                results.append(result)
 
-        
         return results
 
-
+    
     def analyze_from_directory(
         self,
         directory_path: Path,
@@ -413,6 +415,30 @@ class AnalysisService:
             source_type="local",
             source_url=str(directory_path),
         )
+    
+    def _compute_project_tree_hash(files_meta: list[dict]) -> str:
+        h = hashlib.sha256()
+
+        items: list[tuple[str, str]] = []
+        for m in files_meta:
+            path = (m.get("path") or "").replace("\\", "/")
+            content_hash = m.get("content_hash") or ""
+            items.append((path, content_hash))
+
+        items.sort(key=lambda x: x[0])
+
+        for path, content_hash in items:
+            h.update(path.encode("utf-8"))
+            h.update(b"\0")
+            h.update(content_hash.encode("utf-8"))
+            h.update(b"\n")
+
+        return h.hexdigest()
+
+
+    def _compute_analysis_key(project_hash: str, version: str) -> str:
+        return hashlib.sha256(f"{project_hash}:{version}".encode("utf-8")).hexdigest()
+
 
     def analyze_from_github(
         self,
@@ -487,8 +513,6 @@ class AnalysisService:
 
             return results
 
-
-
     def _run_analysis_pipeline(
         self,
         project_path: Path,
@@ -504,106 +528,247 @@ class AnalysisService:
         This optimized pipeline:
         1. Collects all file info in a SINGLE pass (avoiding redundant walks)
         2. Runs Git, Complexity, and Skill analysis in PARALLEL
-
-        Args:
-            project_path: Path to the project directory
-            project_name: Name of the project
-            source_type: Type of source (local, zip, github)
-            source_url: URL or path of the source
-            zip_upload_time: Time when ZIP was uploaded (for ZIP sources)
-            earliest_file_date_in_zip: Earliest file date from ZIP metadata
-
-        Returns:
-            AnalysisResult with all analysis data
         """
-        logger.info(f"Starting analysis for {project_name} at {project_path}")
-        
-        # Track timing for performance analysis
+        # Step 0: Single-pass file collection
+        logger.info("Step 0: Collecting file info (single pass)")
         start_time = time.time()
         stage_timings: Dict[str, float] = {}
+        step_start = time.time()
+
+        file_info_list = collect_all_file_info(project_path, show_progress=True)
+        original_count = len(file_info_list)
+
+        def _sha256_file(path: str, chunk_size: int = 1024 * 1024) -> str:
+            h = hashlib.sha256()
+            with open(path, "rb") as f:
+                for chunk in iter(lambda: f.read(chunk_size), b""):
+                    h.update(chunk)
+            return h.hexdigest()
+
+        seen_hashes: set[str] = set()
+        deduped_file_info: List[FileInfo] = []
+        hash_by_path: Dict[str, str] = {}
+
+        for fi in file_info_list:
+            try:
+                digest = _sha256_file(fi.path)
+                hash_by_path[fi.relative_path] = digest
+            except Exception:
+                
+                deduped_file_info.append(fi)
+                continue
+
+            if digest in seen_hashes:
+                continue
+
+            seen_hashes.add(digest)
+            deduped_file_info.append(fi)
+
+        file_info_list = deduped_file_info
+        file_paths = [f.path for f in file_info_list]
+
+        stage_timings["file_collection"] = time.time() - step_start
+        logger.info(
+            "Step 0 complete: Collected %d files, deduped to %d files in %.2fs",
+            original_count,
+            len(file_info_list),
+            stage_timings["file_collection"],
+        )
+
+        # Step 1: Convert file info to metadata format
+        logger.info("Step 1: Building metadata from collected files")
+        step_start = time.time()
+
+        project_root = str(Path(project_path).resolve())
+        file_list = [file_info_to_metadata_dict(f) for f in file_info_list]
+
+        
+        for meta in file_list:
+            p = meta.get("path")
+            if p and p in hash_by_path:
+                meta["content_hash"] = hash_by_path[p]
+            else:
+                meta["content_hash"] = None
+
+        logger.info(
+            "[CACHE] about to hash: files=%d with_hash=%d",
+            len(file_list),
+            sum(1 for f in file_list if f.get("content_hash")),
+        )
+
+        stage_timings["metadata_conversion"] = time.time() - step_start
+        logger.info(
+            "Step 1 complete: %d files in %.2fs",
+            len(file_list),
+            stage_timings["metadata_conversion"],
+        )
+
+        # Step 1.5: Compute project hash + cache lookup
+        logger.info("Step 1.5: Computing project hash + cache lookup")
+        step_start = time.time()
+
+        def _compute_project_tree_hash(files_meta: list[dict]) -> str:
+            """
+            Stable hash of the project content:
+            hash over sorted (relative_path + '\\0' + file_content_hash + '\\n')
+            """
+            h = hashlib.sha256()
+            items: list[tuple[str, str]] = []
+            for m in files_meta:
+                path = (m.get("path") or "").replace("\\", "/")
+                ch = m.get("content_hash") or ""
+                items.append((path, ch))
+
+            items.sort(key=lambda x: x[0])
+
+            for path, ch in items:
+                h.update(path.encode("utf-8"))
+                h.update(b"\0")
+                h.update(ch.encode("utf-8"))
+                h.update(b"\n")
+
+            return h.hexdigest()
+
+        project_tree_hash = _compute_project_tree_hash(file_list)
+        analysis_key = hashlib.sha256(
+            f"{project_tree_hash}:{settings.app_version}".encode("utf-8")
+        ).hexdigest()
+
+        logger.info(
+            "[CACHE] project_tree_hash=%s analysis_key=%s",
+            project_tree_hash,
+            analysis_key,
+        )
+
+        cached_project = self.project_repo.get_latest_by_analysis_key(analysis_key)
+
+        stage_timings["cache_lookup"] = time.time() - step_start
+        if cached_project:
+            logger.info(
+                "Cache HIT: analysis_key=%s (cached project_id=%s)",
+                analysis_key,
+                cached_project.id,
+            )
+        else:
+            logger.info("Cache MISS: analysis_key=%s", analysis_key)
+
+        # Step 2: Create project entry (ALWAYS new project_id)
+        logger.info("Step 2: Creating project entry")
+        logger.info(f"project_tree_hash={project_tree_hash} analysis_key={analysis_key}")
+        project = self.project_repo.create_project(
+            name=project_name,
+            root_path=project_root,
+            source_type=source_type,
+            source_url=source_url,
+            content_hash=project_tree_hash,
+            analysis_key=analysis_key,
+            reused_from_project_id=cached_project.id if cached_project else None,
+        )
+        project_id = project.id
+        logger.info(f"Step 2 complete: Project ID {project_id}")
+
+        
+        if cached_project is not None:
+            logger.info(
+                "Reusing cached analysis from project_id=%s -> new project_id=%s",
+                cached_project.id,
+                project_id,
+            )
+            self._clone_project_analysis(
+                from_project_id=cached_project.id,
+                to_project_id=project_id,
+            )
+
+            # Keep timestamps logic consistent (optional but recommended)
+            zip_uploaded_at = zip_upload_time if source_type == "zip" else datetime.utcnow()
+            first_file_created = earliest_file_date_in_zip if earliest_file_date_in_zip else datetime.utcnow()
+            first_commit_date = get_first_commit_date(str(project_path))
+
+            if first_commit_date and first_file_created:
+                project_started_at = min(first_commit_date, first_file_created)
+            elif first_commit_date:
+                project_started_at = first_commit_date
+            else:
+                project_started_at = first_file_created
+
+            self.project_repo.update_timestamps(
+                project_id=project_id,
+                zip_uploaded_at=zip_uploaded_at,
+                first_file_created=first_file_created,
+                first_commit_date=first_commit_date,
+                project_started_at=project_started_at,
+            )
+
+           
+            return self.get_analysis_result(project_id)
+        
+        logger.info("Steps 3-6: Running parallel analysis")
+        step_start = time.time()
+
+        # Default values in case of errors
+        contributors = []
+        complexity_dict = {"functions": []}
+        library_report = {"libraries": [], "by_ecosystem": {}, "total_count": 0}
+        tool_report = {"tools": [], "by_category": {}, "total_count": 0}
+        languages_detected: List[str] = []
+        frameworks_detected: List[dict] = []
+
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            futures = {
+                executor.submit(git_analyze_contributors, project_root): "contributors",
+                executor.submit(
+                    lambda: project_analysis_to_dict(analyze_project(project_path, file_paths))
+                ): "complexity",
+                executor.submit(detect_libraries_recursive, project_path): "libraries",
+                executor.submit(detect_tools_recursive, project_path): "tools",
+                executor.submit(lambda: ProjectAnalyzer().analyze_project_languages(project_root)): "languages",
+                executor.submit(self._detect_frameworks_best, project_path): "frameworks",
+            }
+
+            for future in as_completed(futures):
+                task_name = futures[future]
+                try:
+                    result = future.result()
+                    if task_name == "contributors":
+                        contributors = result
+                        logger.info("Git analysis complete: Found %d contributors", len(contributors))
+                    elif task_name == "complexity":
+                        complexity_dict = result
+                        logger.info(
+                            "Complexity analysis complete: Found %d functions",
+                            len(complexity_dict.get("functions", [])),
+                        )
+                    elif task_name == "libraries":
+                        library_report = result
+                        logger.info(
+                            "Library detection complete: Found %d libraries",
+                            library_report.get("total_count", 0),
+                        )
+                    elif task_name == "tools":
+                        tool_report = result
+                        logger.info(
+                            "Tool detection complete: Found %d tools",
+                            tool_report.get("total_count", 0),
+                        )
+                    elif task_name == "languages":
+                        languages_detected = sorted(
+                            [lang for lang, count in result.items() if lang != "Unknown" and count > 0]
+                        )
+                        logger.info("Language detection complete: Found %d languages", len(languages_detected))
+                    elif task_name == "frameworks":
+                        frameworks_detected = result or []
+                        logger.info("Framework detection complete: Found %d frameworks", len(frameworks_detected))
+                except Exception as e:
+                    logger.warning("%s analysis failed: %s", task_name, e)
+
+        stage_timings["parallel_analysis"] = time.time() - step_start
+        logger.info(
+            "Steps 3-6 complete: Parallel analysis finished in %.2fs",
+            stage_timings["parallel_analysis"],
+        )
+
 
         try:
-            # Step 0: Single-pass file collection (OPTIMIZATION)
-            logger.info("Step 0: Collecting file info (single pass)")
-            step_start = time.time()
-            file_info_list = collect_all_file_info(project_path, show_progress=True)
-            file_paths = [f.path for f in file_info_list]
-            stage_timings['file_collection'] = time.time() - step_start
-            logger.info(f"Step 0 complete: Collected info for {len(file_info_list)} files in {stage_timings['file_collection']:.2f}s")
-
-            # Step 1: Convert file info to metadata format
-            logger.info("Step 1: Building metadata from collected files")
-            step_start = time.time()
-            project_root = str(Path(project_path).resolve())
-            file_list = [file_info_to_metadata_dict(f) for f in file_info_list]
-            stage_timings['metadata_conversion'] = time.time() - step_start
-            logger.info(f"Step 1 complete: {len(file_list)} files in {stage_timings['metadata_conversion']:.2f}s")
-
-            # Step 2: Create project entry
-            logger.info("Step 2: Creating project entry")
-            project = self.project_repo.create_project(
-                name=project_name,
-                root_path=project_root,
-                source_type=source_type,
-                source_url=source_url,
-            )
-            project_id = project.id
-            logger.info(f"Step 2 complete: Project ID {project_id}")
-
-            # Steps 3-6: PARALLEL ANALYSIS (Git, Complexity, Languages, Frameworks, Libraries, Tools)
-            logger.info("Steps 3-6: Running parallel analysis")
-            step_start = time.time()
-
-            # Default values in case of errors
-            contributors = []
-            complexity_dict = {"functions": []}
-            library_report = {"libraries": [], "by_ecosystem": {}, "total_count": 0}
-            tool_report = {"tools": [], "by_category": {}, "total_count": 0}
-            languages_detected: List[str] = []
-            frameworks_detected: List[dict] = []
-
-            with ThreadPoolExecutor(max_workers=6) as executor:
-                futures = {
-                    executor.submit(git_analyze_contributors, project_root): "contributors",
-                    executor.submit(
-                        lambda: project_analysis_to_dict(analyze_project(project_path, file_paths))
-                    ): "complexity",
-                    executor.submit(detect_libraries_recursive, project_path): "libraries",
-                    executor.submit(detect_tools_recursive, project_path): "tools",
-                    executor.submit(lambda: ProjectAnalyzer().analyze_project_languages(project_root)): "languages",
-                    executor.submit(self._detect_frameworks_best, project_path): "frameworks",
-                }
-
-                for future in as_completed(futures):
-                    task_name = futures[future]
-                    try:
-                        result = future.result()
-                        if task_name == "contributors":
-                            contributors = result
-                            logger.info(f"Git analysis complete: Found {len(contributors)} contributors")
-                        elif task_name == "complexity":
-                            complexity_dict = result
-                            logger.info(f"Complexity analysis complete: Found {len(complexity_dict.get('functions', []))} functions")
-                        elif task_name == "libraries":
-                            library_report = result
-                            logger.info(f"Library detection complete: Found {library_report.get('total_count', 0)} libraries")
-                        elif task_name == "tools":
-                            tool_report = result
-                            logger.info(f"Tool detection complete: Found {tool_report.get('total_count', 0)} tools")
-                        elif task_name == "languages":
-                            languages_detected = sorted(
-                                [lang for lang, count in result.items() if lang != "Unknown" and count > 0]
-                            )
-                            logger.info("Language detection complete: Found %d languages", len(languages_detected))
-                        elif task_name == "frameworks":
-                            frameworks_detected = result or []
-                            logger.info("Framework detection complete: Found %d frameworks", len(frameworks_detected))
-                    except Exception as e:
-                        logger.warning(f"{task_name} analysis failed: {e}")
-
-            stage_timings['parallel_analysis'] = time.time() - step_start
-            logger.info(f"Steps 3-6 complete: Parallel analysis finished in {stage_timings['parallel_analysis']:.2f}s")
-
             # Step 5.5: Extract skills with pre-detected signals
             logger.info("Step 5.5: Extracting skills with library/tool context")
             step_start = time.time()
@@ -615,8 +780,12 @@ class AnalysisService:
                 languages=languages_detected,
                 frameworks=framework_names,
             )
-            stage_timings['skill_extraction'] = time.time() - step_start
-            logger.info("Step 5.5 complete: Found %d skills in %.2fs", skill_report.get("total_skills", 0), stage_timings['skill_extraction'])
+            stage_timings["skill_extraction"] = time.time() - step_start
+            logger.info(
+                "Step 5.5 complete: Found %d skills in %.2fs",
+                skill_report.get("total_skills", 0),
+                stage_timings["skill_extraction"],
+            )
 
             # Step 5.6: Cross-validate detections
             logger.info("Step 5.6: Cross-validating detections")
@@ -625,16 +794,16 @@ class AnalysisService:
                 languages=languages_detected,
                 frameworks=frameworks_detected,
                 libraries=library_report.get("libraries", []),
-                tools=tool_report.get("tools", [])
+                tools=tool_report.get("tools", []),
             )
             enhanced_results = validator.get_enhanced_results()
             validation_summary = enhanced_results.validation_summary
-            stage_timings['cross_validation'] = time.time() - step_start
+            stage_timings["cross_validation"] = time.time() - step_start
             logger.info(
                 "Step 5.6 complete: Cross-validation found %d boosted, %d gap-filled frameworks in %.2fs",
                 validation_summary.get("frameworks_boosted", 0),
                 validation_summary.get("gap_filled_frameworks", 0),
-                stage_timings['cross_validation']
+                stage_timings["cross_validation"],
             )
 
             # Merge enhanced frameworks with gap-filled ones
@@ -646,15 +815,22 @@ class AnalysisService:
             logger.info("Step 6 complete")
 
             languages = sorted(set(languages_detected))
-            # Use enhanced frameworks from cross-validation
-            frameworks = sorted(set(fw.get("name", "") for fw in all_enhanced_frameworks if fw.get("name")))
-            libraries = sorted({lib.get("name", "").strip() for lib in library_report.get("libraries", []) if lib.get("name")})
-            tools_and_technologies = sorted({tool.get("name", "").strip() for tool in tool_report.get("tools", []) if tool.get("name")})
-            contextual_skills = sorted([
-                skill
-                for skill, source in skill_report.get("skill_sources", {}).items()
-                if source == "contextual"
-            ])
+            frameworks = sorted(
+                set(fw.get("name", "") for fw in all_enhanced_frameworks if fw.get("name"))
+            )
+            libraries = sorted(
+                {lib.get("name", "").strip() for lib in library_report.get("libraries", []) if lib.get("name")}
+            )
+            tools_and_technologies = sorted(
+                {tool.get("name", "").strip() for tool in tool_report.get("tools", []) if tool.get("name")}
+            )
+            contextual_skills = sorted(
+                [
+                    skill
+                    for skill, source in skill_report.get("skill_sources", {}).items()
+                    if source == "contextual"
+                ]
+            )
 
             # Step 7: Save to database
             logger.info("Step 7: Saving to database")
@@ -676,8 +852,11 @@ class AnalysisService:
             self._save_frameworks(project_id, all_enhanced_frameworks)
             self._save_libraries(project_id, library_report.get("libraries", []))
             self._save_tools(project_id, tool_report.get("tools", []))
-            stage_timings['database_saves'] = time.time() - step_start
-            logger.info(f"Step 7 complete: Database saves finished in {stage_timings['database_saves']:.2f}s")
+            stage_timings["database_saves"] = time.time() - step_start
+            logger.info(
+                "Step 7 complete: Database saves finished in %.2fs",
+                stage_timings["database_saves"],
+            )
 
             # Step 8: Generate and save resume item
             logger.info("Step 8: Generating resume item")
@@ -698,41 +877,26 @@ class AnalysisService:
                 ai_max_tokens=settings.ai_max_tokens,
             )
             self._save_resume_item(project_id, resume_item)
-            stage_timings['resume_generation'] = time.time() - step_start
-            logger.info(f"Step 8 complete: Resume generated in {stage_timings['resume_generation']:.2f}s")
+            stage_timings["resume_generation"] = time.time() - step_start
+            logger.info(
+                "Step 8 complete: Resume generated in %.2fs",
+                stage_timings["resume_generation"],
+            )
 
             # Build result
             complexity_summary = self.complexity_repo.get_summary(project_id)
-            
-            # Calculate 4 timestamps:
-            # 1. zip_uploaded_at: When ZIP was uploaded (for ZIP sources)
-            # 2. first_file_created: Earliest file in ZIP (from ZIP metadata)
-            # 3. first_commit_date: First Git commit (if repository)
-            # 4. project_started_at: min(first_file_created, first_commit_date)
-            
-            # 1. zip_uploaded_at (only for ZIP sources)
+
             zip_uploaded_at = zip_upload_time if source_type == "zip" else datetime.utcnow()
-            logger.info(f"ZIP uploaded at: {zip_uploaded_at}")
-            
-            # 2. first_file_created (earliest file from ZIP)
             first_file_created = earliest_file_date_in_zip if earliest_file_date_in_zip else datetime.utcnow()
-            logger.info(f"First file created: {first_file_created}")
-            
-            # 3. first_commit_date (from Git if available)
             first_commit_date = get_first_commit_date(str(project_path))
-            logger.info(f"First commit date: {first_commit_date}")
-            
-            # 4. project_started_at (minimum of file creation and first commit)
+
             if first_commit_date and first_file_created:
                 project_started_at = min(first_commit_date, first_file_created)
             elif first_commit_date:
                 project_started_at = first_commit_date
             else:
                 project_started_at = first_file_created
-            
-            logger.info(f"Project started at: {project_started_at}")
 
-            # Persist timestamps on project record for downstream consumers
             self.project_repo.update_timestamps(
                 project_id=project_id,
                 zip_uploaded_at=zip_uploaded_at,
@@ -740,19 +904,18 @@ class AnalysisService:
                 first_commit_date=first_commit_date,
                 project_started_at=project_started_at,
             )
-            
+
             # Step 9: Save analysis summary with timing data
             total_duration = time.time() - start_time
             self._save_analysis_summary(
                 project_id=project_id,
                 total_files_processed=len(file_list),
-                total_files_analyzed=len([f for f in file_list if f.get('lines_of_code', 0) > 0]),
-                total_files_skipped=len([f for f in file_list if f.get('lines_of_code', 0) == 0]),
+                total_files_analyzed=len([f for f in file_list if f.get("lines_of_code", 0) > 0]),
+                total_files_skipped=len([f for f in file_list if f.get("lines_of_code", 0) == 0]),
                 analysis_duration_seconds=total_duration,
                 stage_durations=stage_timings,
             )
-            logger.info(f"Analysis summary saved: Total duration {total_duration:.2f}s")
-            
+
             return AnalysisResult(
                 project_id=project_id,
                 project_name=project_name,
@@ -781,8 +944,228 @@ class AnalysisService:
                 first_commit_date=first_commit_date,
                 project_started_at=project_started_at,
             )
+
         except Exception as e:
             logger.error(f"Analysis failed for {project_name}: {e}")
+            raise
+
+    def _clone_project_analysis(self, from_project_id: int, to_project_id: int) -> None:
+        """
+        Copy analysis outputs from one project to another.
+        Assumes the destination project row already exists.
+        """
+        try:
+            # Files 
+            src_files = list(
+                self.db.scalars(select(File).where(File.project_id == from_project_id)).all()
+            )
+            new_files = [
+                File(
+                    project_id=to_project_id,
+                    path=f.path,
+                    language_id=f.language_id,
+                    file_size=f.file_size,
+                    lines_of_code=f.lines_of_code,
+                    comment_lines=f.comment_lines,
+                    blank_lines=f.blank_lines,
+                    created_timestamp=f.created_timestamp,
+                    last_modified=f.last_modified,
+                    content_hash=getattr(f, "content_hash", None),
+                )
+                for f in src_files
+            ]
+            self.db.add_all(new_files)
+
+            # Complexity
+            src_cx = list(
+                self.db.scalars(select(Complexity).where(Complexity.project_id == from_project_id)).all()
+            )
+            self.db.add_all(
+                [
+                    Complexity(
+                        project_id=to_project_id,
+                        file_path=c.file_path,
+                        function_name=c.function_name,
+                        start_line=c.start_line,
+                        end_line=c.end_line,
+                        cyclomatic_complexity=c.cyclomatic_complexity,
+                    )
+                    for c in src_cx
+                ]
+            )
+
+            # Skills 
+            src_skills = list(
+                self.db.scalars(select(ProjectSkill).where(ProjectSkill.project_id == from_project_id)).all()
+            )
+            self.db.add_all(
+                [
+                    ProjectSkill(
+                        project_id=to_project_id,
+                        skill_id=s.skill_id,
+                        frequency=s.frequency,
+                        source=s.source,
+                    )
+                    for s in src_skills
+                ]
+            )
+
+            # Skill timeline
+            src_tl = list(
+                self.db.scalars(
+                    select(ProjectSkillTimeline).where(ProjectSkillTimeline.project_id == from_project_id)
+                ).all()
+            )
+            self.db.add_all(
+                [
+                    ProjectSkillTimeline(
+                        project_id=to_project_id,
+                        skill=t.skill,
+                        date=t.date,
+                        count=t.count,
+                    )
+                    for t in src_tl
+                ]
+            )
+
+            #Frameworks / Libraries / Tools
+            src_fw = list(
+                self.db.scalars(select(ProjectFramework).where(ProjectFramework.project_id == from_project_id)).all()
+            )
+            self.db.add_all(
+                [
+                    ProjectFramework(
+                        project_id=to_project_id,
+                        framework_id=f.framework_id,
+                        detection_score=f.detection_score,
+                        original_score=f.original_score,
+                        cross_validation_boost=f.cross_validation_boost,
+                        validation_sources=f.validation_sources,
+                        is_gap_filled=f.is_gap_filled,
+                    )
+                    for f in src_fw
+                ]
+            )
+
+            src_lib = list(
+                self.db.scalars(select(ProjectLibrary).where(ProjectLibrary.project_id == from_project_id)).all()
+            )
+            self.db.add_all(
+                [
+                    ProjectLibrary(
+                        project_id=to_project_id,
+                        library_id=l.library_id,
+                        detection_score=l.detection_score,
+                    )
+                    for l in src_lib
+                ]
+            )
+
+            src_tools = list(
+                self.db.scalars(select(ProjectTool).where(ProjectTool.project_id == from_project_id)).all()
+            )
+            self.db.add_all(
+                [
+                    ProjectTool(
+                        project_id=to_project_id,
+                        tool_id=t.tool_id,
+                        detection_score=t.detection_score,
+                    )
+                    for t in src_tools
+                ]
+            )
+
+            #Resume items
+            src_resume = list(
+                self.db.scalars(select(ResumeItem).where(ResumeItem.project_id == from_project_id)).all()
+            )
+            self.db.add_all(
+                [
+                    ResumeItem(
+                        project_id=to_project_id,
+                        title=r.title,
+                        highlights=r.highlights,
+                        created_at=r.created_at,
+                    )
+                    for r in src_resume
+                ]
+            )
+
+            #Analysis summary 
+            src_summary = self.db.scalar(
+                select(ProjectAnalysisSummary).where(ProjectAnalysisSummary.project_id == from_project_id)
+            )
+            if src_summary:
+                self.db.add(
+                    ProjectAnalysisSummary(
+                        project_id=to_project_id,
+                        total_files_processed=src_summary.total_files_processed,
+                        total_files_analyzed=src_summary.total_files_analyzed,
+                        total_files_skipped=src_summary.total_files_skipped,
+                        analysis_duration_seconds=src_summary.analysis_duration_seconds,
+                        analysis_stage_durations=src_summary.analysis_stage_durations,
+                    )
+                )
+
+            #Contributors
+            src_contribs = list(
+                self.db.scalars(select(Contributor).where(Contributor.project_id == from_project_id)).all()
+            )
+
+            old_to_new_contrib_id: dict[int, int] = {}
+
+            for c in src_contribs:
+                new_c = Contributor(
+                    project_id=to_project_id,
+                    name=c.name,
+                    email=c.email,
+                    github_username=c.github_username,
+                    github_email=c.github_email,
+                    commits=c.commits,
+                    percent=c.percent,
+                    total_lines_added=c.total_lines_added,
+                    total_lines_deleted=c.total_lines_deleted,
+                )
+                self.db.add(new_c)
+                self.db.flush()  # assigns new_c.id
+                old_to_new_contrib_id[c.id] = new_c.id
+
+                # contributor_files
+                src_cfiles = list(
+                    self.db.scalars(select(ContributorFile).where(ContributorFile.contributor_id == c.id)).all()
+                )
+                self.db.add_all(
+                    [
+                        ContributorFile(
+                            contributor_id=new_c.id,
+                            filename=cf.filename,
+                            modifications=cf.modifications,
+                        )
+                        for cf in src_cfiles
+                    ]
+                )
+
+                # contributor_commits
+                src_commits = list(
+                    self.db.scalars(select(ContributorCommit).where(ContributorCommit.contributor_id == c.id)).all()
+                )
+                self.db.add_all(
+                    [
+                        ContributorCommit(
+                            contributor_id=new_c.id,
+                            commit_hash=cc.commit_hash,
+                            commit_date=cc.commit_date,
+                            author_date=cc.author_date,
+                            commit_message=cc.commit_message,
+                        )
+                        for cc in src_commits
+                    ]
+                )
+
+            self.db.commit()
+
+        except Exception:
+            self.db.rollback()
             raise
 
     def _detect_project_root(self, base_path: Path) -> Path:
@@ -843,37 +1226,66 @@ class AnalysisService:
         ]
 
     def _save_files(self, project_id: int, file_list: list) -> None:
-        """Save file metadata to database."""
+        """
+        Save file metadata to database.
+
+        Defensive: only pass known columns to the repository.
+        Now includes content_hash (column exists in DB).
+        """
+
+        allowed_keys = {
+            "project_id",
+            "path",
+            "language_name",
+            "file_size",
+            "lines_of_code",
+            "comment_lines",
+            "blank_lines",
+            "created_timestamp",
+            "last_modified",
+            "content_hash",
+        }
+
         files_data = []
+
         for f in file_list:
-            files_data.append({
+            row = {
                 "project_id": project_id,
                 "path": f.get("path", ""),
                 "language_name": f.get("language"),
                 "file_size": f.get("file_size"),
                 "lines_of_code": f.get("lines_of_code"),
+                "comment_lines": f.get("comment_lines"),
+                "blank_lines": f.get("blank_lines"),
                 "created_timestamp": f.get("created_timestamp"),
                 "last_modified": f.get("last_modified"),
-            })
+                "content_hash": f.get("content_hash"),
+            }
+
+            # Filter strictly to DB columns
+            row = {k: v for k, v in row.items() if k in allowed_keys}
+            files_data.append(row)
 
         if files_data:
             self.file_repo.create_files_bulk(files_data)
 
-    def _save_complexity(self, project_id: int, functions: list) -> None:
-        """Save complexity metrics to database."""
-        complexity_data = []
-        for func in functions:
-            complexity_data.append({
-                "project_id": project_id,
-                "file_path": func.get("file_path", ""),
-                "function_name": func.get("function_name", "unknown"),
-                "cyclomatic_complexity": func.get("cyclomatic_complexity", 1),
-                "start_line": func.get("start_line"),
-                "end_line": func.get("end_line"),
-            })
+    def _save_complexity(self, project_id: int, functions: list[dict]) -> None:
+        
+        if not functions:
+            return
 
-        if complexity_data:
-            self.complexity_repo.create_complexities_bulk(complexity_data)
+        complexity_data = []
+        for fn in functions:
+            complexity_data.append({
+                "project_id": project_id,                    
+                "file_path": fn.get("file_path") or fn.get("file") or "",
+                "function_name": fn.get("name") or fn.get("function_name") or "",
+                "start_line": fn.get("start_line"),
+                "end_line": fn.get("end_line"),
+                "cyclomatic_complexity": fn.get("complexity") or fn.get("cyclomatic_complexity") or 0,
+        })
+
+        self.complexity_repo.create_complexities_bulk(project_id, complexity_data)
 
     def _save_contributors(self, project_id: int, contributors: list) -> None:
         """Save contributor data to database."""

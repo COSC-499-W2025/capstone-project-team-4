@@ -1,13 +1,17 @@
 """Tests for contributor analysis API endpoints."""
 
+from datetime import datetime, timezone
+from unittest.mock import Mock, patch, MagicMock
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import Mock, patch, MagicMock
 
 from src.api.main import app
 from src.models.schemas.contributor import (
-    ContributorAnalysisDetailResponseSchema,
     AreaShareSchema,
+    ContributorAnalysisDetailResponseSchema,
+    ContributorAnalysisDetailSchema,
+    ContributorSummarySchema,
     TopFileItemSchema,
 )
 
@@ -28,21 +32,30 @@ def mock_db_session():
 def sample_analysis_response():
     """Sample contributor analysis response."""
     return ContributorAnalysisDetailResponseSchema(
-        contributor_id=1,
-        top_areas=[
-            AreaShareSchema(area="backend", share=75.5, lines_changed=1500),
-            AreaShareSchema(area="frontend", share=24.5, lines_changed=490),
-        ],
-        top_files=[
-            TopFileItemSchema(
-                file_path="backend/src/services/contributor_analysis_service.py",
-                lines_changed=420,
+        project_id=1,
+        project_name="Demo Project",
+        branch="HEAD",
+        contributor=ContributorAnalysisDetailSchema(
+            contributor_id=1,
+            name="Demo User",
+            summary=ContributorSummarySchema(
+                top_areas=[
+                    AreaShareSchema(area="backend", share=0.75),
+                    AreaShareSchema(area="frontend", share=0.25),
+                ],
+                top_files=[
+                    TopFileItemSchema(
+                        file="backend/src/services/contributor_analysis_service.py",
+                        lines_changed=420,
+                    ),
+                    TopFileItemSchema(
+                        file="frontend/src/pages/Dashboard.jsx",
+                        lines_changed=180,
+                    ),
+                ],
             ),
-            TopFileItemSchema(
-                file_path="frontend/src/pages/Dashboard.jsx",
-                lines_changed=180,
-            ),
-        ],
+        ),
+        generated_at=datetime(2026, 2, 9, tzinfo=timezone.utc),
     )
 
 
@@ -71,17 +84,18 @@ def test_get_contributor_analysis_success(client, mock_db_session, sample_analys
         mock_service.return_value.get_contributor_analysis.return_value = sample_analysis_response
         
         # Make request
-        response = client.get("/projects/1/contributors/1/analysis")
+        response = client.get("/api/projects/1/contributors/1/analysis")
         
         # Assertions
         assert response.status_code == 200
         data = response.json()
-        assert data["contributor_id"] == 1
-        assert len(data["top_areas"]) == 2
-        assert data["top_areas"][0]["area"] == "backend"
-        assert data["top_areas"][0]["share"] == 75.5
-        assert len(data["top_files"]) == 2
-        assert "backend/src/services" in data["top_files"][0]["file_path"]
+        assert data["project_id"] == 1
+        assert data["contributor"]["contributor_id"] == 1
+        assert len(data["contributor"]["summary"]["top_areas"]) == 2
+        assert data["contributor"]["summary"]["top_areas"][0]["area"] == "backend"
+        assert data["contributor"]["summary"]["top_areas"][0]["share"] == 0.75
+        assert len(data["contributor"]["summary"]["top_files"]) == 2
+        assert "backend/src/services" in data["contributor"]["summary"]["top_files"][0]["file"]
 
 
 def test_get_contributor_analysis_project_not_found(client, mock_db_session):
@@ -92,7 +106,7 @@ def test_get_contributor_analysis_project_not_found(client, mock_db_session):
         mock_get_db.return_value = mock_db_session
         mock_project_repo.return_value.get.return_value = None
         
-        response = client.get("/projects/999/contributors/1/analysis")
+        response = client.get("/api/projects/999/contributors/1/analysis")
         
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
@@ -114,7 +128,7 @@ def test_get_contributor_analysis_contributor_not_found(client, mock_db_session)
         # Contributor does not exist
         mock_contributor_repo.return_value.get.return_value = None
         
-        response = client.get("/projects/1/contributors/999/analysis")
+        response = client.get("/api/projects/1/contributors/999/analysis")
         
         assert response.status_code == 404
         assert "999" in response.json()["detail"]
@@ -140,7 +154,7 @@ def test_get_contributor_analysis_contributor_wrong_project(client, mock_db_sess
         mock_contributor.project_id = 2  # Different project
         mock_contributor_repo.return_value.get.return_value = mock_contributor
         
-        response = client.get("/projects/1/contributors/1/analysis")
+        response = client.get("/api/projects/1/contributors/1/analysis")
         
         assert response.status_code == 400
         assert "does not belong to project" in response.json()["detail"]
@@ -168,7 +182,7 @@ def test_get_contributor_analysis_with_branch_parameter(client, mock_db_session,
         mock_service.return_value.get_contributor_analysis.return_value = sample_analysis_response
         
         # Make request with branch parameter
-        response = client.get("/projects/1/contributors/1/analysis?branch=feature-branch")
+        response = client.get("/api/projects/1/contributors/1/analysis?branch=feature-branch")
         
         assert response.status_code == 200
         
@@ -202,7 +216,7 @@ def test_get_contributor_analysis_service_returns_none(client, mock_db_session):
         # Service returns None
         mock_service.return_value.get_contributor_analysis.return_value = None
         
-        response = client.get("/projects/1/contributors/1/analysis")
+        response = client.get("/api/projects/1/contributors/1/analysis")
         
         assert response.status_code == 500
         assert "Failed to generate" in response.json()["detail"]
@@ -230,7 +244,7 @@ def test_get_contributor_analysis_service_raises_exception(client, mock_db_sessi
         # Service raises exception
         mock_service.return_value.get_contributor_analysis.side_effect = Exception("Git error")
         
-        response = client.get("/projects/1/contributors/1/analysis")
+        response = client.get("/api/projects/1/contributors/1/analysis")
         
         assert response.status_code == 500
         assert "Failed to analyze" in response.json()["detail"]
