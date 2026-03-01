@@ -391,7 +391,7 @@ class AnalysisService:
         self,
         directory_path: Path,
         project_name: Optional[str] = None,
-        user_id: user_id: Optional[int] = None,
+        user_id: Optional[int] = None,
     ) -> AnalysisResult:
         """
         Analyze a project from a local directory.
