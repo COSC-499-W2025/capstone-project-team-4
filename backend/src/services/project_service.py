@@ -315,6 +315,7 @@ class ProjectService:
         bytes_data: bytes,
         etag: Optional[str],
         thumbnail_endpoint: str,
+        size_bytes: Optional[int] = None,
     ) -> Optional[ProjectThumbnailResponse]:
         """Create or replace a project's thumbnail in the DB."""
         project = self.project_repo.get(project_id)
@@ -322,8 +323,8 @@ class ProjectService:
             return None
 
         # Compute internally to avoid caller inconsistency (feedback #2)
-        size_bytes = len(bytes_data)
-
+        computed_size = len(bytes_data)
+        size_bytes = computed_size
         thumb = self.db.get(ProjectThumbnail, project_id)
         now = datetime.utcnow()
 
