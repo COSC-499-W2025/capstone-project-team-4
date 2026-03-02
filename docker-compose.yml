@@ -1,12 +1,72 @@
 services:
-  app:
-    platform: linux/amd64
-    build: .
-    container_name: capstone-container
-    command: sleep infinity
+  db:
+    image: postgres:15-alpine
+    container_name: project-analyzer-db
+    environment:
+      - POSTGRES_USER=workmine
+      - POSTGRES_PASSWORD=workmine
+      - POSTGRES_DB=workmine
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workmine -d workmine"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: project-analyzer-backend
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
+      - ./backend:/app
+      - ./backend/data:/app/data
+    env_file:
+      - ./backend/.env
     environment:
       - PYTHONPATH=/app
+      - DATABASE_URL=postgresql://workmine:workmine@db:5432/workmine
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: project-analyzer-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge

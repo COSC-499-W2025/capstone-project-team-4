@@ -1,0 +1,103 @@
+rules_version: 0.1
+
+settings:
+  exclude_dirs:
+    [
+      "node_modules",
+      ".venv",
+      "venv",
+      "__pycache__",
+      "dist",
+      "build",
+      ".next",
+      ".git",
+      "target",
+      "vendor",
+      ".cargo",
+    ]
+
+ecosystems:
+  npm:
+    name: "npm"
+    files:
+      - "package.json"
+      - "package-lock.json"
+      - "yarn.lock"
+      - "pnpm-lock.yaml"
+    parser: "npm_parser"
+
+  pip:
+    name: "pip"
+    files:
+      - "requirements.txt"
+      - "requirements-dev.txt"
+      - "requirements-test.txt"
+      - "requirements/*.txt"
+    parser: "pip_parser"
+
+  pyproject:
+    name: "pyproject"
+    files:
+      - "pyproject.toml"
+    parser: "pyproject_parser"
+
+  poetry:
+    name: "poetry"
+    files:
+      - "poetry.lock"
+    parser: "poetry_parser"
+
+  cargo:
+    name: "cargo"
+    files:
+      - "Cargo.toml"
+      - "Cargo.lock"
+    parser: "cargo_parser"
+
+  go:
+    name: "go"
+    files:
+      - "go.mod"
+      - "go.sum"
+    parser: "go_mod_parser"
+
+  maven:
+    name: "maven"
+    files:
+      - "pom.xml"
+    parser: "pom_parser"
+
+  gradle:
+    name: "gradle"
+    files:
+      - "build.gradle"
+      - "build.gradle.kts"
+    parser: "gradle_parser"
+
+  gem:
+    name: "gem"
+    files:
+      - "Gemfile"
+      - "Gemfile.lock"
+    parser: "gemfile_parser"
+
+  composer:
+    name: "composer"
+    files:
+      - "composer.json"
+      - "composer.lock"
+    parser: "composer_parser"
+
+  nuget:
+    name: "nuget"
+    files:
+      - "*.csproj"
+      - "packages.config"
+    parser: "nuget_parser"
+
+  pub:
+    name: "pub"
+    files:
+      - "pubspec.yaml"
+      - "pubspec.lock"
+    parser: "pub_parser"

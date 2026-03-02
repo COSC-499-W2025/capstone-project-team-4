@@ -1,3 +1,5 @@
+.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -57,7 +59,6 @@ dmypy.json
 
 # Environments
 .env
-.env.*
 .venv/
 env.bak/
 venv.bak/
@@ -76,15 +77,22 @@ venv.bak/
 Thumbs.db
 desktop.ini
 
+# AI files
+.claude
+.cursor
+CLAUDE.md
+
 # Logs
 *.log
 
 # Output files
-src/outputs/
+backend/outputs/
 outputs/
 
 # Temporary files
 *.tmp
+backend/temp/
+tmpclaude-*/
 
 # database files
 *.sqlite3   
@@ -92,4 +100,26 @@ outputs/
 *.db-journal
 
 # User data directory (runtime-generated config and logs)
-src/data/
+backend/data/workmine.db
+backend/data/*.db
+backend/data/
+
+# Embedded repositories in test data
+backend/data/projects/**/the-project-jtzc/
+
+# Frontend build files
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/out/
+frontend/package-lock.json
+# Don't ignore the lib folder in the frontend. Shadcn won't work
+!frontend/src/lib/
+
+# Backend specific
+backend/.env
+backend/.venv/
+backend/__pycache__/
+backend/src/__pycache__/
+backend/data/projects/

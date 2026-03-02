@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jane Doe - Resume</title>
+  <style>
+    /* Jake's Resume Template - ATS-friendly HTML/CSS */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 11pt;
+      color: #000;
+      background: #fff;
+      padding: 0.5in;
+      line-height: 1.2;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    .header h1 {
+      font-size: 22pt;
+      font-weight: bold;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .contact-row {
+      font-size: 10pt;
+      text-align: center;
+    }
+
+    .contact-row a {
+      color: #000;
+      text-decoration: none;
+    }
+
+    .contact-row .sep {
+      margin: 0 4px;
+    }
+
+    /* ── Section ── */
+    .section {
+      margin-top: 8px;
+    }
+
+    .section-title {
+      font-size: 12pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #000;
+      padding-bottom: 1px;
+      margin-bottom: 4px;
+    }
+
+    /* ── Education / Experience entry header ── */
+    .entry-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .entry-org {
+      font-weight: bold;
+    }
+
+    .entry-date {
+      font-style: italic;
+      white-space: nowrap;
+    }
+
+    .entry-sub {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .entry-title {
+      font-style: italic;
+    }
+
+    .entry-location {
+      font-style: italic;
+      white-space: nowrap;
+    }
+
+    /* ── Bullet list ── */
+    ul.bullets {
+      margin-left: 16px;
+      margin-top: 2px;
+    }
+
+    ul.bullets li {
+      margin-bottom: 1px;
+      list-style-type: disc;
+    }
+
+    /* ── Projects ── */
+    .project-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .project-title {
+      font-weight: bold;
+    }
+
+    .project-tech {
+      font-style: italic;
+    }
+
+    /* ── Skills ── */
+    .skills-row {
+      margin-bottom: 2px;
+    }
+
+    .skills-row strong {
+      font-weight: bold;
+    }
+
+    /* spacing between entries */
+    .entry {
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ────────── HEADER ────────── -->
+  <div class="header">
+    <h1>Jane Doe</h1>
+    <div class="contact-row">555-1234 <span class="sep">|</span> jane.doe@example.com <span class="sep">|</span> <a href="https://linkedin.com/in/janedoe">https://linkedin.com/in/janedoe</a> <span class="sep">|</span> <a href="https://github.com/janedoe">https://github.com/janedoe</a> <span class="sep">|</span> <a href="https://janedoe.dev">https://janedoe.dev</a> <span class="sep">|</span> Vancouver, BC</div>
+  </div>
+
+  <!-- ────────── SUMMARY ────────── -->
+  
+  <div class="section">
+    <div class="section-title">Summary</div>
+    <p>Experienced software engineer specializing in backend systems and cloud infrastructure with 4+ years of industry experience.</p>
+  </div>
+  
+
+  <!-- ────────── EDUCATION ────────── -->
+  
+  <div class="section">
+    <div class="section-title">Education</div>
+    
+    <div class="entry">
+      <div class="entry-header">
+        <span class="entry-org">University of British Columbia</span>
+        <span class="entry-date">
+          Sep 2018 &ndash;
+          May 2022
+        </span>
+      </div>
+      <div class="entry-sub">
+        <span class="entry-title">Bachelor of Science in Computer Science</span>
+        <span class="entry-location">Vancouver, BC</span>
+      </div>
+      
+      <div style="font-style:italic;">GPA: 3.85</div>
+      
+    </div>
+    
+  </div>
+  
+
+  <!-- ────────── EXPERIENCE ────────── -->
+  
+  <div class="section">
+    <div class="section-title">Experience</div>
+    
+    <div class="entry">
+      <div class="entry-header">
+        <span class="entry-org">Acme Corp</span>
+        <span class="entry-date">
+          Jun 2022 &ndash;
+          Present
+        </span>
+      </div>
+      <div class="entry-sub">
+        <span class="entry-title">Software Engineer (Remote)</span>
+        <span class="entry-location">Vancouver, BC</span>
+      </div>
+      
+      
+      
+      
+      <ul class="bullets">
+        
+        <li>Designed and built REST APIs with FastAPI serving 50k+ daily requests</li>
+        
+        <li>Mentored a team of 3 junior developers through code reviews and pair programming</li>
+        
+        <li>Reduced average API latency by 30% through query optimization and caching</li>
+        
+        <li>Led migration from monolith to microservices architecture</li>
+        
+      </ul>
+      
+    </div>
+    
+    <div class="entry">
+      <div class="entry-header">
+        <span class="entry-org">StartupXYZ</span>
+        <span class="entry-date">
+          May 2021 &ndash;
+          May 2022
+        </span>
+      </div>
+      <div class="entry-sub">
+        <span class="entry-title">Junior Developer</span>
+        <span class="entry-location">Vancouver, BC</span>
+      </div>
+      
+      
+      
+      
+      <ul class="bullets">
+        
+        <li>Developed React components for the customer-facing dashboard</li>
+        
+        <li>Wrote unit and integration tests achieving 85% code coverage</li>
+        
+      </ul>
+      
+    </div>
+    
+  </div>
+  
+
+  <!-- ────────── PROJECTS ────────── -->
+  
+  <div class="section">
+    <div class="section-title">Projects</div>
+    
+    <div class="entry">
+      <div class="project-header">
+        <span>
+          <span class="project-title">Project Analyzer API</span>
+          
+          <span class="project-tech"> | Python, FastAPI, SQLAlchemy, Tree-sitter, Docker</span>
+          
+        </span>
+        
+        <span class="entry-date">Jan 2025 - Present</span>
+        
+      </div>
+      
+      <ul class="bullets">
+        
+        <li>Analyzes GitHub repositories and ZIP uploads to extract programming language and framework usage</li>
+        
+        <li>Implements cyclomatic complexity metrics via AST parsing with Tree-sitter</li>
+        
+        <li>Generates resume-worthy bullet points from code analysis using NLP</li>
+        
+      </ul>
+      
+    </div>
+    
+    <div class="entry">
+      <div class="project-header">
+        <span>
+          <span class="project-title">MyApp</span>
+          
+          <span class="project-tech"> | React, TypeScript, PostgreSQL, AWS ECS</span>
+          
+        </span>
+        
+        <span class="entry-date">Mar 2023</span>
+        
+      </div>
+      
+      <ul class="bullets">
+        
+        <li>Implemented OAuth2 authentication with JWT refresh token rotation</li>
+        
+        <li>Deployed to AWS ECS with automated CI/CD pipeline via GitHub Actions</li>
+        
+      </ul>
+      
+    </div>
+    
+  </div>
+  
+
+  <!-- ────────── TECHNICAL SKILLS ────────── -->
+  
+  <div class="section">
+    <div class="section-title">Technical Skills</div>
+    
+    <div class="skills-row">
+      <strong>Languages:</strong> Python, TypeScript, SQL, Bash
+    </div>
+    
+    <div class="skills-row">
+      <strong>Frameworks:</strong> FastAPI, React, SQLAlchemy, Pytest
+    </div>
+    
+    <div class="skills-row">
+      <strong>Tools:</strong> Docker, GitHub Actions, PostgreSQL, Redis, AWS
+    </div>
+    
+  </div>
+  
+
+</body>
+</html>
