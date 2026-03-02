@@ -46,6 +46,8 @@ class AnalysisResult(BaseModel):
     status: AnalysisStatus
     source_type: str
     source_url: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     languages: List[str] = []
     frameworks: List[str] = []
     libraries: List[str] = []
@@ -67,7 +69,8 @@ class AnalysisResult(BaseModel):
 class TextualProjectShowcaseResponse(BaseModel):
     """Lightweight, portfolio-ready textual showcase for a project.
     This is a thin view-model over AnalysisResult, with short_description
-    reserved for future manual input (kept null for now). """
+    reserved for future manual input (kept null for now). 
+    """
 
     project_id: int
     project_name: str
@@ -78,6 +81,8 @@ class TextualProjectShowcaseResponse(BaseModel):
 
     source_type: str
     source_url: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     languages: List[str] = []
     frameworks: List[str] = []

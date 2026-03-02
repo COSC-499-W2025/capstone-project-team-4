@@ -308,14 +308,25 @@ async def delete_project_thumbnail(
     return None
 
 @router.get(
-    "/projects/{project_id}/textual-project-showcase",
+    "/{project_id}/textual-project-showcase",
     response_model=TextualProjectShowcaseResponse,
 )
-def get_textual_project_showcase(project_id: int, db: Session = Depends(get_db)):
+async def get_textual_project_showcase(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
     service = ProjectService(db)
+
+    if not service.project_exists(project_id):
+        raise ProjectNotFoundError(project_id)
+
     result = service.get_textual_project_showcase(project_id)
+
     if result is None:
-        raise HTTPException(status_code=404, detail="No analysis found for this project.")
+        raise HTTPException(
+            status_code=404,
+            detail="Analysis data not available for this project.",
+        )
     return result
 
 @router.delete("/{project_id}", status_code=204)

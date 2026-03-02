@@ -265,6 +265,11 @@ class ProjectService:
             library_count=len(libraries),
             tool_count=len(tools),
             total_lines_of_code=total_loc,
+            languages=languages,
+            frameworks=frameworks,
+            libraries=libraries,
+            tools_and_technologies=tools,
+            contextual_skills=[s.name for s in skills] if skills else [],
             complexity_summary=ComplexitySummary(
                 total_functions=complexity_summary.get("total_functions", 0),
                 avg_complexity=complexity_summary.get("avg_complexity", 0.0),
