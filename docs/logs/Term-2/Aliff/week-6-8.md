@@ -1,10 +1,14 @@
 ## Week 6-8
 
 ### Summary and Continuity from Previous Week
+Was not merged previous week because of no reviews/not enough reviews
+- Add Makefile dor developer convenience
+- Update CI to check linting and typecheck
+
+This week
+- Add export resume bussiness logic, template, tests, api endpoint
 
 ### Coding Tasks
-
-
 PR links
 
 - https://github.com/COSC-499-W2025/capstone-project-team-4/pull/216
@@ -32,3 +36,5 @@ PR links
 
 
 ### Plan for Next Week
+- Quiz
+- Update system architecture, remember prs and contribution
