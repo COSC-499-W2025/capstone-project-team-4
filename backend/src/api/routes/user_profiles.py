@@ -3,7 +3,7 @@
 import logging
 from typing import List
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from src.models.database import get_db
@@ -19,6 +19,8 @@ from src.api.exceptions import (
     UserProfileNotFoundError,
     UserNotFoundError,
 )
+from src.models.orm.user import User
+from src.api.dependencies import get_current_user
 
 from .experience import router as experience_router
 
@@ -49,12 +51,16 @@ async def list_user_profiles(
 async def get_user_profile_by_user_id(
     user_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get detailed information about a specific user profile using user ID.
 
     - Returns full profile details
     """
+
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     service = UserProfileService(db)
     profile = service.get_profile_by_user_id(user_id)
     if not profile:
@@ -67,6 +73,7 @@ async def create_user_profile(
     user_id: int,
     data: UserProfileCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a new user profile for a user.
@@ -82,6 +89,9 @@ async def create_user_profile(
     if not user:
         raise UserNotFoundError(user_id)
 
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
     return service.create_profile(user_id, data)
 
 
@@ -90,6 +100,7 @@ async def update_user_profile_by_user_id(
     user_id: int,
     data: UserProfileUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Update a user profile using user ID.
@@ -100,6 +111,8 @@ async def update_user_profile_by_user_id(
     profile = service.update_profile_by_user_id(user_id, data)
     if not profile:
         raise UserProfileNotFoundError(user_id)
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     return profile
 
 
@@ -107,6 +120,7 @@ async def update_user_profile_by_user_id(
 async def delete_user_profile_by_user_id(
     user_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Delete a user profile using user ID.
@@ -115,4 +129,7 @@ async def delete_user_profile_by_user_id(
     success = service.delete_profile_by_user_id(user_id)
     if not success:
         raise UserProfileNotFoundError(user_id)
+
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     return
