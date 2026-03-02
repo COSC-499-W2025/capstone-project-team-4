@@ -247,6 +247,20 @@ class ProjectService:
         # Get counts
         summary = self.project_repo.get_summary(project_id)
 
+        @staticmethod
+        def _to_str_list(items):
+            if not items:
+                return []
+            out = []
+            for x in items:
+                if hasattr(x, "name") and getattr(x, "name") is not None:
+                    out.append(str(getattr(x, "name")))
+                elif isinstance(x, dict) and x.get("name") is not None:
+                    out.append(str(x["name"]))
+                else:
+                    out.append(str(x))
+            return out
+
         return AnalysisResult(
             project_id=project.id,
             project_name=project.name,
@@ -265,11 +279,11 @@ class ProjectService:
             library_count=len(libraries),
             tool_count=len(tools),
             total_lines_of_code=total_loc,
-            languages=languages,
-            frameworks=frameworks,
-            libraries=libraries,
-            tools_and_technologies=tools,
-            contextual_skills=[s.name for s in skills] if skills else [],
+            languages=_to_str_list(languages),
+            frameworks=_to_str_list(frameworks),
+            libraries=_to_str_list(libraries),
+            tools_and_technologies=_to_str_list(tools),
+            contextual_skills=_to_str_list(skills),
             complexity_summary=ComplexitySummary(
                 total_functions=complexity_summary.get("total_functions", 0),
                 avg_complexity=complexity_summary.get("avg_complexity", 0.0),
