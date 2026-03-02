@@ -113,6 +113,7 @@ frontend/dist/
 frontend/build/
 frontend/.next/
 frontend/out/
+frontend/package-lock.json
 # Don't ignore the lib folder in the frontend. Shadcn won't work
 !frontend/src/lib/
 

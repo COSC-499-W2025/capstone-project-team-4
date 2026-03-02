@@ -59,6 +59,7 @@ def init_db() -> None:
         Project,
         ProjectAnalysisSummary,
         ProjectSnapshot,
+        ProjectThumbnail,
         File,
         Language,
         Contributor,
@@ -79,6 +80,7 @@ def init_db() -> None:
         ExperienceType,
         Education,
         DataPrivacySettings,
+        Portfolio,
     )
 
     Base.metadata.create_all(bind=engine)

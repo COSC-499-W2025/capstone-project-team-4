@@ -2,6 +2,7 @@
 from src.models.orm.user import User
 from src.models.orm.project import Project, ProjectAnalysisSummary
 from src.models.orm.project_snapshot import ProjectSnapshot
+from src.models.orm.project_thumbnail import ProjectThumbnail
 from src.models.orm.file import File, Language
 from src.models.orm.contributor import Contributor, ContributorFile
 from src.models.orm.contributor_commit import ContributorCommit
@@ -15,12 +16,15 @@ from src.models.orm.user_profile import UserProfile
 from src.models.orm.experience import Experience, ExperienceType
 from src.models.orm.education import Education
 from src.models.orm.data_privacy_settings import DataPrivacySettings
+from src.models.orm.portfolio import Portfolio
+from src.models.orm.snapshot_comparison import SnapshotComparison
 
 __all__ = [
     "User",
     "Project",
     "ProjectAnalysisSummary",
     "ProjectSnapshot",
+    "ProjectThumbnail",
     "File",
     "Language",
     "Contributor",
@@ -42,4 +46,6 @@ __all__ = [
     "ExperienceType",
     "Education",
     "DataPrivacySettings",
+    "Portfolio",
+    "SnapshotComparison",
 ]
