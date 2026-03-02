@@ -9,11 +9,13 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
 from sqlalchemy.orm import Session
 
 from src.models.database import get_db
+from src.models.orm.user import User
 from src.models.schemas.analysis import (
     AnalysisResult,
     GitHubAnalysisRequest,
 )
 from src.services.analysis_service import AnalysisService
+from src.api.dependencies import get_current_user
 from src.api.exceptions import InvalidFileError, InvalidGitHubURLError, AnalysisError
 from src.config.settings import settings
 
@@ -27,6 +29,7 @@ async def analyze_upload(
     file: UploadFile = File(..., description="ZIP file to analyze"),
     project_name: Optional[str] = Form(None, description="Custom project name"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     # Log incoming request details
     logger.info(f"Received upload request - filename: {file.filename}, content_type: {file.content_type}, project_name: {project_name}")
@@ -71,7 +74,7 @@ async def analyze_upload(
         service = AnalysisService(db)
         name = project_name or Path(filename).stem
         logger.info(f"Starting analysis for project: {name}")
-        result = service.analyze_from_zip(tmp_path, name)
+        result = service.analyze_from_zip(tmp_path, name, user_id=current_user.id)
 
         #  Always return list to match response_model=List[AnalysisResult]
         final_result = result if isinstance(result, list) else [result]

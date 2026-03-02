@@ -311,6 +311,7 @@ class AnalysisService:
         zip_path: Path,
         project_name: Optional[str] = None,
         *,
+        user_id: Optional[int] = None,
         _depth: int = 0,
         _max_depth: int = 5,
     ) -> List["AnalysisResult"]:
@@ -357,6 +358,7 @@ class AnalysisService:
                     self.analyze_from_zip(
                         inner_zip_path,
                         nested_name,
+                        user_id=user_id,
                         _depth=_depth + 1,
                         _max_depth=_max_depth,
                     )
@@ -380,6 +382,7 @@ class AnalysisService:
                     source_url=str(zip_path),
                     zip_upload_time=datetime.utcnow(),
                     earliest_file_date_in_zip=earliest_file_date,
+                    user_id=user_id,
                 )
                 results.append(result)
 
@@ -521,6 +524,7 @@ class AnalysisService:
         source_url: Optional[str] = None,
         zip_upload_time: Optional[datetime] = None,
         earliest_file_date_in_zip: Optional[datetime] = None,
+        user_id: Optional[int] = None,
     ) -> AnalysisResult:
         """
         Run the full analysis pipeline on a project.
@@ -663,6 +667,7 @@ class AnalysisService:
             content_hash=project_tree_hash,
             analysis_key=analysis_key,
             reused_from_project_id=cached_project.id if cached_project else None,
+            user_id=user_id,
         )
         project_id = project.id
         logger.info(f"Step 2 complete: Project ID {project_id}")
