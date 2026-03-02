@@ -20,7 +20,7 @@ and the duplication hashing enhances the previously implemented duplicate detect
 * Used pytest for unit tests, with all tests passing for both new and existing features.
 
 ## Review/Collaboration Tasks
-* Participated in reviewing and providing feedback on team members' PRs: #195, #199, #201, #205 #224, #221, #218, #214, #216, #227
+* Participated in reviewing and providing feedback on team members' PRs: #199, #201, #205 #224, #221, #218, #214, #216, #227
 * Focused on ensuring code quality, testing, and suggested performance improvements.
 
 ## Plans/Goals for Next Week
