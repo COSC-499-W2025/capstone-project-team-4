@@ -7,7 +7,7 @@
 During Weeks 6 to 8, I worked on building the Portfolio API feature. This feature pulls together all analyzed project data and allows users to generate, edit, and view their portfolio. I built three endpoints from scratch and followed the same service and repository structure that we’ve been using in the project.
 
 ### Coding Tasks  
-- Built `POST /api/portfolio/generate`. This endpoint collects a user’s projects, skills, resume highlights, and experiences, then uses AI (with a template fallback if needed) to create a portfolio with a title, summary, and structured content. It saves or updates the portfolio in the database.  
+- Built `POST /api/portfolio/generate`. This endpoint collects a user’s projects, skills, resume highlights, and experiences, then creates a portfolio with a title, summary, and structured content. It saves or updates the portfolio in the database.  
 - Built `PUT /api/portfolio/{portfolio_id}/edit`. This lets logged in users update parts of their portfolio, such as the title, summary, or content. It checks ownership and returns 403 if the user is not the owner and 404 if the portfolio does not exist.  
 - Built `GET /api/portfolio/{portfolio_id}` as a public endpoint. It does not require login, so users can share their portfolio link with recruiters or others.  
 - Created `PortfolioUpdate` for partial updates and `PortfolioResponse` for returning data through the API.  
