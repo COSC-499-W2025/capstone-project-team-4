@@ -386,6 +386,7 @@ class AnalysisService:
                     zip_upload_time=datetime.utcnow(),
                     earliest_file_date_in_zip=earliest_file_date,
                     use_cache=use_cache,
+                  
                 )
                 results.append(result)
 
