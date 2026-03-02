@@ -17,7 +17,7 @@ from src.models.schemas.project import (
     ProjectDetail,
     ProjectThumbnailResponse,
 )
-from src.models.schemas.analysis import AnalysisResult, AnalysisStatus, ComplexitySummary
+from src.models.schemas.analysis import AnalysisResult, AnalysisStatus, ComplexitySummary, TextualProjectShowcaseResponse
 from src.models.schemas.contributor import (
     ContributorAnalysisSchema,
     ProjectContributorsAnalysisResponse,
@@ -247,6 +247,20 @@ class ProjectService:
         # Get counts
         summary = self.project_repo.get_summary(project_id)
 
+        @staticmethod
+        def _to_str_list(items):
+            if not items:
+                return []
+            out = []
+            for x in items:
+                if hasattr(x, "name") and getattr(x, "name") is not None:
+                    out.append(str(getattr(x, "name")))
+                elif isinstance(x, dict) and x.get("name") is not None:
+                    out.append(str(x["name"]))
+                else:
+                    out.append(str(x))
+            return out
+
         return AnalysisResult(
             project_id=project.id,
             project_name=project.name,
@@ -265,6 +279,11 @@ class ProjectService:
             library_count=len(libraries),
             tool_count=len(tools),
             total_lines_of_code=total_loc,
+            languages=_to_str_list(languages),
+            frameworks=_to_str_list(frameworks),
+            libraries=_to_str_list(libraries),
+            tools_and_technologies=_to_str_list(tools),
+            contextual_skills=_to_str_list(skills),
             complexity_summary=ComplexitySummary(
                 total_functions=complexity_summary.get("total_functions", 0),
                 avg_complexity=complexity_summary.get("avg_complexity", 0.0),
@@ -548,3 +567,16 @@ class ProjectService:
     def project_exists(self, project_id: int) -> bool:
         """Check if a project exists."""
         return self.project_repo.get(project_id) is not None
+    
+    def get_textual_project_showcase(
+        self, project_id: int
+    ) -> Optional[TextualProjectShowcaseResponse]:
+        """Return the portfolio-ready textual showcase for a project."""
+        analysis = self.get_project(project_id)
+        if analysis is None:
+            return None
+
+        return TextualProjectShowcaseResponse(
+            **analysis.model_dump(),
+            short_description=None,
+        )
