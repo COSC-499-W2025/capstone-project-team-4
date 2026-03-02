@@ -44,6 +44,8 @@ class Project(Base):
     analysis_key: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
     reused_from_project_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("projects.id", ondelete="SET NULL"),nullable=True,index=True,)
     reused_from_project: Mapped[Optional["Project"]] = relationship("Project",remote_side=[id],uselist=False,)
+    root_project_id: Mapped[int | None] = mapped_column( ForeignKey("projects.id", ondelete="SET NULL"), nullable=True,)
+    previous_project_id: Mapped[int | None] = mapped_column( ForeignKey("projects.id", ondelete="SET NULL"), nullable=True,)
 
     # Relationships
     files: Mapped[List["File"]] = relationship(

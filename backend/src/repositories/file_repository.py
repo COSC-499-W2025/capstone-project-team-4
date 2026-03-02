@@ -110,6 +110,24 @@ class FileRepository(BaseRepository[File]):
 
         return self.create_many(files)
 
+
+    def get_path_hash_map(self, project_id: int) -> dict[str, str]:
+
+        stmt = (
+            select(File.path, File.content_hash)
+            .where(
+                File.project_id == project_id,
+                File.content_hash.isnot(None),
+            )
+        )
+        rows = self.db.execute(stmt).all()
+
+        return {
+            (path or "").replace("\\", "/"): content_hash
+            for path, content_hash in rows
+            if path and content_hash
+        }
+
     def count_by_project(self, project_id: int) -> int:
         """Count files in a project."""
         stmt = select(func.count(File.id)).where(File.project_id == project_id)
@@ -134,3 +152,13 @@ class FileRepository(BaseRepository[File]):
         result = self.db.execute(stmt)
         self.db.commit()
         return result.rowcount
+
+    def get_files_by_paths(self, project_id: int, paths: set[str]) -> list[File]:
+        stmt = select(File).where(File.project_id == project_id, File.path.in_(list(paths)))
+        return list(self.db.scalars(stmt).all())
+
+    def bulk_create_from_dicts(self, rows: list[dict]) -> None:
+        if not rows:
+            return
+        self.db.bulk_insert_mappings(File, rows)
+        self.db.commit()

@@ -26,6 +26,7 @@ from src.repositories.contributor_repository import ContributorRepository
 from src.repositories.project_repository import ProjectRepository
 from src.repositories.complexity_repository import ComplexityRepository
 from src.api.exceptions import ProjectNotFoundError
+from src.models.schemas.analysis import AnalysisResult
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +197,7 @@ async def list_projects(
     return service.list_projects(page=page, page_size=page_size)
 
 
-@router.get("/{project_id}", response_model=ProjectDetail)
+@router.get("/{project_id}", response_model=AnalysisResult)
 async def get_project(
     project_id: int,
     db: Session = Depends(get_db),

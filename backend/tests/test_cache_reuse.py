@@ -85,7 +85,7 @@ class MiniAnalysisService:
     def _clone_project_analysis(self, from_project_id: int, to_project_id: int):
         self.clone_calls.append((from_project_id, to_project_id))
 
-    def run_cache_flow(self, file_list: list[dict], app_version: str = "1.0.0"):
+    def run_cache_flow(self, file_list: list[dict], app_version: str = "1.0.0", *,use_cache: bool = True,):
         # compute project hash
         def _compute_project_tree_hash(files_meta: list[dict]) -> str:
             h = hashlib.sha256()
@@ -105,7 +105,7 @@ class MiniAnalysisService:
         project_tree_hash = _compute_project_tree_hash(file_list)
         analysis_key = hashlib.sha256(f"{project_tree_hash}:{app_version}".encode("utf-8")).hexdigest()
 
-        cached = self.project_repo.get_latest_by_analysis_key(analysis_key)
+        cached = self.project_repo.get_latest_by_analysis_key(analysis_key) if use_cache else None
 
         # always create new project
         new_proj = self.project_repo.create_project(
@@ -142,3 +142,25 @@ def test_cache_reuse_creates_new_project_and_clones():
     assert p2.analysis_key == p1.analysis_key
     assert p2.reused_from_project_id == p1.id
     assert service.clone_calls == [(p1.id, p2.id)]
+
+def test_cache_toggle_off_does_not_set_reused_from_project_id_or_clone():
+    repo = FakeProjectRepo()
+    service = MiniAnalysisService(repo)
+
+    files = [
+        {"path": "a.py", "content_hash": "aaa"},
+        {"path": "b.py", "content_hash": "bbb"},
+    ]
+
+    # Prime the cache with a normal run.
+    p1, cached1 = service.run_cache_flow(files, use_cache=True)
+    assert cached1 is None
+    assert p1.reused_from_project_id is None
+
+    # Same upload, but caching disabled.
+    p2, cached2 = service.run_cache_flow(files, use_cache=False)
+
+    # With caching disabled, we should behave like a miss.
+    assert cached2 is None
+    assert p2.reused_from_project_id is None
+    assert service.clone_calls == []

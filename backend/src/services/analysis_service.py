@@ -212,18 +212,6 @@ def get_earliest_file_date_from_zip(zip_path: Path) -> Optional[datetime]:
     except Exception:
         return None
 
-def _extract_zip_skipping_macos_junk(zip_path: Path, dest: Path) -> None:
-    """
-    Extract all members except macOS junk.
-    Keeps directory structure intact.
-    """
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        for info in zf.infolist():
-            name = info.filename.replace("\\", "/")
-            if _is_macos_junk_zip_name(name):
-                continue
-            zf.extract(info, dest)
-
 def _normalize_zip_root(extracted_root: Path) -> Path:
     """
     If ZIP has exactly one visible top-level folder, treat that as the root.
@@ -313,6 +301,7 @@ class AnalysisService:
         *,
         use_cache: bool = True,
         split_projects: bool = False,
+        user_id: Optional[int] = None,
         _depth: int = 0,
         _max_depth: int = 5,
     ) -> List["AnalysisResult"]:
@@ -361,6 +350,7 @@ class AnalysisService:
                         nested_name,
                         use_cache=use_cache,
                         split_projects=split_projects,
+                        user_id=user_id,
                         _depth=_depth + 1,
                         _max_depth=_max_depth,
                     )
@@ -372,7 +362,7 @@ class AnalysisService:
             if not split_projects:
                 project_roots = [base_root]
             else:
-                project_roots = detect_project_roots(base_root)
+                project_roots = detect_project_roots_in_zip(base_root)
 
             logger.info(f"Detected {len(project_roots)} project(s) in extracted ZIP at depth {_depth} "f"(base_root={base_root})")
     
@@ -394,13 +384,14 @@ class AnalysisService:
                 )
                 results.append(result)
 
-        return results
+            return results
 
     
     def analyze_from_directory(
         self,
         directory_path: Path,
         project_name: Optional[str] = None,
+        user_id: Optional[int] = None,
     ) -> AnalysisResult:
         """
         Analyze a project from a local directory.
@@ -425,9 +416,11 @@ class AnalysisService:
             project_name=name,
             source_type="local",
             source_url=str(directory_path),
+            user_id=user_id,
+            use_cache=True,
         )
     
-    def _compute_project_tree_hash(files_meta: list[dict]) -> str:
+    def _compute_project_tree_hash(self, files_meta: list[dict]) -> str:
         h = hashlib.sha256()
 
         items: list[tuple[str, str]] = []
@@ -446,7 +439,7 @@ class AnalysisService:
 
         return h.hexdigest()
 
-
+    @staticmethod
     def _compute_analysis_key(project_hash: str, version: str) -> str:
         return hashlib.sha256(f"{project_hash}:{version}".encode("utf-8")).hexdigest()
 
@@ -460,8 +453,6 @@ class AnalysisService:
         Analyze one or more projects from a GitHub repository.
         Supports monorepos / multi-project repositories.
         """
-
-        from src.core.utils.project_detection import detect_project_roots, IGNORE_DIRS
 
         # Parse GitHub URL
         parsed = urlparse(github_url)
@@ -512,19 +503,17 @@ class AnalysisService:
             results: List[AnalysisResult] = []
 
             for root in project_roots:
-                name = root.name if root != clone_path else project_name
+                derived_name = root.name if root != clone_path else project_name
 
-            result = self._run_analysis_pipeline(
-                project_path=root,
-                project_name=derived_name,
-                source_type="zip",
-                source_url=str(zip_path),
-                zip_upload_time=datetime.utcnow(),
-                earliest_file_date_in_zip=earliest_file_date,
-                use_cache=use_cache,
-)
-            results.append(result)
+                result = self._run_analysis_pipeline(
+                    project_path=root,
+                    project_name=derived_name,
+                    source_type="github",
+                    source_url=github_url,   
+                    use_cache=True,
+                )
 
+                results.append(result)
             return results
 
     def _run_analysis_pipeline(
@@ -532,9 +521,10 @@ class AnalysisService:
         project_path: Path,
         project_name: str,
         source_type: str,
-        source_url: str,
-        zip_upload_time: datetime,
-        earliest_file_date_in_zip: datetime,
+        source_url: Optional[str] = None,
+        user_id: Optional[int] = None,
+        zip_upload_time: Optional[datetime] = None,
+        earliest_file_date_in_zip: Optional[datetime] = None,
         *,
         use_cache: bool = True,
 
@@ -555,6 +545,7 @@ class AnalysisService:
         file_info_list = collect_all_file_info(project_path, show_progress=True)
         original_count = len(file_info_list)
 
+
         def _sha256_file(path: str, chunk_size: int = 1024 * 1024) -> str:
             h = hashlib.sha256()
             with open(path, "rb") as f:
@@ -563,34 +554,79 @@ class AnalysisService:
             return h.hexdigest()
 
         seen_hashes: set[str] = set()
-        deduped_file_info: List[FileInfo] = []
+        all_file_info: List[FileInfo] = []
+        analysis_file_info: List[FileInfo] = []
         hash_by_path: Dict[str, str] = {}
 
         for fi in file_info_list:
             try:
                 digest = _sha256_file(fi.path)
-                hash_by_path[fi.relative_path] = digest
+                hash_by_path[fi.relative_path.replace("\\", "/")] = digest
             except Exception:
-                
-                deduped_file_info.append(fi)
+                all_file_info.append(fi)
+                analysis_file_info.append(fi)
                 continue
 
-            if digest in seen_hashes:
-                continue
+            all_file_info.append(fi)
 
-            seen_hashes.add(digest)
-            deduped_file_info.append(fi)
+            if digest not in seen_hashes:
+                seen_hashes.add(digest)
+                analysis_file_info.append(fi)
 
-        file_info_list = deduped_file_info
-        file_paths = [f.path for f in file_info_list]
+        file_info_list = all_file_info
+        file_paths = [f.path for f in analysis_file_info]
 
         stage_timings["file_collection"] = time.time() - step_start
         logger.info(
-            "Step 0 complete: Collected %d files, deduped to %d files in %.2fs",
+            "Step 0 complete: Collected %d files, kept %d paths, analyzers will run on %d unique-content files in %.2fs",
             original_count,
             len(file_info_list),
+            len(file_paths),
             stage_timings["file_collection"],
         )
+
+        current_map: Dict[str, str] = {}
+        for rel_path, digest in hash_by_path.items():
+            if rel_path and digest:
+                current_map[rel_path.replace("\\", "/")] = digest
+
+        logger.info(
+            "[INCREMENTAL] Built current_map with %d entries",
+            len(current_map),
+        )
+
+        incremental_base = None
+        unchanged_paths: set[str] = set()
+
+        if use_cache:
+            # find most recent project with same name
+            incremental_base = self.project_repo.get_latest_by_name(project_name)
+
+        if incremental_base:
+            base_map = self.file_repo.get_path_hash_map(incremental_base.id)
+
+            for p, h in current_map.items():
+                if base_map.get(p) == h:
+                    unchanged_paths.add(p)
+
+            overlap = len(unchanged_paths) / max(1, len(current_map))
+
+            # optional safety threshold (recommended)
+            if overlap < 0.30:
+                logger.info(
+                    "[INCREMENTAL] Overlap too small (%.2f), not using incremental base",
+                    overlap,
+                )
+                incremental_base = None
+                unchanged_paths.clear()
+            else:
+                logger.info(
+                    "[INCREMENTAL] base=%s unchanged=%d total=%d overlap=%.2f",
+                    incremental_base.id,
+                    len(unchanged_paths),
+                    len(current_map),
+                    overlap,
+                )
 
         # Step 1: Convert file info to metadata format
         logger.info("Step 1: Building metadata from collected files")
@@ -601,7 +637,7 @@ class AnalysisService:
 
         
         for meta in file_list:
-            p = meta.get("path")
+            p = (meta.get("path") or "").replace("\\", "/")
             if p and p in hash_by_path:
                 meta["content_hash"] = hash_by_path[p]
             else:
@@ -646,7 +682,7 @@ class AnalysisService:
 
             return h.hexdigest()
 
-        project_tree_hash = _compute_project_tree_hash(file_list)
+        project_tree_hash = self._compute_project_tree_hash(file_list)
         analysis_key = hashlib.sha256(
             f"{project_tree_hash}:{settings.app_version}".encode("utf-8")
         ).hexdigest()
@@ -654,24 +690,22 @@ class AnalysisService:
         logger.info("[CACHE] project_tree_hash=%s analysis_key=%s", project_tree_hash, analysis_key)
 
         cached_project = None
-        if use_cache:
-            cached_project = self.project_repo.get_latest_by_analysis_key(analysis_key)
-        else:
-            logger.info("Cache BYPASSED (use_cache=False): analysis_key=%s", analysis_key)
 
-        stage_timings["cache_lookup"] = time.time() - step_start
-        if cached_project:
+        skip_flag = getattr(settings, "skip_analysis_cache", False)
+
+        if not use_cache or skip_flag:
             logger.info(
-                "Cache HIT: analysis_key=%s (cached project_id=%s)",
+                "Cache BYPASSED (%s): analysis_key=%s",
+                "SKIP_ANALYSIS_CACHE" if skip_flag else "use_cache=False",
                 analysis_key,
-                cached_project.id,
             )
         else:
-            logger.info("Cache MISS: analysis_key=%s", analysis_key)
+            cached_project = self.project_repo.get_latest_by_analysis_key(analysis_key)
 
         # Step 2: Create project entry (ALWAYS new project_id)
         logger.info("Step 2: Creating project entry")
         logger.info(f"project_tree_hash={project_tree_hash} analysis_key={analysis_key}")
+
         project = self.project_repo.create_project(
             name=project_name,
             root_path=project_root,
@@ -679,12 +713,23 @@ class AnalysisService:
             source_url=source_url,
             content_hash=project_tree_hash,
             analysis_key=analysis_key,
-            reused_from_project_id=cached_project.id if cached_project else None,
+            reused_from_project_id=(
+                cached_project.id
+                if cached_project
+                else (incremental_base.id if incremental_base else None)
+            ),
         )
-        project_id = project.id
+
+        project_id = project.id       
         logger.info(f"Step 2 complete: Project ID {project_id}")
 
-        
+        if incremental_base is not None and unchanged_paths:
+            self._clone_files_and_complexity_for_paths(
+                from_project_id=incremental_base.id,
+                to_project_id=project_id,
+                paths_to_clone=unchanged_paths,
+    )
+
         if cached_project is not None:
             logger.info(
                 "Reusing cached analysis from project_id=%s -> new project_id=%s",
@@ -728,11 +773,20 @@ class AnalysisService:
         languages_detected: List[str] = []
         frameworks_detected: List[dict] = []
 
+        complexity_input_paths = file_paths
+
+        if incremental_base is not None and unchanged_paths:
+            complexity_input_paths = [
+                fi.path
+                for fi in file_info_list
+                if fi.relative_path.replace("\\", "/") not in unchanged_paths
+            ]
+
         with ThreadPoolExecutor(max_workers=6) as executor:
             futures = {
                 executor.submit(git_analyze_contributors, project_root): "contributors",
                 executor.submit(
-                    lambda: project_analysis_to_dict(analyze_project(project_path, file_paths))
+                    lambda: project_analysis_to_dict(analyze_project(project_path, complexity_input_paths))
                 ): "complexity",
                 executor.submit(detect_libraries_recursive, project_path): "libraries",
                 executor.submit(detect_tools_recursive, project_path): "tools",
@@ -847,13 +901,23 @@ class AnalysisService:
                 ]
             )
 
-            # Step 7: Save to database
             logger.info("Step 7: Saving to database")
             step_start = time.time()
-            self._save_files(project_id, file_list)
+
+            if incremental_base is not None and unchanged_paths:
+                delta_file_list = [
+                    f for f in file_list
+                    if f["path"].replace("\\", "/") not in unchanged_paths
+                ]
+                self._save_files(project_id, delta_file_list)
+            else:
+                self._save_files(project_id, file_list)
+                
             self._save_complexity(project_id, complexity_dict.get("functions", []))
+
             if contributors:
                 self._save_contributors(project_id, contributors)
+
             self._save_skills(
                 project_id,
                 skill_report.get("skill_categories", {}),
@@ -864,9 +928,11 @@ class AnalysisService:
                 detected_frameworks=frameworks,
                 project_path=project_root,
             )
+
             self._save_frameworks(project_id, all_enhanced_frameworks)
             self._save_libraries(project_id, library_report.get("libraries", []))
             self._save_tools(project_id, tool_report.get("tools", []))
+
             stage_timings["database_saves"] = time.time() - step_start
             logger.info(
                 "Step 7 complete: Database saves finished in %.2fs",
@@ -1183,6 +1249,73 @@ class AnalysisService:
             self.db.rollback()
             raise
 
+    def _clone_files_and_complexity_for_paths(
+            self,
+            from_project_id: int,
+            to_project_id: int,
+            paths_to_clone: set[str],
+        ) -> None:
+            """
+            Clone File rows + Complexity rows for a subset of paths from one project to another.
+            Used for incremental reuse so unchanged files don't get re-inserted/re-analyzed.
+            """
+            if not paths_to_clone:
+                return
+
+            # normalize to forward slashes (DB paths should match whatever you save)
+            norm_paths = {p.replace("\\", "/") for p in paths_to_clone}
+
+            # --- clone files ---
+            src_files = self.file_repo.get_files_by_paths(from_project_id, norm_paths)
+
+            # build {path -> old_file_id} for complexity cloning
+            old_file_id_by_path = {f.path.replace("\\", "/"): f.id for f in src_files}
+
+            # create new file rows for the new project
+            new_files = []
+            for f in src_files:
+                new_files.append(
+                    {
+                        "project_id": to_project_id,
+                        "path": f.path.replace("\\", "/"),
+                        "type": getattr(f, "type", None),
+                        "size": getattr(f, "size", None),
+                        "language": getattr(f, "language", None),
+                        "content_hash": getattr(f, "content_hash", None),
+                    }
+                )
+
+            # bulk insert via repo (prefer repo method if you have one)
+            self.file_repo.bulk_create_from_dicts(new_files)
+
+            # re-fetch new file ids so we can map complexity rows
+            dst_files = self.file_repo.get_files_by_paths(to_project_id, norm_paths)
+            new_file_id_by_path = {f.path.replace("\\", "/"): f.id for f in dst_files}
+
+            # --- clone complexity ---
+            # Pull complexity rows for the old file ids and insert with new file ids
+            old_file_ids = list(old_file_id_by_path.values())
+            if not old_file_ids:
+                return
+
+            rows = self.complexity_repo.get_by_project_and_paths(from_project_id, norm_paths)
+
+            cloned_rows = []
+            for r in rows:
+                cloned_rows.append(
+                    {
+                        "project_id": to_project_id,
+                        "file_path": r.file_path.replace("\\", "/"),
+                        "function_name": r.function_name,
+                        "cyclomatic_complexity": r.cyclomatic_complexity,
+                        "start_line": r.start_line,
+                        "end_line": r.end_line,
+                    }
+                )
+
+            if cloned_rows:
+                self.complexity_repo.bulk_create_from_dicts(cloned_rows)
+                
     def _detect_project_root(self, base_path: Path) -> Path:
         """
         Detect the actual project root using multiple strategies:
