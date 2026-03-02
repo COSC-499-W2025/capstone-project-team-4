@@ -382,7 +382,6 @@ class AnalysisService:
                     project_name=derived_name,
                     source_type="zip",
                     source_url=str(zip_path),
-                    user_id=user_id,
                     zip_upload_time=datetime.utcnow(),
                     earliest_file_date_in_zip=earliest_file_date,
                     use_cache=use_cache,
@@ -454,7 +453,6 @@ class AnalysisService:
         self,
         github_url: str,
         branch: Optional[str] = None,
-        user_id: Optional[int] = None,
     ) -> List[AnalysisResult]:
         """
         Analyze one or more projects from a GitHub repository.
@@ -516,8 +514,8 @@ class AnalysisService:
                     project_path=root,
                     project_name=derived_name,
                     source_type="github",
-                    source_url=github_url,  
-                    reuse_use_cache=True,
+                    source_url=github_url,   
+                    use_cache=True,
                     user_id=user_id,
                 )
 
@@ -698,12 +696,11 @@ class AnalysisService:
         logger.info("[CACHE] project_tree_hash=%s analysis_key=%s", project_tree_hash, analysis_key)
 
         cached_project = None
-        skip_flag = getattr(settings, "skip_analysis_cache", False)
 
-        if not use_cache or skip_flag:
+        if settings.skip_analysis_cache or not use_cache:
             logger.info(
                 "Cache BYPASSED (%s): analysis_key=%s",
-                "SKIP_ANALYSIS_CACHE" if skip_flag else "use_cache=False",
+                "SKIP_ANALYSIS_CACHE" if settings.skip_analysis_cache else "use_cache=False",
                 analysis_key,
             )
         else:
@@ -716,7 +713,6 @@ class AnalysisService:
         project = self.project_repo.create_project(
             name=project_name,
             root_path=project_root,
-            user_id=user_id,
             source_type=source_type,
             source_url=source_url,
             content_hash=project_tree_hash,
@@ -819,43 +815,39 @@ class AnalysisService:
 
             for future in as_completed(futures):
                 task_name = futures[future]
-                elapsed = time.time() - task_start_times[task_name]
                 try:
                     result = future.result()
                     if task_name == "contributors":
                         contributors = result
-                        logger.info("Git analysis complete: Found %d contributors in %.2fs", len(contributors), elapsed)
+                        logger.info("Git analysis complete: Found %d contributors", len(contributors))
                     elif task_name == "complexity":
                         complexity_dict = result
                         logger.info(
-                            "Complexity analysis complete: Found %d functions in %.2fs",
+                            "Complexity analysis complete: Found %d functions",
                             len(complexity_dict.get("functions", [])),
-                            elapsed,
                         )
                     elif task_name == "libraries":
                         library_report = result
                         logger.info(
-                            "Library detection complete: Found %d libraries in %.2fs",
+                            "Library detection complete: Found %d libraries",
                             library_report.get("total_count", 0),
-                            elapsed,
                         )
                     elif task_name == "tools":
                         tool_report = result
                         logger.info(
-                            "Tool detection complete: Found %d tools in %.2fs",
+                            "Tool detection complete: Found %d tools",
                             tool_report.get("total_count", 0),
-                            elapsed,
                         )
                     elif task_name == "languages":
                         languages_detected = sorted(
                             [lang for lang, count in result.items() if lang != "Unknown" and count > 0]
                         )
-                        logger.info("Language detection complete: Found %d languages in %.2fs", len(languages_detected), elapsed)
+                        logger.info("Language detection complete: Found %d languages", len(languages_detected))
                     elif task_name == "frameworks":
                         frameworks_detected = result or []
-                        logger.info("Framework detection complete: Found %d frameworks in %.2fs", len(frameworks_detected), elapsed)
+                        logger.info("Framework detection complete: Found %d frameworks", len(frameworks_detected))
                 except Exception as e:
-                    logger.warning("%s analysis failed in %.2fs: %s", task_name, elapsed, e)
+                    logger.warning("%s analysis failed: %s", task_name, e)
 
         stage_timings["parallel_analysis"] = time.time() - step_start
         logger.info(
