@@ -7,6 +7,7 @@ import tempfile
 import shutil
 import os
 import hashlib
+import pathlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -299,8 +300,9 @@ class AnalysisService:
         zip_path: Path,
         project_name: Optional[str] = None,
         *,
+        reuse_cached_analysis: Optional[bool] = None,
         use_cache: bool = True,
-        split_projects: bool = False, 
+        split_projects: bool = False,
         user_id: Optional[int] = None,
         _depth: int = 0,
         _max_depth: int = 5,
@@ -313,7 +315,8 @@ class AnalysisService:
 
         Returns: always List[AnalysisResult]
         """
-        zip_path = Path(zip_path)
+        if reuse_cached_analysis is not None:
+            use_cache = reuse_cached_analysis
 
         if not zip_path.exists():
             raise FileNotFoundError(f"ZIP file not found: {zip_path}")
@@ -348,7 +351,7 @@ class AnalysisService:
                     self.analyze_from_zip(
                         inner_zip_path,
                         nested_name,
-                        reuse_cache=use_cache,
+                        reuse_cached_analysis=use_cache,
                         split_projects=split_projects,
                         user_id=user_id,
                         _depth=_depth + 1,
@@ -418,7 +421,7 @@ class AnalysisService:
             source_type="local",
             source_url=str(directory_path),
             user_id=user_id,
-            reuse_cache=True,
+            use_cache=True,
         )
     
     def _compute_project_tree_hash(self, files_meta: list[dict]) -> str:
@@ -693,11 +696,6 @@ class AnalysisService:
         logger.info("[CACHE] project_tree_hash=%s analysis_key=%s", project_tree_hash, analysis_key)
 
         cached_project = None
-        if settings.skip_analysis_cache:
-            logger.info("Cache bypass enabled via SKIP_ANALYSIS_CACHE")
-        else:
-            cached_project = self.project_repo.get_latest_by_analysis_key(analysis_key)
-
         skip_flag = getattr(settings, "skip_analysis_cache", False)
 
         if not use_cache or skip_flag:
@@ -736,7 +734,7 @@ class AnalysisService:
                 from_project_id=incremental_base.id,
                 to_project_id=project_id,
                 paths_to_clone=unchanged_paths,
-    )
+        )
 
         if cached_project is not None:
             logger.info(
