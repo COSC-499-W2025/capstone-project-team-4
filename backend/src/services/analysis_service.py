@@ -511,9 +511,8 @@ class AnalysisService:
                     project_path=root,
                     project_name=derived_name,
                     source_type="github",
-                    source_url=github_url,   
+                    source_url=github_url,  
                     reuse_use_cache=True,
-                    source_url=github_url,
                     user_id=user_id,
                 )
 
