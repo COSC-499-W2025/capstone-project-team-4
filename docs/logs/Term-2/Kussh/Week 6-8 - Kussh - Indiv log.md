@@ -45,10 +45,8 @@
 
 ## PR links
 - https://github.com/COSC-499-W2025/capstone-project-team-4/pull/229
-- - **Oversized PR Explanation:** This PR shows 921 insertions because the thumbnail feature branch had not yet been merged into development at the time this PR was created.
-  - Approximately 670 lines belong to the thumbnail implementation, which has since been merged separately.
-  - GitHub is counting those changes due to branch timing, not because they are new in this PR.
-  - Actual insertions for this PR are 251
+- - **Oversized PR Explanation:** Oversized PR Explanation: This PR shows 921 insertions because, at the time it was created, the thumbnail feature branch had not yet been merged into development, and this branch already contained those thumbnail commits in its history. Although the thumbnail implementation (approximately 680 lines) has since been merged separately, GitHub continues to count those changes in this PR due to branch ancestry and comparison timing, not because they are newly introduced here. The actual new insertions specific to this PR are approximately 241 lines. Tested and verified that development branch and both features works fine.
+   
 - https://github.com/COSC-499-W2025/capstone-project-team-4/pull/211
 - - **Oversized PR Explanation:** This PR exceeds 500 lines due to the interconnected nature of the thumbnail feature.
   - Implementing this functionality required changes across multiple layers of the system, including:
