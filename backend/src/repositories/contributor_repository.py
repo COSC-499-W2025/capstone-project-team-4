@@ -105,19 +105,33 @@ class ContributorRepository(BaseRepository[Contributor]):
             )
             contributors.append(contributor)
 
-        created = self.create_many(contributors)
+        if not contributors:
+            return []
 
-        # Create file modifications for each contributor
+        self.db.add_all(contributors)
+        self.db.flush()
+
+        # Create file modifications for each contributor in bulk
+        contributor_files = []
         for i, data in enumerate(contributors_data):
-            if "files_modified" in data:
-                for file_data in data["files_modified"]:
-                    self.create_contributor_file(
-                        contributor_id=created[i].id,
-                        filename=file_data["filename"],
+            files_modified = data.get("files_modified") or []
+            for file_data in files_modified:
+                contributor_files.append(
+                    ContributorFile(
+                        contributor_id=contributors[i].id,
+                        filename=file_data.get("filename", ""),
                         modifications=file_data.get("modifications", 0),
                     )
+                )
 
-        return created
+        if contributor_files:
+            self.db.add_all(contributor_files)
+
+        self.db.commit()
+        for contributor in contributors:
+            self.db.refresh(contributor)
+
+        return contributors
 
     def delete_by_project_id(self, project_id: int) -> int:
         """Delete all contributors for a project."""

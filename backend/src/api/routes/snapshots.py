@@ -23,6 +23,17 @@ async def create_current_and_midpoint_snapshots(
     return service.create_current_and_midpoint_snapshots(project_id)
 
 
+@router.delete("/{project_id}/{snapshot_id}", status_code=200)
+async def delete_snapshot(
+    project_id: int,
+    snapshot_id: int,
+    db: Session = Depends(get_db),
+):
+    """Delete a specific snapshot and its associated comparisons."""
+    service = SnapshotService(db)
+    return service.delete_snapshot(project_id, snapshot_id)
+
+
 @router.get("/{project_id}/compare", response_model=SnapshotCurrentMidpointComparisonResponse, status_code=200)
 async def compare_current_and_midpoint_snapshots(
     project_id: int,

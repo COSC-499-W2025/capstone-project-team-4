@@ -5,11 +5,12 @@ import os
 import subprocess
 from datetime import datetime, date
 from typing import Optional, Set
+import hashlib
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Header, Request
 from sqlalchemy.orm import Session
+from fastapi.responses import Response
 
-from src.utils.contributor_dedup import cluster_authors
 from src.models.database import get_db
 from src.models.schemas.project import ProjectList, ProjectDetail
 from src.models.schemas.contributor import (
@@ -21,6 +22,7 @@ from src.models.schemas.contributor import (
 )
 
 from src.models.schemas.complexity import ComplexityReport, ComplexityByFile, ComplexitySchema, ComplexitySummary
+from src.models.schemas.project import ProjectThumbnailResponse
 from src.services.project_service import ProjectService
 from src.repositories.contributor_repository import ContributorRepository
 from src.repositories.project_repository import ProjectRepository
@@ -31,6 +33,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
+MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024
+ALLOWED_THUMBNAIL_TYPES = {"image/png", "image/jpeg", "image/webp"}
 
 def _find_git_root(start_path: str) -> Optional[str]:
     """Find nearest parent directory containing a .git folder.
@@ -178,38 +182,129 @@ def _calculate_activity_metrics(commit_dates: list) -> ActivitySchema:
         active_weeks=active_weeks,
     )
 
-
-# fixing this function
-@router.get("", response_model=ProjectList)
-async def list_projects(
-    page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    db: Session = Depends(get_db),
-):
-    """
-    List all analyzed projects with pagination.
-
-    - Returns a paginated list of project summaries
-    - Includes basic stats like file count, language count, skill count
-    """
-    service = ProjectService(db)
-    return service.list_projects(page=page, page_size=page_size)
-
-
 @router.get("/{project_id}", response_model=ProjectDetail)
 async def get_project(
     project_id: int,
+    request: Request,
     db: Session = Depends(get_db),
 ):
-    """Get detailed information about a specific project."""
     service = ProjectService(db)
-    project = service.get_project(project_id)
+    project = service.get_project_detail(project_id)
 
     if not project:
         raise ProjectNotFoundError(project_id)
 
+    if project.has_thumbnail:
+        project.thumbnail_endpoint = str(
+            request.url_for("get_project_thumbnail", project_id=str(project.id))
+        )
+
     return project
 
+@router.put("/{project_id}/thumbnail", response_model=ProjectThumbnailResponse)
+async def put_project_thumbnail(
+    project_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Upload or replace a project's thumbnail image."""
+    service = ProjectService(db)
+
+    if not service.project_exists(project_id):
+        raise ProjectNotFoundError(project_id)
+
+    if not file.content_type or file.content_type not in ALLOWED_THUMBNAIL_TYPES:
+        raise HTTPException(status_code=415, detail="Unsupported thumbnail content type")
+
+    # read at most MAX + 1 bytes
+    data = await file.read(MAX_THUMBNAIL_BYTES + 1)
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file")
+    if len(data) > MAX_THUMBNAIL_BYTES:
+        raise HTTPException(status_code=413, detail="Thumbnail too large")
+
+    etag = hashlib.sha256(data).hexdigest()
+    endpoint = f"/api/projects/{project_id}/thumbnail"
+
+    result = service.set_thumbnail(
+        project_id,
+        content_type=file.content_type,
+        bytes_data=data,
+        size_bytes=len(data),
+        etag=etag,
+        thumbnail_endpoint=endpoint,
+    )
+
+    if result is None:
+        raise ProjectNotFoundError(project_id)
+
+    return result
+
+@router.get("", response_model=ProjectList)
+async def list_projects(
+    request: Request,
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    db: Session = Depends(get_db),
+):
+    service = ProjectService(db)
+    result = service.list_projects(page=page, page_size=page_size)
+
+    for item in result.items:
+        if item.has_thumbnail:
+            item.thumbnail_endpoint = str(
+                request.url_for("get_project_thumbnail", project_id=str(item.id))
+            )
+
+    return result
+
+@router.get("/{project_id}/thumbnail", name="get_project_thumbnail")
+async def get_project_thumbnail(
+    project_id: int,
+    if_none_match: str | None = Header(default=None, alias="If-None-Match"),
+    db: Session = Depends(get_db),
+):
+    """Fetch project's thumbnail bytes with Content-Type and basic caching (ETag)."""
+    service = ProjectService(db)
+
+    if not service.project_exists(project_id):
+        raise ProjectNotFoundError(project_id)
+
+    thumb = service.get_thumbnail(project_id)
+    if thumb is None:
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+
+    data, content_type, etag = thumb
+
+    # Conditional GET: If-None-Match
+    if etag and if_none_match:
+        candidate = if_none_match.strip().strip('"')
+        if candidate == etag:
+            return Response(status_code=304, headers={"ETag": etag})
+
+    headers = {"Cache-Control": "private, max-age=0, must-revalidate"}
+    if etag:
+        headers["ETag"] = etag
+
+    return Response(content=data, media_type=content_type, headers=headers)
+
+@router.delete("/{project_id}/thumbnail", status_code=204)
+async def delete_project_thumbnail(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """Delete project's thumbnail."""
+    service = ProjectService(db)
+
+    if not service.project_exists(project_id):
+        raise ProjectNotFoundError(project_id)
+
+    deleted = service.delete_thumbnail(project_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+
+    return None
 
 @router.delete("/{project_id}", status_code=204)
 async def delete_project(
