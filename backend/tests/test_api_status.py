@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import app
+from src.api.dependencies import get_current_user
 from src.models.database import get_db
 from src.services.analysis_service import AnalysisService
 
@@ -25,7 +26,10 @@ def client() -> Iterator[TestClient]:
     def _get_db_override():
         yield SimpleNamespace()
 
+    fake_user = SimpleNamespace(id=1, email="test@example.com", is_active=True)
+
     app.dependency_overrides[get_db] = _get_db_override
+    app.dependency_overrides[get_current_user] = lambda: fake_user
     try:
         with TestClient(app) as test_client:
             yield test_client

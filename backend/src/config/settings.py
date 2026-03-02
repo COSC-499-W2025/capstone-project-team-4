@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     max_file_size: int = 10 * 1024 * 1024  # 10MB
     max_upload_size: int = 100 * 1024 * 1024  # 100MB
     allowed_extensions: list[str] = [".zip"]
+    skip_analysis_cache: bool = False
+    enable_library_tool_detection: bool = True  # Run lib/tool detection on upload
+    enable_framework_detection: bool = True  # Run framework detection on upload
 
     # GitHub settings
     github_token: Optional[str] = None

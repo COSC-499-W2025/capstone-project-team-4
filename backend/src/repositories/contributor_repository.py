@@ -2,10 +2,11 @@
 
 from typing import List, Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 from sqlalchemy.orm import Session, joinedload
 
 from src.models.orm.contributor import Contributor, ContributorFile
+from src.models.orm.project import Project
 from src.repositories.base import BaseRepository
 
 
@@ -104,19 +105,33 @@ class ContributorRepository(BaseRepository[Contributor]):
             )
             contributors.append(contributor)
 
-        created = self.create_many(contributors)
+        if not contributors:
+            return []
 
-        # Create file modifications for each contributor
+        self.db.add_all(contributors)
+        self.db.flush()
+
+        # Create file modifications for each contributor in bulk
+        contributor_files = []
         for i, data in enumerate(contributors_data):
-            if "files_modified" in data:
-                for file_data in data["files_modified"]:
-                    self.create_contributor_file(
-                        contributor_id=created[i].id,
-                        filename=file_data["filename"],
+            files_modified = data.get("files_modified") or []
+            for file_data in files_modified:
+                contributor_files.append(
+                    ContributorFile(
+                        contributor_id=contributors[i].id,
+                        filename=file_data.get("filename", ""),
                         modifications=file_data.get("modifications", 0),
                     )
+                )
 
-        return created
+        if contributor_files:
+            self.db.add_all(contributor_files)
+
+        self.db.commit()
+        for contributor in contributors:
+            self.db.refresh(contributor)
+
+        return contributors
 
     def delete_by_project_id(self, project_id: int) -> int:
         """Delete all contributors for a project."""
@@ -150,3 +165,28 @@ class ContributorRepository(BaseRepository[Contributor]):
             select(func.sum(Contributor.commits)).where(Contributor.project_id == project_id)
         )
         return result or 0
+
+    def get_projects_by_identity(self, identity: str) -> List[tuple[Contributor, Project]]:
+        """Get contributor records and projects matching GitHub username or identity fields."""
+        identity_normalized = identity.strip().lower()
+        if not identity_normalized:
+            return []
+
+        stmt = (
+            select(Contributor, Project)
+            .join(Project, Project.id == Contributor.project_id)
+            .where(
+                or_(
+                    func.lower(Contributor.github_username) == identity_normalized,
+                    func.lower(Contributor.github_email) == identity_normalized,
+                    func.lower(Contributor.email) == identity_normalized,
+                    func.lower(Contributor.name) == identity_normalized,
+                )
+            )
+        )
+        return list(self.db.execute(stmt).all())
+
+    def get_all_with_projects(self) -> List[tuple[Contributor, Project]]:
+        """Get all contributors with their projects."""
+        stmt = select(Contributor, Project).join(Project, Project.id == Contributor.project_id)
+        return list(self.db.execute(stmt).all())

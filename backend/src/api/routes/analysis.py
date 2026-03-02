@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Optional, Union, List
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
+from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from src.models.database import get_db
@@ -14,6 +14,7 @@ from src.models.schemas.analysis import (
     AnalysisResult,
     GitHubAnalysisRequest,
 )
+from src.api.dependencies import get_current_user
 from src.services.analysis_service import AnalysisService
 from src.api.dependencies import get_current_user
 from src.api.exceptions import InvalidFileError, InvalidGitHubURLError, AnalysisError
@@ -28,6 +29,7 @@ router = APIRouter(prefix="/projects/analyze", tags=["analysis"])
 async def analyze_upload(
     file: UploadFile = File(..., description="ZIP file to analyze"),
     project_name: Optional[str] = Form(None, description="Custom project name"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -94,9 +96,134 @@ async def analyze_upload(
         raise AnalysisError(str(e))
 
 
+@router.post("/{project_id}/analyze-libraries-tools", status_code=200)
+def analyze_project_libraries_tools(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Analyze libraries and tools for an existing project.
+    This can be called after upload to run detailed detection.
+    """
+    logger.info(f"Received request to analyze libraries/tools for project: {project_id}")
+    
+    service = AnalysisService(db)
+    project = service.project_repo.get(project_id)
+    
+    if not project:
+        logger.error(f"Project not found: {project_id}")
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+    
+    try:
+        result = service.analyze_libraries_and_tools(project_id, project.root_path, project.source_url)
+        logger.info(f"Library/tool analysis completed for project {project_id}")
+        return result
+    except Exception as e:
+        logger.exception(f"Library/tool analysis failed for project {project_id}")
+        raise AnalysisError(str(e))
+
+
+@router.post("/{project_id}/analyze-frameworks", status_code=200)
+def analyze_project_frameworks(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Analyze frameworks for an existing project.
+    This can be called after upload to run detailed detection.
+    """
+    logger.info(f"Received request to analyze frameworks for project: {project_id}")
+    
+    service = AnalysisService(db)
+    project = service.project_repo.get(project_id)
+    
+    if not project:
+        logger.error(f"Project not found: {project_id}")
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+    
+    try:
+        result = service.analyze_frameworks(project_id, project.root_path, project.source_url)
+        logger.info(f"Framework analysis completed for project {project_id}")
+        return result
+    except Exception as e:
+        logger.exception(f"Framework analysis failed for project {project_id}")
+        raise AnalysisError(str(e))
+
+
+@router.post("/{project_id}/analyze-tech-stack", status_code=200)
+def analyze_project_tech_stack(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """Analyze project-wide libraries and frameworks in a single request."""
+    logger.info(f"Received request to analyze unified tech stack for project: {project_id}")
+
+    service = AnalysisService(db)
+    project = service.project_repo.get(project_id)
+
+    if not project:
+        logger.error(f"Project not found: {project_id}")
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+
+    try:
+        result = service.analyze_tech_stack(project_id, project.root_path, project.source_url)
+        logger.info(f"Unified tech-stack analysis completed for project {project_id}")
+        return result
+    except Exception as e:
+        logger.exception(f"Unified tech-stack analysis failed for project {project_id}")
+        raise AnalysisError(str(e))
+
+
+@router.post("/{project_id}/contributors/{contributor_id}/analyze-tech-stack", status_code=200)
+def analyze_contributor_tech_stack(
+    project_id: int,
+    contributor_id: int,
+    include_transitive: bool = Query(False, description="Include transitive dependencies from lockfiles"),
+    db: Session = Depends(get_db),
+):
+    """Analyze contributor-scoped libraries and frameworks from touched files."""
+    logger.info(
+        "Received request to analyze contributor tech stack for project %s, contributor %s",
+        project_id,
+        contributor_id,
+    )
+
+    service = AnalysisService(db)
+    project = service.project_repo.get(project_id)
+
+    if not project:
+        logger.error(f"Project not found: {project_id}")
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+
+    try:
+        result = service.analyze_contributor_tech_stack(
+            project_id=project_id,
+            contributor_id=contributor_id,
+            project_path=project.root_path,
+            source_url=project.source_url,
+            include_transitive=include_transitive,
+        )
+        logger.info(
+            "Contributor tech-stack analysis completed for project %s, contributor %s",
+            project_id,
+            contributor_id,
+        )
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(
+            "Contributor tech-stack analysis failed for project %s, contributor %s",
+            project_id,
+            contributor_id,
+        )
+        raise AnalysisError(str(e))
+
+
 @router.post("/github", response_model=Union[AnalysisResult, List[AnalysisResult]], status_code=201)
 async def analyze_github(
     request: GitHubAnalysisRequest,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -118,6 +245,7 @@ async def analyze_github(
         result = service.analyze_from_github(
             github_url=github_url,
             branch=request.branch,
+            user_id=current_user.id,
         )
         return result
 
@@ -134,6 +262,7 @@ async def analyze_github(
 async def analyze_directory(
     directory_path: str = Form(..., description="Path to local directory"),
     project_name: Optional[str] = Form(None, description="Custom project name"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -156,7 +285,7 @@ async def analyze_directory(
     try:
         service = AnalysisService(db)
         name = project_name or path.name
-        result = service.analyze_from_directory(path, name)
+        result = service.analyze_from_directory(path, name, user_id=current_user.id)
         return result
 
     except Exception as e:

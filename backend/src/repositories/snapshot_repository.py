@@ -22,3 +22,4 @@ class SnapshotRepository(BaseRepository[ProjectSnapshot]):
         )
         return self.db.scalar(stmt)
 
+
