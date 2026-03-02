@@ -667,6 +667,7 @@ class AnalysisService:
             content_hash=project_tree_hash,
             analysis_key=analysis_key,
             reused_from_project_id=cached_project.id if cached_project else None,
+            user_id=user_id,
         )
         project_id = project.id
         logger.info(f"Step 2 complete: Project ID {project_id}")

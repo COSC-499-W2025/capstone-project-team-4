@@ -115,6 +115,63 @@ def _choose_primary_email(emails: Set[str]) -> str:
     return sorted(emails)[0]
 
 
+def normalize_identity(identity: str) -> str:
+    """Normalize an identity string for matching."""
+    return identity.lower().strip() if identity else ""
+
+
+def identity_matches(
+    identity: str,
+    *,
+    name: Optional[str] = None,
+    email: Optional[str] = None,
+    github_username: Optional[str] = None,
+    github_email: Optional[str] = None,
+) -> bool:
+    """Check whether an identity string matches contributor fields."""
+    normalized = normalize_identity(identity)
+    if not normalized:
+        return False
+
+    name_norm = name.strip() if name else ""
+    email_norm = _normalize_email(email) if email else ""
+    github_email_norm = _normalize_email(github_email) if github_email else ""
+    gh_username_norm = normalize_identity(github_username) if github_username else ""
+
+    identity_email = _normalize_email(normalized) if "@" in normalized else ""
+    identity_username = _extract_email_username(identity_email or normalized)
+    identity_gh = _extract_github_username(identity_email or normalized) or identity_username
+
+    candidate_emails = {e for e in [email_norm, github_email_norm] if e}
+    candidate_usernames = {u for u in [gh_username_norm] if u}
+
+    for candidate_email in candidate_emails:
+        candidate_usernames.add(_extract_email_username(candidate_email))
+        gh_from_email = _extract_github_username(candidate_email)
+        if gh_from_email:
+            candidate_usernames.add(gh_from_email)
+
+    if identity_email:
+        for candidate_email in candidate_emails:
+            if _emails_are_related(identity_email, candidate_email):
+                return True
+
+    if normalized in candidate_emails:
+        return True
+    if normalized in candidate_usernames:
+        return True
+    if identity_username and identity_username in candidate_usernames:
+        return True
+    if identity_gh and identity_gh in candidate_usernames:
+        return True
+
+    if name_norm:
+        if _names_are_similar(normalized, name_norm):
+            return True
+
+    return False
+
+
 def cluster_authors(raw_stats: List[Dict]) -> List[Dict]:
     """
     Cluster raw author stats by deduplicating similar identities.

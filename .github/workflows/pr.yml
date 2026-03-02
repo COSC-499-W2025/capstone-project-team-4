@@ -142,7 +142,7 @@ jobs:
             case "$file" in
               docs/*|*.md|*.rst|*.txt|LICENSE*|CHANGELOG*)
                 DOCS_FILES="$DOCS_FILES $file" ;;
-              tests/*|test/*|*_test.py|*_test.ts|*_test.js|*.test.py|*.test.ts|*.test.js|*.test.tsx|*.test.jsx|*.spec.ts|*.spec.js|*.spec.tsx|*.spec.jsx|**/__tests__/*)
+              tests/*|*/tests/*|test/*|*/test/*|*test_*.py|*_test.py|*_test.ts|*_test.js|*.test.py|*.test.ts|*.test.js|*.test.tsx|*.test.jsx|*.spec.ts|*.spec.js|*.spec.tsx|*.spec.jsx|**/__tests__/*)
                 TEST_FILES="$TEST_FILES $file" ;;
               *)
                 FEATURE_FILES="$FEATURE_FILES $file" ;;

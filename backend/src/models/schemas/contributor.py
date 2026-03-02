@@ -123,6 +123,17 @@ class TopFileItemSchema(BaseModel):
     lines_changed: int  # lines_added + lines_deleted
 
 
+class TopDirectoryItemSchema(BaseModel):
+    """Schema for top directory contribution."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    directory: str  # Relative directory path from project root
+    lines_changed: int  # Sum of lines changed under the directory
+    share: float  # 0-1.0, percentage of total lines changed
+    files_count: int  # Number of unique files touched in the directory
+
+
 class ContributorSummarySchema(BaseModel):
     """Schema for contributor analysis summary."""
 
@@ -150,4 +161,49 @@ class ContributorAnalysisDetailResponseSchema(BaseModel):
     branch: str
     contributor: ContributorAnalysisDetailSchema
     generated_at: datetime
+      
+class ContributorDirectoriesResponseSchema(BaseModel):
+    """Schema for contributor directory analysis endpoint response."""
+
+    project_id: int
+    project_name: str
+    branch: str
+    contributor_id: int
+    contributor_name: Optional[str] = None
+    top_directories: List[TopDirectoryItemSchema] = []
+    generated_at: datetime
+
+
+class ContributorIdentityMatchSchema(BaseModel):
+    """Schema for matched identity fields used for merging."""
+
+    names: List[str] = []
+    emails: List[str] = []
+    github_usernames: List[str] = []
+    github_emails: List[str] = []
+
+
+class ContributorProjectLinesSchema(BaseModel):
+    """Schema for contributor project lines summary."""
+
+    project_id: int
+    project_name: str
+    contributor_id: int
+    contributor_ids: List[int] = []
+    commits: int = 0
+    total_lines_added: int = 0
+    total_lines_deleted: int = 0
+    total_lines_changed: int = 0
+    matched_identities: ContributorIdentityMatchSchema = Field(
+        default_factory=ContributorIdentityMatchSchema
+    )
+
+
+class ContributorProjectsByUsernameResponseSchema(BaseModel):
+    """Schema for projects sorted by lines changed for a GitHub username."""
+
+    github_username: str
+    total_projects: int = 0
+    projects: List[ContributorProjectLinesSchema] = []
+
 

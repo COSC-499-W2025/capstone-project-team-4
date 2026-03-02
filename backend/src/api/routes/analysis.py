@@ -16,6 +16,7 @@ from src.models.schemas.analysis import (
 )
 from src.api.dependencies import get_current_user
 from src.services.analysis_service import AnalysisService
+from src.api.dependencies import get_current_user
 from src.api.exceptions import InvalidFileError, InvalidGitHubURLError, AnalysisError
 from src.config.settings import settings
 
@@ -38,6 +39,7 @@ async def analyze_upload(
     ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
   
     logger.info(

@@ -232,12 +232,12 @@ BULLET3: [third bullet point text]"""
             if line.startswith("BULLET"):
                 # Extract text after "BULLET1: " or similar
                 bullet_text = line.split(":", 1)[1].strip() if ":" in line else line
-                highlights.append(f"• {bullet_text}")
+                highlights.append(bullet_text)
 
         # Fallback if parsing failed
         if len(highlights) < 3:
             logger.warning("AI response parsing failed, using full response")
-            highlights = [f"• {line.strip()}" for line in content.split("\n") if line.strip() and not line.startswith("BULLET")]
+            highlights = [line.strip() for line in content.split("\n") if line.strip() and not line.startswith("BULLET")]
             highlights = highlights[:3]  # Take first 3 lines
 
         return {"title": project_name, "highlights": highlights}
@@ -309,9 +309,6 @@ def _generate_template_based(
         highlights.append(
             "Collaborated through Git version control using iterative feature development and structured code reviews."
         )
-
-    # Apply actual bullet-point text style
-    highlights = [f"• {h}" for h in highlights]
 
     return {"title": project_name, "highlights": highlights}
 
