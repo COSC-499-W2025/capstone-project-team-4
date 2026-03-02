@@ -1,14 +1,15 @@
 """Portfolio service for portfolio operations."""
 
 import logging
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple, Optional, Union
 
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from src.config.settings import settings
 from src.models.orm.portfolio import Portfolio
 from src.models.orm.user import User
-from src.models.schemas.portfolio import PortfolioResponse
+from src.models.schemas.portfolio import PortfolioResponse, PortfolioProjectCustomize, PortfolioUpdate
 from src.repositories.portfolio_repository import PortfolioRepository
 from src.repositories.project_repository import ProjectRepository
 from src.repositories.skill_repository import SkillRepository
@@ -140,6 +141,75 @@ class PortfolioService:
             updated_at=portfolio.updated_at,
         )
 
+    def get_portfolio(self, portfolio_id: int) -> Optional[PortfolioResponse]:
+        """
+        Get a portfolio by ID (public, no auth required).
+
+        Args:
+            portfolio_id: The portfolio ID to retrieve
+
+        Returns:
+            PortfolioResponse if found, None if not found
+        """
+        portfolio = self.portfolio_repo.get(portfolio_id)
+        if portfolio is None:
+            return None
+
+        return PortfolioResponse(
+            id=portfolio.id,
+            user_id=portfolio.user_id,
+            title=portfolio.title,
+            summary=portfolio.summary,
+            content=portfolio.content,
+            created_at=portfolio.created_at,
+            updated_at=portfolio.updated_at,
+        )
+
+    def update_portfolio(
+        self,
+        portfolio_id: int,
+        data: PortfolioUpdate,
+        user: User,
+    ) -> Optional[Union[PortfolioResponse, str]]:
+        """
+        Update a portfolio by ID.
+
+        Args:
+            portfolio_id: The portfolio ID to update
+            data: PortfolioUpdate with fields to change (None fields are skipped)
+            user: The authenticated User ORM object
+
+        Returns:
+            PortfolioResponse on success, None if not found, "forbidden" if not owned
+        """
+        portfolio = self.portfolio_repo.get(portfolio_id)
+        if portfolio is None:
+            return None
+
+        if portfolio.user_id != user.id:
+            return "forbidden"
+
+        if data.title is not None:
+            portfolio.title = data.title
+        if data.summary is not None:
+            portfolio.summary = data.summary
+        if data.content is not None:
+            portfolio.content = data.content
+
+        portfolio = self.portfolio_repo.update(portfolio)
+
+        logger.info(f"Updated portfolio {portfolio.id} for user {user.id}")
+
+        return PortfolioResponse(
+            id=portfolio.id,
+            user_id=portfolio.user_id,
+            title=portfolio.title,
+            summary=portfolio.summary,
+            content=portfolio.content,
+            created_at=portfolio.created_at,
+            updated_at=portfolio.updated_at,
+        )
+
     def _get_skill_categories(self, project_id: int) -> Dict[str, List[str]]:
         """Get skill categories for a project as string lists."""
         skills_grouped = self.skill_repo.get_grouped_by_category(project_id)
@@ -163,3 +233,65 @@ class PortfolioService:
                 "description": exp.description,
             })
         return result
+
+    def customize_project(
+        self, portfolio_id: int, user_id: int, project_name: str, update_data: PortfolioProjectCustomize
+    ) -> Tuple[Optional[PortfolioResponse], Optional[str]]:
+        """
+        Updates custom fields for a specific project inside the portfolio JSON.
+        """
+        # Fetch portfolio
+        portfolio = self.portfolio_repo.get(portfolio_id)
+        if not portfolio:
+            return None, "Portfolio not found"
+            
+        # Security Check
+        if portfolio.user_id != user_id:
+            return None, "Not authorized to edit this portfolio"
+
+        #  Open that "content" thing filled with projects
+        content = portfolio.content or {}
+        projects = content.get("projects", [])
+
+        # Find the project and edit it
+        project_found = False
+        for proj in projects:
+            if proj.get("name") == project_name:
+                project_found = True
+                
+                # Apply the customizations
+                if update_data.name is not None:
+                    proj["name"] = update_data.name 
+                if update_data.languages is not None:
+                    proj["languages"] = update_data.languages
+                if update_data.frameworks is not None:
+                    proj["frameworks"] = update_data.frameworks
+                if update_data.resume_highlights is not None:
+                    proj["resume_highlights"] = update_data.resume_highlights
+                # Custom stuff here 
+                if update_data.custom_name is not None:
+                    proj["custom_name"] = update_data.custom_name
+                if update_data.description is not None:
+                    proj["description"] = update_data.description
+                if update_data.live_demo_url is not None:
+                    proj["live_demo_url"] = update_data.live_demo_url
+                break
+
+        if not project_found:
+            return None, f"Project '{project_name}' not found in portfolio"
+
+        # Save the JSON back and return
+        portfolio.content = content
+        flag_modified(portfolio, "content") 
+        
+        updated_portfolio = self.portfolio_repo.update(portfolio)
+
+        return PortfolioResponse(
+            id=updated_portfolio.id,
+            user_id=updated_portfolio.user_id,
+            title=updated_portfolio.title,
+            summary=updated_portfolio.summary,
+            content=updated_portfolio.content,
+            created_at=updated_portfolio.created_at,
+            updated_at=updated_portfolio.updated_at,
+        ), None

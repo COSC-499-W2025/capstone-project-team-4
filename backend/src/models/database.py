@@ -59,6 +59,7 @@ def init_db() -> None:
         Project,
         ProjectAnalysisSummary,
         ProjectSnapshot,
+        ProjectThumbnail,
         File,
         Language,
         Contributor,
@@ -77,6 +78,7 @@ def init_db() -> None:
         UserProfile,
         Experience,
         ExperienceType,
+        Education,
         DataPrivacySettings,
         Portfolio,
     )

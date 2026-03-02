@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from src.models.orm.tool import ProjectTool
     from src.models.orm.user import User
     from src.models.orm.project_snapshot import ProjectSnapshot
+    from src.models.orm.project_thumbnail import ProjectThumbnail
 
 
 class Project(Base):
@@ -48,6 +49,12 @@ class Project(Base):
     previous_project_id: Mapped[int | None] = mapped_column( ForeignKey("projects.id", ondelete="SET NULL"), nullable=True,)
 
     # Relationships
+    thumbnail: Mapped[Optional["ProjectThumbnail"]] = relationship(
+        "ProjectThumbnail",
+        back_populates="project",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
     files: Mapped[List["File"]] = relationship(
         "File", back_populates="project", cascade="all, delete-orphan"
     )

@@ -1,4 +1,4 @@
-name: CI 
+name: CI
 
 on:
   push:
@@ -11,114 +11,6 @@ on:
       - development
 
 jobs:
-  assign-copilot-reviewer:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-    steps:
-      - name: Assign Copilot as reviewer
-        run: gh pr edit "$PR_URL" --add-reviewer copilot
-        env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  pr-size-label:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-      issues: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Label PR by size
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-        run: |
-          BASE_REF="origin/${{ github.event.pull_request.base.ref }}"
-          git fetch origin ${{ github.event.pull_request.base.ref }}
-
-          # Categorize changed files into docs, tests, and feature
-          DOCS_FILES=""
-          TEST_FILES=""
-          FEATURE_FILES=""
-
-          while IFS= read -r file; do
-            case "$file" in
-              docs/*|*.md|*.rst|*.txt|LICENSE*|CHANGELOG*)
-                DOCS_FILES="$DOCS_FILES $file" ;;
-              tests/*|test/*|*_test.py|*_test.ts|*_test.js|*.test.py|*.test.ts|*.test.js|*.test.tsx|*.test.jsx|*.spec.ts|*.spec.js|*.spec.tsx|*.spec.jsx|**/__tests__/*)
-                TEST_FILES="$TEST_FILES $file" ;;
-              *)
-                FEATURE_FILES="$FEATURE_FILES $file" ;;
-            esac
-          done < <(git diff --name-only "$BASE_REF"...HEAD)
-
-          # Count lines changed per category
-          count_lines() {
-            local files="$1"
-            if [ -z "$files" ]; then
-              echo 0
-              return
-            fi
-            local stats
-            stats=$(git diff --numstat "$BASE_REF"...HEAD -- $files | awk '{ added += $1; deleted += $2 } END { print added + deleted }')
-            echo "${stats:-0}"
-          }
-
-          DOCS_LINES=$(count_lines "$DOCS_FILES")
-          TEST_LINES=$(count_lines "$TEST_FILES")
-          FEATURE_LINES=$(count_lines "$FEATURE_FILES")
-          TOTAL_LINES=$((DOCS_LINES + TEST_LINES + FEATURE_LINES))
-
-          DOCS_COUNT=$(echo $DOCS_FILES | wc -w)
-          TEST_COUNT=$(echo $TEST_FILES | wc -w)
-          FEATURE_COUNT=$(echo $FEATURE_FILES | wc -w)
-          TOTAL_FILES=$((DOCS_COUNT + TEST_COUNT + FEATURE_COUNT))
-
-          # Print summary by type
-          echo "===== PR Change Summary ====="
-          echo "Type         Files   Lines"
-          echo "----------------------------"
-          printf "Feature      %5d   %5d\n" "$FEATURE_COUNT" "$FEATURE_LINES"
-          printf "Tests        %5d   %5d\n" "$TEST_COUNT" "$TEST_LINES"
-          printf "Docs         %5d   %5d\n" "$DOCS_COUNT" "$DOCS_LINES"
-          echo "----------------------------"
-          printf "Total        %5d   %5d\n" "$TOTAL_FILES" "$TOTAL_LINES"
-          echo ""
-          echo "Note: Only feature lines ($FEATURE_LINES) are counted for size thresholds."
-
-          # Remove existing size labels
-          for label in "size/S" "size/M" "size/L" "size/XL: oversized"; do
-            gh pr edit "$PR_URL" --remove-label "$label" 2>/dev/null || true
-          done
-
-          # Apply label based on course requirement thresholds using FEATURE changes only:
-          # < 3 files AND < 200 lines = Small
-          # < 10 files AND < 500 lines = Medium
-          # >= 10 files OR >= 500 lines = Large (oversized, must request changes)
-          if [ "$FEATURE_COUNT" -lt 3 ] && [ "$FEATURE_LINES" -lt 200 ]; then
-            LABEL="size/S"
-          elif [ "$FEATURE_COUNT" -lt 10 ] && [ "$FEATURE_LINES" -lt 500 ]; then
-            LABEL="size/M"
-          else
-            LABEL="size/XL: oversized"
-          fi
-
-          # Create label if it doesn't exist, then apply
-          gh label create "$LABEL" --force --repo "${{ github.repository }}" 2>/dev/null || true
-          gh pr edit "$PR_URL" --add-label "$LABEL"
-
-          # Warn on oversized PRs
-          if [ "$LABEL" = "size/XL: oversized" ]; then
-            echo "::warning::PR is oversized ($FEATURE_COUNT feature files, $FEATURE_LINES feature lines). Course rules: limit PRs to <10 files and <500 lines. Docs and test changes are excluded from thresholds."
-          fi
-
   lint-backend:
     runs-on: ubuntu-latest
 
@@ -239,6 +131,12 @@ jobs:
 
       - name: Run frontend tests
         run: docker compose exec -T frontend npm run test:run
+
+      - name: Install Schemathesis
+        run: pip install schemathesis
+
+      - name: Run Schemathesis API tests
+        run: st run http://localhost:8000/openapi.json --checks all
 
       - name: Stop and remove containers
         if: always()
