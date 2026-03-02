@@ -13,6 +13,8 @@ PR links
 - https://github.com/COSC-499-W2025/capstone-project-team-4/pull/207
 - https://github.com/COSC-499-W2025/capstone-project-team-4/pull/223
 - https://github.com/COSC-499-W2025/capstone-project-team-4/pull/224
+- https://github.com/COSC-499-W2025/capstone-project-team-4/pull/227
+
 
 ### Testing and Debugging Tasks
 
@@ -24,9 +26,14 @@ PR links
 - Reviewed https://github.com/COSC-499-W2025/capstone-project-team-4/pull/211
 - Reviewed https://github.com/COSC-499-W2025/capstone-project-team-4/pull/217
 - Reviewed https://github.com/COSC-499-W2025/capstone-project-team-4/pull/218
+- Reviewed https://github.com/COSC-499-W2025/capstone-project-team-4/pull/215
+
 
 ### Plan for Next Week
 
 - Next week's tasks will be discussed, considering the current state of the frontend with the team, focusing on the frontend as the priority for Milestone 3. We will decide tasks and assign them to each team member.
+
+  
+<img width="1086" height="634" alt="Screenshot 2026-03-01 at 20 54 27" src="https://github.com/user-attachments/assets/72dc8913-ef89-41a2-b7dc-c5cfc7906225" />
 
 Hours Worked: ~20 hours
