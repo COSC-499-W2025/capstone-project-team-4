@@ -137,7 +137,7 @@ make shell-frontend  # Open a shell in the frontend container
 ### 📚 Core Documentation
 
 - [📘 CLI Documentation](docs/design/CLI%20Documentation.md) - Complete command reference and usage guide
-- [📘 Endpoint Documentation](docs/design/Endpoints Documentation.md) - Endpoint documentation for Milestone #2
+- [📘 Endpoint Documentation](docs/design/Endpoints%20Documentation.md) - Endpoint Documentation for Milestone #2
 - [🤝 Contributing Guidelines](.github/CONTRIBUTING.md) - How to contribute to the project
 - [📜 Team Contract](docs/contract/CapstoneTeamContract.pdf) - Team agreements and responsibilities
 - [📊 Work Breakdown Structure (WBS)](docs/design/WBS.md) - Project planning and task breakdown
