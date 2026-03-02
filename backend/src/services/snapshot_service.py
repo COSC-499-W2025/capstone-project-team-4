@@ -76,6 +76,18 @@ class SnapshotService:
         self.snapshot_repo = SnapshotRepository(db)
         self.comparison_repo = SnapshotComparisonRepository(db)
 
+    def delete_snapshot(self, project_id: int, snapshot_id: int) -> dict:
+        """Delete a specific snapshot (and cascaded comparisons) by ID."""
+        snapshot = self.snapshot_repo.get(snapshot_id)
+        if not snapshot or snapshot.project_id != project_id:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Snapshot {snapshot_id} not found for project {project_id}.",
+            )
+
+        self.snapshot_repo.delete(snapshot_id)
+        return {"project_id": project_id, "snapshot_id": snapshot_id, "message": "Snapshot deleted successfully."}
+
     def create_midpoint_snapshot(self, project_id: int) -> dict:
         return self._create_snapshot(project_id=project_id, snapshot_type="midpoint")
 
