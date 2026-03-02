@@ -14,7 +14,52 @@ from src.models.orm.library import ProjectLibrary, Library
 from src.models.orm.tool import ProjectTool, Tool
 from src.models.orm.contributor import Contributor
 from src.repositories.base import BaseRepository
+from src.models.schemas.project import ProjectDetail
 
+def get_project(self, project_id: int) -> Optional[ProjectDetail]:
+    project = self.project_repo.get(project_id)
+    if not project:
+        return None
+
+    languages = self.project_repo.get_languages(project_id)
+    frameworks = self.project_repo.get_frameworks(project_id)
+    libraries = self.project_repo.get_libraries(project_id)
+    tools = self.project_repo.get_tools(project_id)
+    total_loc = self.project_repo.get_total_lines_of_code(project_id)
+    complexity_summary = self.complexity_repo.get_summary(project_id) or {}
+    summary = self.project_repo.get_summary(project_id) or {}
+
+    return ProjectDetail(
+        id=project.id,
+        name=project.name,
+        root_path=project.root_path,
+        source_type=project.source_type,
+        source_url=project.source_url,
+
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+        zip_uploaded_at=project.zip_uploaded_at,
+        first_file_created=project.first_file_created,
+        first_commit_date=project.first_commit_date,
+        project_started_at=project.project_started_at,
+
+        file_count=summary.get("file_count", 0),
+        language_count=summary.get("language_count", 0),
+        framework_count=summary.get("framework_count", 0),
+        contributor_count=summary.get("contributor_count", 0),
+        skill_count=summary.get("skill_count", 0),
+        library_count=summary.get("library_count", 0),
+        tool_count=summary.get("tool_count", 0),
+
+        languages=languages or [],
+        frameworks=frameworks or [],
+        libraries=libraries or [],
+        tools=tools or [],
+
+        total_lines_of_code=total_loc or 0,
+        avg_complexity=float(complexity_summary.get("avg_complexity", 0.0) or 0.0),
+        max_complexity=int(complexity_summary.get("max_complexity", 0) or 0),
+    )
 
 class ProjectRepository(BaseRepository[Project]):
     """Repository for project operations."""
@@ -63,8 +108,7 @@ class ProjectRepository(BaseRepository[Project]):
         project = self.get(project_id)
         if not project:
             return None
-    
-        # Get counts
+
         file_count = self.db.scalar(
             select(func.count(File.id)).where(File.project_id == project_id)
         ) or 0
@@ -81,17 +125,16 @@ class ProjectRepository(BaseRepository[Project]):
             select(func.count(ProjectFramework.id)).where(ProjectFramework.project_id == project_id)
         ) or 0
 
-        # Get unique languages count
         language_count = self.db.scalar(
             select(func.count(func.distinct(File.language_id)))
             .where(File.project_id == project_id)
             .where(File.language_id.isnot(None))
         ) or 0
-        
+
         tool_count = self.db.scalar(
             select(func.count(ProjectTool.id)).where(ProjectTool.project_id == project_id)
         ) or 0
-        
+
         library_count = self.db.scalar(
             select(func.count(ProjectLibrary.id)).where(ProjectLibrary.project_id == project_id)
         ) or 0
@@ -207,6 +250,15 @@ class ProjectRepository(BaseRepository[Project]):
 
         return summaries
 
+    def get_latest_by_name(self, name: str) -> Optional[Project]:
+        """Most recent project row by name."""
+        stmt = (
+            select(Project)
+            .where(Project.name == name)
+            .order_by(Project.created_at.desc())
+            .limit(1)
+        )
+        return self.db.scalar(stmt)
     def create_project(
         self,
         name: str,

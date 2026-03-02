@@ -29,6 +29,7 @@ from src.repositories.contributor_repository import ContributorRepository
 from src.repositories.project_repository import ProjectRepository
 from src.repositories.complexity_repository import ComplexityRepository
 from src.api.exceptions import ProjectNotFoundError
+from src.models.schemas.analysis import AnalysisResult
 
 logger = logging.getLogger(__name__)
 
@@ -292,6 +293,23 @@ async def get_project_thumbnail(
 
 @router.delete("/{project_id}/thumbnail", status_code=204)
 async def delete_project_thumbnail(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """Delete project's thumbnail."""
+    service = ProjectService(db)
+
+    if not service.project_exists(project_id):
+        raise ProjectNotFoundError(project_id)
+
+    deleted = service.delete_thumbnail(project_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+
+    return None
+
+@router.get("/{project_id}", response_model=AnalysisResult)
+async def get_project(
     project_id: int,
     db: Session = Depends(get_db),
 ):

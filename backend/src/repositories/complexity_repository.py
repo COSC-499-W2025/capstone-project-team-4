@@ -125,3 +125,19 @@ class ComplexityRepository(BaseRepository[Complexity]):
         """Count complexity records in a project."""
         stmt = select(func.count(Complexity.id)).where(Complexity.project_id == project_id)
         return self.db.scalar(stmt) or 0
+
+    def get_by_project_and_paths(self, project_id: int, paths: set[str]) -> list[Complexity]:
+        if not paths:
+            return []
+        stmt = (
+            select(Complexity)
+            .where(Complexity.project_id == project_id)
+            .where(Complexity.file_path.in_(list(paths)))
+        )
+        return list(self.db.scalars(stmt).all())
+
+    def bulk_create_from_dicts(self, rows: list[dict]) -> None:
+        if not rows:
+            return
+        self.db.bulk_insert_mappings(Complexity, rows)
+        self.db.commit()

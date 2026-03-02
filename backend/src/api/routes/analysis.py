@@ -32,14 +32,10 @@ async def analyze_upload(
         True,
         description="If true, reuse previous analysis when the same project content is uploaded again.",
     ),
-    split_projects: bool = Form(
-        False,
-        description="If true, split upload into multiple projects",
-    ),
+    split_projects: bool = Form(False, description="If true, split upload into multiple projects"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-  
     logger.info(
         "Received upload request - filename=%s content_type=%s project_name=%s reuse_cached_analysis=%s split_projects=%s",
         file.filename,
@@ -89,15 +85,15 @@ async def analyze_upload(
         # Run analysis
         service = AnalysisService(db)
         name = project_name or Path(filename).stem
-        logger.info("Starting analysis for project: %s", name)
+        logger.info(f"Starting analysis for project: {name}")
 
         result = service.analyze_from_zip(
             tmp_path,
             name,
+            reuse_cached_analysis=reuse_cached_analysis,
+            split_projects=split_projects,
             user_id=current_user.id,
-            use_cache=reuse_cached_analysis,
-            split_projects=split_projects,      
-      )
+)
 
         # Always return list to match response_model=List[AnalysisResult]
         final_result = result if isinstance(result, list) else [result]
