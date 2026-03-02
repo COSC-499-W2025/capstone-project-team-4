@@ -83,7 +83,8 @@ Week 5 we decided to change focus from frontend development to backend to ensure
 - https://github.com/COSC-499-W2025/capstone-project-team-4/pull/204
 - https://github.com/COSC-499-W2025/capstone-project-team-4/pull/217
 - https://github.com/COSC-499-W2025/capstone-project-team-4/pull/221
-- https://github.com/COSC-499-W2025/capstone-project-team-4/pull/223 
+- https://github.com/COSC-499-W2025/capstone-project-team-4/pull/223
+- https://github.com/COSC-499-W2025/capstone-project-team-4/pull/226 
 
 
 ## Plans/Goals for Next Week
