@@ -46,7 +46,7 @@ def customize_portfolio_project(
     portfolio_id: int,
     project_name: str,
     update_data: PortfolioProjectCustomize,
-    current_user: User = Depends(get_current_user), # 🔒 The Bouncer
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
