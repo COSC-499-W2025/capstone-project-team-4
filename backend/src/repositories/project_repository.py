@@ -221,6 +221,7 @@ class ProjectRepository(BaseRepository[Project]):
         content_hash: Optional[str] = None,
         analysis_key: Optional[str] = None,
         reused_from_project_id: Optional[int] = None,
+        user_id: Optional[int] = None,
     ) -> Project:
         """Create a new project."""
         project = Project(
@@ -229,6 +230,7 @@ class ProjectRepository(BaseRepository[Project]):
             root_path=root_path,
             source_type=source_type,
             source_url=source_url,
+            user_id=user_id,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
             zip_uploaded_at=zip_uploaded_at,

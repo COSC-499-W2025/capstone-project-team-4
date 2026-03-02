@@ -384,6 +384,7 @@ class AnalysisService:
                     user_id=user_id,
                     zip_upload_time=datetime.utcnow(),
                     earliest_file_date_in_zip=earliest_file_date,
+                    user_id=user_id,
                 )
                 results.append(result)
 
@@ -530,6 +531,7 @@ class AnalysisService:
         user_id: Optional[int] = None,
         zip_upload_time: Optional[datetime] = None,
         earliest_file_date_in_zip: Optional[datetime] = None,
+        user_id: Optional[int] = None,
     ) -> AnalysisResult:
         """
         Run the full analysis pipeline on a project.
@@ -677,6 +679,7 @@ class AnalysisService:
             content_hash=project_tree_hash,
             analysis_key=analysis_key,
             reused_from_project_id=cached_project.id if cached_project else None,
+            user_id=user_id,
         )
         project_id = project.id
         logger.info(f"Step 2 complete: Project ID {project_id}")
