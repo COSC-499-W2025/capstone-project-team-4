@@ -123,6 +123,17 @@ class TopFileItemSchema(BaseModel):
     lines_changed: int  # lines_added + lines_deleted
 
 
+class TopDirectoryItemSchema(BaseModel):
+    """Schema for top directory contribution."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    directory: str  # Relative directory path from project root
+    lines_changed: int  # Sum of lines changed under the directory
+    share: float  # 0-1.0, percentage of total lines changed
+    files_count: int  # Number of unique files touched in the directory
+
+
 class ContributorSummarySchema(BaseModel):
     """Schema for contributor analysis summary."""
 
@@ -149,5 +160,17 @@ class ContributorAnalysisDetailResponseSchema(BaseModel):
     project_name: str
     branch: str
     contributor: ContributorAnalysisDetailSchema
+    generated_at: datetime
+
+
+class ContributorDirectoriesResponseSchema(BaseModel):
+    """Schema for contributor directory analysis endpoint response."""
+
+    project_id: int
+    project_name: str
+    branch: str
+    contributor_id: int
+    contributor_name: Optional[str] = None
+    top_directories: List[TopDirectoryItemSchema] = []
     generated_at: datetime
 

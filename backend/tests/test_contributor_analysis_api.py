@@ -11,7 +11,9 @@ from src.models.schemas.contributor import (
     AreaShareSchema,
     ContributorAnalysisDetailResponseSchema,
     ContributorAnalysisDetailSchema,
+    ContributorDirectoriesResponseSchema,
     ContributorSummarySchema,
+    TopDirectoryItemSchema,
     TopFileItemSchema,
 )
 
@@ -248,3 +250,68 @@ def test_get_contributor_analysis_service_raises_exception(client, mock_db_sessi
         
         assert response.status_code == 500
         assert "Failed to analyze" in response.json()["detail"]
+
+
+@pytest.fixture
+def sample_directories_response():
+    """Sample contributor directories response."""
+    return ContributorDirectoriesResponseSchema(
+        project_id=1,
+        project_name="Demo Project",
+        branch="HEAD",
+        contributor_id=1,
+        contributor_name="Demo User",
+        top_directories=[
+            TopDirectoryItemSchema(
+                directory="backend/src/services",
+                lines_changed=420,
+                share=0.7,
+                files_count=5,
+            ),
+            TopDirectoryItemSchema(
+                directory="frontend/src/components",
+                lines_changed=180,
+                share=0.3,
+                files_count=3,
+            ),
+        ],
+        generated_at=datetime(2026, 2, 9, tzinfo=timezone.utc),
+    )
+
+
+def test_get_contributor_directories_success(client, mock_db_session, sample_directories_response):
+    """Test successful contributor directories retrieval."""
+    with patch("src.api.routes.contributor_analysis.get_db") as mock_get_db, \
+         patch("src.api.routes.contributor_analysis.ProjectRepository") as mock_project_repo, \
+         patch("src.api.routes.contributor_analysis.ContributorRepository") as mock_contributor_repo, \
+         patch("src.api.routes.contributor_analysis.ContributorAnalysisService") as mock_service:
+
+        mock_get_db.return_value = mock_db_session
+
+        mock_project = Mock()
+        mock_project.id = 1
+        mock_project_repo.return_value.get.return_value = mock_project
+
+        mock_contributor = Mock()
+        mock_contributor.id = 1
+        mock_contributor.project_id = 1
+        mock_contributor_repo.return_value.get.return_value = mock_contributor
+
+        mock_service.return_value.get_contributor_directories.return_value = sample_directories_response
+
+        response = client.get("/api/projects/1/contributors/1/directories?depth=3&top_n=5")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["project_id"] == 1
+        assert data["contributor_id"] == 1
+        assert len(data["top_directories"]) == 2
+        assert data["top_directories"][0]["directory"] == "backend/src/services"
+
+        mock_service.return_value.get_contributor_directories.assert_called_once_with(
+            project_id=1,
+            contributor_id=1,
+            branch=None,
+            depth=3,
+            top_n=5,
+        )
