@@ -346,3 +346,31 @@ def test_get_contributor_directories_returns_grouped_directories(git_repo):
     assert result.contributor_id == 1
     assert len(result.top_directories) >= 1
     assert all(item.lines_changed > 0 for item in result.top_directories)
+
+
+def test_get_contributor_analysis_invalid_branch_raises_value_error(git_repo):
+    """Test explicit non-existent branch raises ValueError."""
+    db = MockDB()
+
+    contributor = MockContributorWithFiles(
+        id=1,
+        name="Test User",
+        email="test@example.com",
+        project_id=1,
+        files_modified=[MockContributorFile("backend/src/main.py")],
+    )
+
+    project = MockProject(1, "Test Project", git_repo)
+    contrib_repo = MockContributorRepository({1: contributor})
+    proj_repo = MockProjectRepository({1: project})
+
+    service = ContributorAnalysisService(db)
+    service.contributor_repo = contrib_repo
+    service.project_repo = proj_repo
+
+    with pytest.raises(ValueError, match="does not exist"):
+        service.get_contributor_analysis(
+            project_id=1,
+            contributor_id=1,
+            branch="does-not-exist",
+        )

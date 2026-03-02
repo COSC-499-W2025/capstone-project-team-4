@@ -252,6 +252,36 @@ def test_get_contributor_analysis_service_raises_exception(client, mock_db_sessi
         assert "Failed to analyze" in response.json()["detail"]
 
 
+def test_get_contributor_analysis_invalid_branch_returns_400(client, mock_db_session):
+    """Test 400 when service reports invalid branch."""
+    with patch("src.api.routes.contributor_analysis.get_db") as mock_get_db, \
+         patch("src.api.routes.contributor_analysis.ProjectRepository") as mock_project_repo, \
+         patch("src.api.routes.contributor_analysis.ContributorRepository") as mock_contributor_repo, \
+         patch("src.api.routes.contributor_analysis.ContributorAnalysisService") as mock_service:
+
+        mock_get_db.return_value = mock_db_session
+
+        mock_project = Mock()
+        mock_project.id = 1
+        mock_project_repo.return_value.get.return_value = mock_project
+
+        mock_contributor = Mock()
+        mock_contributor.id = 1
+        mock_contributor.project_id = 1
+        mock_contributor_repo.return_value.get.return_value = mock_contributor
+
+        mock_service.return_value.get_contributor_analysis.side_effect = ValueError(
+            "Branch 'does-not-exist' does not exist"
+        )
+
+        response = client.get(
+            "/api/projects/1/contributors/1/analysis?branch=does-not-exist"
+        )
+
+        assert response.status_code == 400
+        assert "does not exist" in response.json()["detail"]
+
+
 @pytest.fixture
 def sample_directories_response():
     """Sample contributor directories response."""
@@ -315,3 +345,33 @@ def test_get_contributor_directories_success(client, mock_db_session, sample_dir
             depth=3,
             top_n=5,
         )
+
+
+def test_get_contributor_directories_invalid_branch_returns_400(client, mock_db_session):
+    """Test 400 when directories service reports invalid branch."""
+    with patch("src.api.routes.contributor_analysis.get_db") as mock_get_db, \
+         patch("src.api.routes.contributor_analysis.ProjectRepository") as mock_project_repo, \
+         patch("src.api.routes.contributor_analysis.ContributorRepository") as mock_contributor_repo, \
+         patch("src.api.routes.contributor_analysis.ContributorAnalysisService") as mock_service:
+
+        mock_get_db.return_value = mock_db_session
+
+        mock_project = Mock()
+        mock_project.id = 1
+        mock_project_repo.return_value.get.return_value = mock_project
+
+        mock_contributor = Mock()
+        mock_contributor.id = 1
+        mock_contributor.project_id = 1
+        mock_contributor_repo.return_value.get.return_value = mock_contributor
+
+        mock_service.return_value.get_contributor_directories.side_effect = ValueError(
+            "Branch 'does-not-exist' does not exist"
+        )
+
+        response = client.get(
+            "/api/projects/1/contributors/1/directories?branch=does-not-exist"
+        )
+
+        assert response.status_code == 400
+        assert "does not exist" in response.json()["detail"]

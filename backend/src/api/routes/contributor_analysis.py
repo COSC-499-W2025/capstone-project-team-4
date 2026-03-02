@@ -87,6 +87,8 @@ async def get_contributor_analysis(
 
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error analyzing contributor {contributor_id}: {e}", exc_info=True)
         raise HTTPException(
@@ -147,6 +149,8 @@ async def get_contributor_directories(
 
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(
             f"Error generating directories for contributor {contributor_id}: {e}",

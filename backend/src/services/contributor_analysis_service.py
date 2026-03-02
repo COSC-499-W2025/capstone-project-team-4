@@ -91,6 +91,49 @@ class ContributorAnalysisService:
         except Exception:
             return False
 
+    def _resolve_branch_or_raise(self, repo_path: str, branch: Optional[str]) -> str:
+        """Resolve branch to analyze and validate explicit branch inputs.
+
+        - If branch is omitted, resolve current branch from HEAD and fall back to "HEAD".
+        - If branch is provided, verify it resolves to a commit; raise ValueError when invalid.
+        """
+        if not branch:
+            try:
+                cmd = [
+                    "git",
+                    "-C",
+                    repo_path,
+                    "rev-parse",
+                    "--abbrev-ref",
+                    "HEAD",
+                ]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+                return result.stdout.strip() if result.returncode == 0 else "HEAD"
+            except Exception:
+                return "HEAD"
+
+        try:
+            verify_cmd = [
+                "git",
+                "-C",
+                repo_path,
+                "rev-parse",
+                "--verify",
+                f"{branch}^{{commit}}",
+            ]
+            verify_result = subprocess.run(
+                verify_cmd,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if verify_result.returncode != 0:
+                raise ValueError(f"Branch '{branch}' does not exist")
+        except subprocess.TimeoutExpired as exc:
+            raise ValueError(f"Branch validation timed out for '{branch}'") from exc
+
+        return branch
+
     def _calculate_top_files_from_db(
         self, contributor_id: int, top_n: int = 10
     ) -> List[TopFileItemSchema]:
@@ -612,25 +655,7 @@ class ContributorAnalysisService:
 
         # Determine branch to analyze
         repo_path = project.root_path
-        if not branch:
-            # Try to determine default branch from git
-            try:
-                cmd = [
-                    "git",
-                    "-C",
-                    repo_path,
-                    "rev-parse",
-                    "--abbrev-ref",
-                    "HEAD",
-                ]
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-                if result.returncode == 0:
-                    branch = result.stdout.strip()
-                else:
-                    branch = "HEAD"
-            except Exception as e:
-                logger.debug(f"Failed to determine default branch: {e}")
-                branch = "HEAD"
+        branch = self._resolve_branch_or_raise(repo_path, branch)
 
         logger.info(f"PROJECT INFO:")
         logger.info(f"  project.root_path={project.root_path}")
@@ -701,20 +726,7 @@ class ContributorAnalysisService:
             return None
 
         repo_path = project.root_path
-        if not branch:
-            try:
-                cmd = [
-                    "git",
-                    "-C",
-                    repo_path,
-                    "rev-parse",
-                    "--abbrev-ref",
-                    "HEAD",
-                ]
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-                branch = result.stdout.strip() if result.returncode == 0 else "HEAD"
-            except Exception:
-                branch = "HEAD"
+        branch = self._resolve_branch_or_raise(repo_path, branch)
 
         use_git = self._is_valid_git_repo(repo_path)
         if use_git:
