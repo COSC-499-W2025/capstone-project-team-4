@@ -273,6 +273,41 @@ async def get_project_thumbnail(
     if not service.project_exists(project_id):
         raise ProjectNotFoundError(project_id)
 
+    thumb = service.get_thumbnail(project_id)
+    if thumb is None:
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+
+    data, content_type, etag = thumb
+
+    # Conditional GET: If-None-Match
+    if etag and if_none_match:
+        candidate = if_none_match.strip().strip('"')
+        if candidate == etag:
+            return Response(status_code=304, headers={"ETag": etag})
+
+    headers = {"Cache-Control": "private, max-age=0, must-revalidate"}
+    if etag:
+        headers["ETag"] = etag
+
+    return Response(content=data, media_type=content_type, headers=headers)
+
+@router.delete("/{project_id}/thumbnail", status_code=204)
+async def delete_project_thumbnail(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """Delete project's thumbnail."""
+    service = ProjectService(db)
+
+    if not service.project_exists(project_id):
+        raise ProjectNotFoundError(project_id)
+
+    deleted = service.delete_thumbnail(project_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+
+    return None
+
 @router.get("/{project_id}", response_model=AnalysisResult)
 async def get_project(
     project_id: int,
