@@ -373,6 +373,11 @@ def test_generate_portfolio_endpoint_server_error(mock_service_class):
     assert response.status_code == 500
     assert "failed" in response.json()["detail"].lower()
 
+# --- Portfolio Customization Tests ---
+
+def test_customize_portfolio_project_requires_auth():
+    """PUT /api/portfolio/{id}/projects/{name}/customize returns 401 without auth token."""
+    response = client.put("/api/portfolio/1/projects/string/customize", json={"name": "New Name"})
 
 # --- Edit service layer tests ---
 
@@ -481,6 +486,56 @@ def test_edit_portfolio_requires_auth():
 
 
 @patch("src.api.routes.portfolio.PortfolioService")
+def test_customize_portfolio_project_success(mock_service_class):
+    """PUT returns 200 and updated portfolio when customization succeeds."""
+    from src.api.dependencies import get_current_user
+
+    fake_user = SimpleNamespace(id=10, email="test@example.com", is_active=True)
+    now = datetime.now(timezone.utc)
+
+    # Fake the Service Response
+    mock_service = MagicMock()
+    
+    # Remember our service returns a tuple which is (result, error)
+    mock_result = SimpleNamespace(
+        id=1,
+        user_id=10,
+        title="My Portfolio",
+        summary="A summary.",
+        content={
+            "projects": [
+                {
+                    "name": "Super Cool React App", 
+                    "description": "I built this!",
+                    "live_demo_url": "https://example.com"
+                }
+            ]
+        },
+        created_at=now,
+        updated_at=now,
+    )
+    mock_service.customize_project.return_value = (mock_result, None)
+    mock_service_class.return_value = mock_service
+
+    # Bypass the Bouncer
+    app.dependency_overrides[get_current_user] = lambda: fake_user
+    
+    payload = {
+        "name": "Super Cool React App",
+        "description": "I built this!",
+        "live_demo_url": "https://example.com"
+    }
+
+    try:
+        response = client.put("/api/portfolio/1/projects/string/customize", json=payload)
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["content"]["projects"][0]["name"] == "Super Cool React App"
+    assert data["content"]["projects"][0]["description"] == "I built this!"
+   
 def test_edit_portfolio_endpoint_success(mock_service_class):
     """PUT /api/portfolio/1/edit returns 200 with updated data."""
     from src.api.dependencies import get_current_user
@@ -506,15 +561,32 @@ def test_edit_portfolio_endpoint_success(mock_service_class):
             "/api/portfolio/1/edit",
             json={"title": "Updated Title", "summary": "Updated summary."},
         )
+    
+    
+
+
+@patch("src.api.routes.portfolio.PortfolioService")
+def test_customize_portfolio_project_forbidden(mock_service_class):
+    """PUT returns 403 when user tries to edit someone else's portfolio."""
+    from src.api.dependencies import get_current_user
+
+    fake_user = SimpleNamespace(id=99, email="hacker@example.com", is_active=True)
+
+    # Fake the Service Response to return error tuple
+    mock_service = MagicMock()
+    mock_service.customize_project.return_value = (None, "Not authorized to edit this portfolio")
+    mock_service_class.return_value = mock_service
+
+    app.dependency_overrides[get_current_user] = lambda: fake_user
+
+    try:
+        response = client.put("/api/portfolio/1/projects/string/customize", json={"name": "Hacked"})
     finally:
         app.dependency_overrides.pop(get_current_user, None)
 
-    assert response.status_code == 200
-    data = response.json()
-    assert data["title"] == "Updated Title"
-    assert data["summary"] == "Updated summary."
-
-
+    # Verify that they're kicked out
+    assert response.status_code == 403
+    assert "Not authorized" in response.json()["detail"]
 @patch("src.api.routes.portfolio.PortfolioService")
 def test_edit_portfolio_endpoint_not_found(mock_service_class):
     """PUT /api/portfolio/999/edit returns 404 when portfolio doesn't exist."""
