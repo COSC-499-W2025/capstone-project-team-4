@@ -95,13 +95,6 @@ async def analyze_upload(
             user_id=current_user.id,
 )
 
-        result = service.analyze_from_zip(
-            tmp_path,
-            name,
-            use_cache=reuse_cached_analysis,
-            split_projects=split_projects,  
-        )
-
         # Always return list to match response_model=List[AnalysisResult]
         final_result = result if isinstance(result, list) else [result]
         logger.info("Analysis completed successfully, returning %s project(s)", len(final_result))
