@@ -140,6 +140,30 @@ class PortfolioService:
             updated_at=portfolio.updated_at,
         )
 
+    def get_portfolio(self, portfolio_id: int) -> Optional[PortfolioResponse]:
+        """
+        Get a portfolio by ID (public, no auth required).
+
+        Args:
+            portfolio_id: The portfolio ID to retrieve
+
+        Returns:
+            PortfolioResponse if found, None if not found
+        """
+        portfolio = self.portfolio_repo.get(portfolio_id)
+        if portfolio is None:
+            return None
+
+        return PortfolioResponse(
+            id=portfolio.id,
+            user_id=portfolio.user_id,
+            title=portfolio.title,
+            summary=portfolio.summary,
+            content=portfolio.content,
+            created_at=portfolio.created_at,
+            updated_at=portfolio.updated_at,
+        )
+
     def update_portfolio(
         self,
         portfolio_id: int,

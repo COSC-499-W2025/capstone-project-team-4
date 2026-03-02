@@ -43,6 +43,27 @@ async def generate_portfolio(
     return result
 
 
+@router.get("/{portfolio_id}", response_model=PortfolioResponse)
+async def get_portfolio(
+    portfolio_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Get a portfolio by ID.
+
+    - Public endpoint (no authentication required)
+    - Returns 200 with the portfolio data
+    - Returns 404 if portfolio not found
+    """
+    service = PortfolioService(db)
+    result = service.get_portfolio(portfolio_id)
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+
+    return result
+
+
 @router.put("/{portfolio_id}/edit", response_model=PortfolioResponse)
 async def edit_portfolio(
     portfolio_id: int,
