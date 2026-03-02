@@ -63,3 +63,40 @@ class AnalysisResult(BaseModel):
     first_commit_date: Optional[datetime] = None
     project_started_at: datetime
     error_message: Optional[str] = None
+
+class TextualProjectShowcaseResponse(BaseModel):
+    """Lightweight, portfolio-ready textual showcase for a project.
+    This is a thin view-model over AnalysisResult, with short_description
+    reserved for future manual input (kept null for now). """
+
+    project_id: int
+    project_name: str
+    status: AnalysisStatus
+
+    # Keeping null until frontend supports manual descriptions
+    short_description: Optional[str] = None
+
+    source_type: str
+    source_url: Optional[str] = None
+
+    languages: List[str] = []
+    frameworks: List[str] = []
+    libraries: List[str] = []
+    tools_and_technologies: List[str] = []
+    contextual_skills: List[str] = []
+
+    file_count: int = 0
+    contributor_count: int = 0
+    skill_count: int = 0
+    library_count: int = 0
+    tool_count: int = 0
+    total_lines_of_code: int = 0
+
+    complexity_summary: Optional[ComplexitySummary] = None
+
+    zip_uploaded_at: datetime
+    first_file_created: datetime
+    first_commit_date: Optional[datetime] = None
+    project_started_at: datetime
+
+    error_message: Optional[str] = None

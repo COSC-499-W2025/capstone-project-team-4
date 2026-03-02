@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, 
 from sqlalchemy.orm import Session
 from fastapi.responses import Response
 
+from src.models.schemas.analysis import TextualProjectShowcaseResponse
 from src.models.database import get_db
 from src.models.schemas.project import ProjectList, ProjectDetail
 from src.models.schemas.contributor import (
@@ -305,6 +306,17 @@ async def delete_project_thumbnail(
         raise HTTPException(status_code=404, detail="Thumbnail not found")
 
     return None
+
+@router.get(
+    "/projects/{project_id}/textual-project-showcase",
+    response_model=TextualProjectShowcaseResponse,
+)
+def get_textual_project_showcase(project_id: int, db: Session = Depends(get_db)):
+    service = ProjectService(db)
+    result = service.get_textual_project_showcase(project_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="No analysis found for this project.")
+    return result
 
 @router.delete("/{project_id}", status_code=204)
 async def delete_project(

@@ -17,7 +17,7 @@ from src.models.schemas.project import (
     ProjectDetail,
     ProjectThumbnailResponse,
 )
-from src.models.schemas.analysis import AnalysisResult, AnalysisStatus, ComplexitySummary
+from src.models.schemas.analysis import AnalysisResult, AnalysisStatus, ComplexitySummary, TextualProjectShowcaseResponse
 from src.models.schemas.contributor import (
     ContributorAnalysisSchema,
     ProjectContributorsAnalysisResponse,
@@ -548,3 +548,16 @@ class ProjectService:
     def project_exists(self, project_id: int) -> bool:
         """Check if a project exists."""
         return self.project_repo.get(project_id) is not None
+    
+    def get_textual_project_showcase(
+        self, project_id: int
+    ) -> Optional[TextualProjectShowcaseResponse]:
+        """Return the portfolio-ready textual showcase for a project."""
+        analysis = self.get_project(project_id)
+        if analysis is None:
+            return None
+
+        return TextualProjectShowcaseResponse(
+            **analysis.model_dump(),
+            short_description=None,
+        )
