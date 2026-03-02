@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional, Tuple, List, Dict, Union
 from urllib.parse import urlparse
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from src.models.orm.file import File
@@ -1605,6 +1606,355 @@ class AnalysisService:
                 
         except Exception as e:
             logger.error(f"Failed to save analysis summary for project {project_id}: {e}")
+
+    def _resolve_deferred_analysis_path(
+        self,
+        project_path: str,
+        source_url: Optional[str] = None,
+    ) -> Tuple[Path, Optional[tempfile.TemporaryDirectory]]:
+        """Resolve a usable project path for deferred analyses.
+
+        If the stored project path no longer exists (e.g., temp extraction path),
+        try to rehydrate from the persisted source ZIP.
+        """
+        project_root = Path(project_path)
+        if project_root.exists():
+            return project_root, None
+
+        if source_url:
+            source_path = Path(source_url)
+            if source_path.exists() and source_path.suffix.lower() == ".zip" and zipfile.is_zipfile(source_path):
+                temp_dir = tempfile.TemporaryDirectory()
+                extract_root = Path(temp_dir.name)
+
+                _extract_zip_skipping_macos_junk(source_path, extract_root)
+                _extract_inner_zips_recursively(extract_root, max_zip_depth=2)
+
+                roots = detect_project_roots_in_zip(extract_root)
+                return (roots[0] if roots else extract_root), temp_dir
+
+        raise FileNotFoundError(
+            f"Project path not found for deferred analysis: {project_path}. "
+            "Upload source may be unavailable."
+        )
+
+    def _build_contributor_scope_workspace(
+        self,
+        project_id: int,
+        contributor_id: int,
+        project_root: Path,
+        include_transitive: bool = False,
+    ) -> Tuple[Path, tempfile.TemporaryDirectory, int]:
+        """Create a temporary scoped workspace from contributor-touched files.
+
+        Includes lightweight dependency manifests around touched files to improve
+        framework/library detection while keeping scan size smaller than full project.
+        """
+        contributor = self.contributor_repo.get_with_files(contributor_id)
+        if not contributor or contributor.project_id != project_id:
+            raise HTTPException(status_code=404, detail=f"Contributor not found: {contributor_id}")
+
+        touched_files: list[Path] = []
+        lockfile_names = {
+            "package-lock.json",
+            "yarn.lock",
+            "poetry.lock",
+            "Gemfile.lock",
+        }
+        for record in contributor.files_modified:
+            raw_name = str(record.filename or "").replace("\\", "/").lstrip("/")
+            if not raw_name:
+                continue
+            candidate = project_root / raw_name
+            if candidate.exists() and candidate.is_file():
+                if not include_transitive and candidate.name in lockfile_names:
+                    continue
+                touched_files.append(candidate)
+
+        touched_files = sorted(set(touched_files))
+
+        dependency_filenames = {
+            "package.json",
+            "pyproject.toml",
+            "pom.xml",
+            "build.gradle",
+            "build.gradle.kts",
+            "Cargo.toml",
+            "go.mod",
+            "Gemfile",
+            "composer.json",
+            "pubspec.yaml",
+        }
+
+        dependency_files: set[Path] = set()
+        for touched in touched_files:
+            current = touched.parent
+            while True:
+                for name in dependency_filenames:
+                    dep = current / name
+                    if dep.exists() and dep.is_file():
+                        dependency_files.add(dep)
+
+                for req in current.glob("requirements*.txt"):
+                    if req.exists() and req.is_file():
+                        dependency_files.add(req)
+
+                if current == project_root or project_root not in current.parents:
+                    break
+                current = current.parent
+
+        for name in dependency_filenames:
+            dep = project_root / name
+            if dep.exists() and dep.is_file():
+                dependency_files.add(dep)
+        for req in project_root.glob("requirements*.txt"):
+            if req.exists() and req.is_file():
+                dependency_files.add(req)
+
+        scope_temp = tempfile.TemporaryDirectory()
+        scope_root = Path(scope_temp.name)
+
+        for src in sorted(set(touched_files) | dependency_files):
+            try:
+                rel = src.relative_to(project_root)
+            except ValueError:
+                continue
+            dst = scope_root / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+
+        files_considered = len(touched_files)
+        return scope_root, scope_temp, files_considered
+
+    def analyze_tech_stack(
+        self,
+        project_id: int,
+        project_path: str,
+        source_url: Optional[str] = None,
+    ) -> dict:
+        """Analyze project-wide libraries and frameworks (response only)."""
+        logger.info("Starting unified tech-stack analysis for project %d", project_id)
+        start_time = time.time()
+
+        project_root, temp_dir = self._resolve_deferred_analysis_path(project_path, source_url)
+        try:
+            library_report = detect_libraries_recursive(project_root)
+            frameworks_detected = self._detect_frameworks_best(project_root)
+
+            library_names = sorted(
+                {
+                    lib.get("name", "").strip()
+                    for lib in library_report.get("libraries", [])
+                    if lib.get("name")
+                }
+            )
+            framework_names = sorted(
+                {
+                    framework.get("name", "").strip()
+                    for framework in frameworks_detected
+                    if framework.get("name")
+                }
+            )
+        finally:
+            if temp_dir is not None:
+                temp_dir.cleanup()
+
+        elapsed = time.time() - start_time
+        return {
+            "project_id": project_id,
+            "scope": "project",
+            "libraries_found": len(library_names),
+            "frameworks_found": len(framework_names),
+            "libraries": library_names,
+            "frameworks": framework_names,
+            "duration_seconds": elapsed,
+        }
+
+    def analyze_contributor_tech_stack(
+        self,
+        project_id: int,
+        contributor_id: int,
+        project_path: str,
+        source_url: Optional[str] = None,
+        include_transitive: bool = False,
+    ) -> dict:
+        """Analyze contributor-scoped libraries/frameworks from touched files only."""
+        logger.info(
+            "Starting contributor tech-stack analysis for project %d, contributor %d",
+            project_id,
+            contributor_id,
+        )
+        start_time = time.time()
+
+        project_root, temp_dir = self._resolve_deferred_analysis_path(project_path, source_url)
+        scope_temp = None
+        try:
+            scope_root, scope_temp, files_considered = self._build_contributor_scope_workspace(
+                project_id=project_id,
+                contributor_id=contributor_id,
+                project_root=project_root,
+                include_transitive=include_transitive,
+            )
+
+            if files_considered == 0:
+                elapsed = time.time() - start_time
+                return {
+                    "project_id": project_id,
+                    "contributor_id": contributor_id,
+                    "scope": "contributor",
+                    "files_considered": 0,
+                    "include_transitive": include_transitive,
+                    "libraries_found": 0,
+                    "frameworks_found": 0,
+                    "libraries": [],
+                    "frameworks": [],
+                    "duration_seconds": elapsed,
+                }
+
+            library_report = detect_libraries_recursive(scope_root)
+            frameworks_detected = self._detect_frameworks_best(scope_root)
+
+            library_names = sorted(
+                {
+                    lib.get("name", "").strip()
+                    for lib in library_report.get("libraries", [])
+                    if lib.get("name")
+                }
+            )
+            framework_names = sorted(
+                {
+                    framework.get("name", "").strip()
+                    for framework in frameworks_detected
+                    if framework.get("name")
+                }
+            )
+        finally:
+            if scope_temp is not None:
+                scope_temp.cleanup()
+            if temp_dir is not None:
+                temp_dir.cleanup()
+
+        elapsed = time.time() - start_time
+        return {
+            "project_id": project_id,
+            "contributor_id": contributor_id,
+            "scope": "contributor",
+            "files_considered": files_considered,
+            "include_transitive": include_transitive,
+            "libraries_found": len(library_names),
+            "frameworks_found": len(framework_names),
+            "libraries": library_names,
+            "frameworks": framework_names,
+            "duration_seconds": elapsed,
+        }
+
+    def analyze_libraries_and_tools(
+        self,
+        project_id: int,
+        project_path: str,
+        source_url: Optional[str] = None,
+    ) -> dict:
+        """
+        Analyze libraries and tools for an existing project.
+        Updates the database with detected libraries and tools.
+        """
+        logger.info("Starting library and tool analysis for project %d", project_id)
+        start_time = time.time()
+        project_root, temp_dir = self._resolve_deferred_analysis_path(project_path, source_url)
+        
+        try:
+            # Delete existing libraries and tools
+            self.library_repo.delete_by_project(project_id)
+            self.tool_repo.delete_by_project(project_id)
+
+            # Run analyses
+            library_report = detect_libraries_recursive(project_root)
+            tool_report = detect_tools_recursive(project_root)
+
+            # Save to database
+            if library_report.get("libraries"):
+                self.library_repo.create_libraries_bulk(library_report["libraries"], project_id)
+            if tool_report.get("tools"):
+                self.tool_repo.create_tools_bulk(tool_report["tools"], project_id)
+
+            tool_names = sorted(
+                {
+                    tool.get("name", "").strip()
+                    for tool in tool_report.get("tools", [])
+                    if tool.get("name")
+                }
+            )
+        finally:
+            if temp_dir is not None:
+                temp_dir.cleanup()
+        
+        elapsed = time.time() - start_time
+        logger.info(
+            "Library and tool analysis complete for project %d: %d libraries, %d tools in %.2fs",
+            project_id,
+            library_report.get("total_count", 0),
+            tool_report.get("total_count", 0),
+            elapsed,
+        )
+        
+        return {
+            "project_id": project_id,
+            "libraries_found": library_report.get("total_count", 0),
+            "tools_found": tool_report.get("total_count", 0),
+            "tools": tool_names,
+            "duration_seconds": elapsed,
+        }
+
+    def analyze_frameworks(
+        self,
+        project_id: int,
+        project_path: str,
+        source_url: Optional[str] = None,
+    ) -> dict:
+        """
+        Analyze frameworks for an existing project.
+        Updates the database with detected frameworks.
+        """
+        logger.info("Starting framework analysis for project %d", project_id)
+        start_time = time.time()
+        project_root, temp_dir = self._resolve_deferred_analysis_path(project_path, source_url)
+        
+        try:
+            # Delete existing frameworks
+            self.framework_repo.delete_by_project(project_id)
+
+            # Run framework detection
+            frameworks_detected = self._detect_frameworks_best(project_root)
+
+            # Save to database
+            if frameworks_detected:
+                self.framework_repo.create_frameworks_bulk(frameworks_detected, project_id)
+
+            framework_names = sorted(
+                {
+                    framework.get("name", "").strip()
+                    for framework in frameworks_detected
+                    if framework.get("name")
+                }
+            )
+        finally:
+            if temp_dir is not None:
+                temp_dir.cleanup()
+        
+        elapsed = time.time() - start_time
+        logger.info(
+            "Framework analysis complete for project %d: %d frameworks in %.2fs",
+            project_id,
+            len(frameworks_detected) if frameworks_detected else 0,
+            elapsed,
+        )
+        
+        return {
+            "project_id": project_id,
+            "frameworks_found": len(frameworks_detected) if frameworks_detected else 0,
+            "frameworks": framework_names,
+            "duration_seconds": elapsed,
+        }
 
     def get_analysis_result(self, project_id: int) -> Optional[AnalysisResult]:
         """Get analysis result for a project."""

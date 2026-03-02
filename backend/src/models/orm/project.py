@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from src.models.orm.tool import ProjectTool
     from src.models.orm.user import User
     from src.models.orm.project_snapshot import ProjectSnapshot
+    from src.models.orm.project_thumbnail import ProjectThumbnail
 
 
 class Project(Base):
@@ -46,6 +47,12 @@ class Project(Base):
     reused_from_project: Mapped[Optional["Project"]] = relationship("Project",remote_side=[id],uselist=False,)
 
     # Relationships
+    thumbnail: Mapped[Optional["ProjectThumbnail"]] = relationship(
+        "ProjectThumbnail",
+        back_populates="project",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
     files: Mapped[List["File"]] = relationship(
         "File", back_populates="project", cascade="all, delete-orphan"
     )

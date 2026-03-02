@@ -57,79 +57,54 @@ _Figure 3: Analysis Pipeline Flow_
 
 ### Prerequisites
 
-- Python 3.11.0
-- Git
-- Docker (optional)
+- [Docker & Docker Compose](https://docs.docker.com/get-docker/)
+- [Git](https://git-scm.com/)
+- [Make](https://www.gnu.org/software/make/)
 
-1. **Fork and clone the repository**
-
-   ```bash
-   git clone https://github.com/your-username/capstone-project-team-4.git
-   cd capstone-project-team-4
-   ```
-
-2. **Create a virtual environment**
-
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate
-   # On Windows: .venv\Scripts\activate
-   ```
-
-3. **Install dependencies**
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Choose your development method:**
-
-- [Local Development](#local-development) - Direct Python setup
-- [Docker Development](#docker-development) - Containerized environment (recommended)
-
-### Local Development
+### Getting Started
 
 ```bash
-# Run the main CLI
-python -m src.main --help
-
-# Run commands
-python -m src.main [OPTIONS] COMMAND [ARGS]...
-
-# Run tests
-pytest
-
-# Run with coverage
-# This command will create HTML report at /htmlcov
-pytest --cov=src --cov-report=html
-
-
-# View coverage report
-open htmlcov/index.html
-
-# For windows : start htmlcov/index.html
+git clone https://github.com/your-username/capstone-project-team-4.git
+cd capstone-project-team-4
+make up-build        # Build and start all services (db, backend, frontend)
 ```
 
-### Docker Development
+Once running, visit:
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000
+- Swagger UI: http://localhost:8000/docs
+
+### Makefile Commands
 
 ```bash
-# Build and start service
-docker compose up --build -d
+# Services
+make up              # Start all services (db, backend, frontend)
+make up-build        # Start services with rebuild
+make down            # Stop all services
+make down-v          # Stop all services and delete volumes
+make ps              # Show container status
+make health          # Check service health
+make logs            # View logs
 
-# Run the main CLI
-docker compose exec app python -m src.main --help
+# Linting
+make lint                          # Lint both backend and frontend
+make lint backend/src/api/main.py  # Lint a specific backend file (ruff)
+make lint frontend/src/            # Lint a specific frontend path (eslint)
+make lint-backend                  # Lint all backend code
+make lint-frontend                 # Lint all frontend code
+make typecheck-backend             # Run backend type checking (mypy)
 
-# Run commands
-docker compose exec app python -m src.main [OPTIONS] COMMAND [ARGS]...
+# Testing
+make test                              # Run all tests (backend + frontend)
+make test backend/tests/test_api.py    # Run a specific backend test
+make test frontend/src/App.test.tsx    # Run a specific frontend test
+make test-backend-cov                  # Backend tests with coverage (report: backend/htmlcov)
+make test-frontend-cov                 # Frontend tests with coverage (report: frontend/coverage)
+make test-schema                       # API tests
 
-# Run tests
-docker compose exec app pytest
-
-# Run tests with coverage
-docker compose exec app pytest --cov=src --cov-report=term-missing
-
-# remove container
-docker compose down
+# Shell access
+make shell-backend   # Open a shell in the backend container
+make shell-frontend  # Open a shell in the frontend container
 ```
 
 ## 🎯 Core Capabilities
@@ -182,25 +157,42 @@ docker compose down
 
 ## 🛠️ Technology Stack
 
+### Frontend
+
+- **React 19** - UI library
+- **TypeScript** - Type-safe JavaScript
+- **Vite** - Build tool and dev server
+- **Tailwind CSS 4** - Utility-first CSS framework
+- **Radix UI** - Accessible UI primitives
+- **React Router** - Client-side routing
+- **Recharts** - Data visualization
+- **Zod** - Schema validation
+- **React Hook Form** - Form handling
+- **Vitest** - Testing framework
+- **ESLint** - Linting
+
 ### Backend
 
-- **Python 3.11.0** - Core application language
-- **PyTest** - Testing framework
+- **Python 3.11** - Core application language
+- **FastAPI** - Web framework
+- **SQLAlchemy 2.0** - ORM
+- **Pydantic 2.0** - Data validation and settings
+- **Tree-sitter** - AST parsing for code analysis
+- **NLTK** - Natural language processing
+- **GitPython** - Git history analysis
+- **Pytest** - Testing framework
+- **Ruff** - Linting
+- **mypy** - Type checking
+
+### Database
+
+- **PostgreSQL 15** - Primary database
 
 ### DevOps
 
 - **Docker & Docker Compose** - Containerization
-- **Git & GitHub** - Version control and CI/CD
-- **GitHub Actions** - Automated testing and deployment
-
-### Data Processing
-
-- **JSON** - Data serialization formats
-- **YAML** - Configuration management
-
-### Database
-
-- **SQLite** - Data management
+- **GitHub Actions** - CI/CD
+- **Git & GitHub** - Version control
 
 ## 🤝 Contributing
 
