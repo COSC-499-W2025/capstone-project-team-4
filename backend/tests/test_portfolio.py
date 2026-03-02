@@ -1,4 +1,4 @@
-"""Tests for the Portfolio POST /generate endpoint, service, and generator."""
+"""Tests for the Portfolio endpoints, service, and generator."""
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from src.api.main import app
 from src.services.portfolio_service import PortfolioService
+from src.models.schemas.portfolio import PortfolioUpdate
 from src.core.generators.portfolio import (
     generate_portfolio,
     _generate_template_based,
@@ -377,6 +378,110 @@ def test_generate_portfolio_endpoint_server_error(mock_service_class):
 def test_customize_portfolio_project_requires_auth():
     """PUT /api/portfolio/{id}/projects/{name}/customize returns 401 without auth token."""
     response = client.put("/api/portfolio/1/projects/string/customize", json={"name": "New Name"})
+
+# --- Edit service layer tests ---
+
+
+def _make_edit_service(portfolio=None):
+    """Helper to create a PortfolioService with mocked repos for edit tests."""
+    now = datetime.now(timezone.utc)
+
+    def fake_update(obj):
+        obj.updated_at = now
+        return obj
+
+    service = PortfolioService(db=None)
+    service.portfolio_repo = SimpleNamespace(
+        get=lambda pid: portfolio,
+        update=fake_update,
+    )
+    return service
+
+
+def test_edit_portfolio_updates_title_and_summary():
+    """Service updates title and summary when both provided."""
+    now = datetime.now(timezone.utc)
+    portfolio = SimpleNamespace(
+        id=1, user_id=10, title="Old Title", summary="Old summary.",
+        content={"projects": []}, created_at=now, updated_at=now,
+    )
+
+    service = _make_edit_service(portfolio=portfolio)
+    user = SimpleNamespace(id=10, email="test@example.com")
+
+    result = service.update_portfolio(
+        portfolio_id=1,
+        data=PortfolioUpdate(title="New Title", summary="New summary."),
+        user=user,
+    )
+
+    assert result.title == "New Title"
+    assert result.summary == "New summary."
+    assert result.content == {"projects": []}  # unchanged
+
+
+def test_edit_portfolio_partial_update():
+    """Service only updates provided fields, leaves others unchanged."""
+    now = datetime.now(timezone.utc)
+    portfolio = SimpleNamespace(
+        id=1, user_id=10, title="Original Title", summary="Original summary.",
+        content={"projects": []}, created_at=now, updated_at=now,
+    )
+
+    service = _make_edit_service(portfolio=portfolio)
+    user = SimpleNamespace(id=10, email="test@example.com")
+
+    result = service.update_portfolio(
+        portfolio_id=1,
+        data=PortfolioUpdate(title="Changed Title"),
+        user=user,
+    )
+
+    assert result.title == "Changed Title"
+    assert result.summary == "Original summary."  # unchanged
+
+
+def test_edit_portfolio_not_found():
+    """Service returns None when portfolio doesn't exist."""
+    service = _make_edit_service(portfolio=None)
+    user = SimpleNamespace(id=10, email="test@example.com")
+
+    result = service.update_portfolio(
+        portfolio_id=999,
+        data=PortfolioUpdate(title="New"),
+        user=user,
+    )
+
+    assert result is None
+
+
+def test_edit_portfolio_forbidden():
+    """Service returns 'forbidden' when user doesn't own the portfolio."""
+    now = datetime.now(timezone.utc)
+    portfolio = SimpleNamespace(
+        id=1, user_id=99, title="Title", summary="Summary.",
+        content={}, created_at=now, updated_at=now,
+    )
+
+    service = _make_edit_service(portfolio=portfolio)
+    user = SimpleNamespace(id=10, email="test@example.com")  # different user
+
+    result = service.update_portfolio(
+        portfolio_id=1,
+        data=PortfolioUpdate(title="Hacked"),
+        user=user,
+    )
+
+    assert result == "forbidden"
+
+
+# --- Edit endpoint tests ---
+
+
+def test_edit_portfolio_requires_auth():
+    """PUT /api/portfolio/1/edit returns 401 without auth token."""
+    response = client.put("/api/portfolio/1/edit", json={"title": "New"})
+
     assert response.status_code == 401
 
 
@@ -430,6 +535,34 @@ def test_customize_portfolio_project_success(mock_service_class):
     data = response.json()
     assert data["content"]["projects"][0]["name"] == "Super Cool React App"
     assert data["content"]["projects"][0]["description"] == "I built this!"
+   
+def test_edit_portfolio_endpoint_success(mock_service_class):
+    """PUT /api/portfolio/1/edit returns 200 with updated data."""
+    from src.api.dependencies import get_current_user
+
+    now = datetime.now(timezone.utc)
+    fake_user = SimpleNamespace(id=10, email="test@example.com", is_active=True)
+
+    mock_service = MagicMock()
+    mock_service.update_portfolio.return_value = SimpleNamespace(
+        id=1,
+        user_id=10,
+        title="Updated Title",
+        summary="Updated summary.",
+        content={"projects": []},
+        created_at=now,
+        updated_at=now,
+    )
+    mock_service_class.return_value = mock_service
+
+    app.dependency_overrides[get_current_user] = lambda: fake_user
+    try:
+        response = client.put(
+            "/api/portfolio/1/edit",
+            json={"title": "Updated Title", "summary": "Updated summary."},
+        )
+    
+    
 
 
 @patch("src.api.routes.portfolio.PortfolioService")
@@ -454,3 +587,120 @@ def test_customize_portfolio_project_forbidden(mock_service_class):
     # Verify that they're kicked out
     assert response.status_code == 403
     assert "Not authorized" in response.json()["detail"]
+@patch("src.api.routes.portfolio.PortfolioService")
+def test_edit_portfolio_endpoint_not_found(mock_service_class):
+    """PUT /api/portfolio/999/edit returns 404 when portfolio doesn't exist."""
+    from src.api.dependencies import get_current_user
+
+    fake_user = SimpleNamespace(id=10, email="test@example.com", is_active=True)
+
+    mock_service = MagicMock()
+    mock_service.update_portfolio.return_value = None
+    mock_service_class.return_value = mock_service
+
+    app.dependency_overrides[get_current_user] = lambda: fake_user
+    try:
+        response = client.put("/api/portfolio/999/edit", json={"title": "New"})
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == 404
+
+
+@patch("src.api.routes.portfolio.PortfolioService")
+def test_edit_portfolio_endpoint_forbidden(mock_service_class):
+    """PUT /api/portfolio/1/edit returns 403 when user doesn't own it."""
+    from src.api.dependencies import get_current_user
+
+    fake_user = SimpleNamespace(id=10, email="test@example.com", is_active=True)
+
+    mock_service = MagicMock()
+    mock_service.update_portfolio.return_value = "forbidden"
+    mock_service_class.return_value = mock_service
+
+    app.dependency_overrides[get_current_user] = lambda: fake_user
+    try:
+        response = client.put("/api/portfolio/1/edit", json={"title": "Hacked"})
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == 403
+    assert "not authorized" in response.json()["detail"].lower()
+
+
+# --- Get service layer tests ---
+
+
+def _make_get_service(portfolio=None):
+    """Helper to create a PortfolioService with mocked repo for get tests."""
+    service = PortfolioService(db=None)
+    service.portfolio_repo = SimpleNamespace(
+        get=lambda pid: portfolio,
+    )
+    return service
+
+
+def test_get_portfolio_returns_response():
+    """Service returns PortfolioResponse when portfolio exists."""
+    now = datetime.now(timezone.utc)
+    portfolio = SimpleNamespace(
+        id=1, user_id=10, title="My Portfolio", summary="A summary.",
+        content={"projects": []}, created_at=now, updated_at=now,
+    )
+
+    service = _make_get_service(portfolio=portfolio)
+    result = service.get_portfolio(portfolio_id=1)
+
+    assert result.id == 1
+    assert result.title == "My Portfolio"
+    assert result.summary == "A summary."
+    assert result.content == {"projects": []}
+
+
+def test_get_portfolio_not_found():
+    """Service returns None when portfolio doesn't exist."""
+    service = _make_get_service(portfolio=None)
+    result = service.get_portfolio(portfolio_id=999)
+
+    assert result is None
+
+
+# --- Get endpoint tests ---
+
+
+@patch("src.api.routes.portfolio.PortfolioService")
+def test_get_portfolio_endpoint_success(mock_service_class):
+    """GET /api/portfolio/1 returns 200 with portfolio data."""
+    now = datetime.now(timezone.utc)
+
+    mock_service = MagicMock()
+    mock_service.get_portfolio.return_value = SimpleNamespace(
+        id=1,
+        user_id=10,
+        title="My Portfolio",
+        summary="A summary.",
+        content={"projects": []},
+        created_at=now,
+        updated_at=now,
+    )
+    mock_service_class.return_value = mock_service
+
+    response = client.get("/api/portfolio/1")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == 1
+    assert data["title"] == "My Portfolio"
+    assert data["summary"] == "A summary."
+
+
+@patch("src.api.routes.portfolio.PortfolioService")
+def test_get_portfolio_endpoint_not_found(mock_service_class):
+    """GET /api/portfolio/999 returns 404 when portfolio doesn't exist."""
+    mock_service = MagicMock()
+    mock_service.get_portfolio.return_value = None
+    mock_service_class.return_value = mock_service
+
+    response = client.get("/api/portfolio/999")
+
+    assert response.status_code == 404

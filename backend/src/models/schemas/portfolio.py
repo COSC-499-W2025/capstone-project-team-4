@@ -6,6 +6,14 @@ from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class PortfolioUpdate(BaseModel):
+    """Schema for updating a portfolio."""
+
+    title: Optional[str] = Field(None, max_length=255)
+    summary: Optional[str] = None
+    content: Optional[Dict[str, Any]] = None
+
+
 class PortfolioResponse(BaseModel):
     """Schema for portfolio response."""
 
