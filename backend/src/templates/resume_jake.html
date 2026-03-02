@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ contact.name }} - Resume</title>
+  <style>
+    /* Jake's Resume Template - ATS-friendly HTML/CSS */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 11pt;
+      color: #000;
+      background: #fff;
+      padding: 0.5in;
+      line-height: 1.2;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    .header h1 {
+      font-size: 22pt;
+      font-weight: bold;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .contact-row {
+      font-size: 10pt;
+      text-align: center;
+    }
+
+    .contact-row a {
+      color: #000;
+      text-decoration: none;
+    }
+
+    .contact-row .sep {
+      margin: 0 4px;
+    }
+
+    /* ── Section ── */
+    .section {
+      margin-top: 8px;
+    }
+
+    .section-title {
+      font-size: 12pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #000;
+      padding-bottom: 1px;
+      margin-bottom: 4px;
+    }
+
+    /* ── Education / Experience entry header ── */
+    .entry-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .entry-org {
+      font-weight: bold;
+    }
+
+    .entry-date {
+      font-style: italic;
+      white-space: nowrap;
+    }
+
+    .entry-sub {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .entry-title {
+      font-style: italic;
+    }
+
+    .entry-location {
+      font-style: italic;
+      white-space: nowrap;
+    }
+
+    /* ── Bullet list ── */
+    ul.bullets {
+      margin-left: 16px;
+      margin-top: 2px;
+    }
+
+    ul.bullets li {
+      margin-bottom: 1px;
+      list-style-type: disc;
+    }
+
+    /* ── Projects ── */
+    .project-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .project-title {
+      font-weight: bold;
+    }
+
+    .project-tech {
+      font-style: italic;
+    }
+
+    /* ── Skills ── */
+    .skills-row {
+      margin-bottom: 2px;
+    }
+
+    .skills-row strong {
+      font-weight: bold;
+    }
+
+    /* spacing between entries */
+    .entry {
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ────────── HEADER ────────── -->
+  <div class="header">
+    <h1>{{ contact.name }}</h1>
+    <div class="contact-row">
+      {%- set parts = [] -%}
+      {%- if contact.phone -%}{%- set _ = parts.append(contact.phone) -%}{%- endif -%}
+      {%- if contact.email -%}{%- set _ = parts.append(contact.email) -%}{%- endif -%}
+      {%- if contact.linkedin_url -%}{%- set _ = parts.append('<a href="' ~ contact.linkedin_url ~ '">' ~ contact.linkedin_url ~ '</a>') -%}{%- endif -%}
+      {%- if contact.github_url -%}{%- set _ = parts.append('<a href="' ~ contact.github_url ~ '">' ~ contact.github_url ~ '</a>') -%}{%- endif -%}
+      {%- if contact.portfolio_url -%}{%- set _ = parts.append('<a href="' ~ contact.portfolio_url ~ '">' ~ contact.portfolio_url ~ '</a>') -%}{%- endif -%}
+      {%- if contact.location -%}{%- set _ = parts.append(contact.location) -%}{%- endif -%}
+      {{ parts | join(' <span class="sep">|</span> ') }}
+    </div>
+  </div>
+
+  <!-- ────────── SUMMARY ────────── -->
+  {% if summary %}
+  <div class="section">
+    <div class="section-title">Summary</div>
+    <p>{{ summary }}</p>
+  </div>
+  {% endif %}
+
+  <!-- ────────── EDUCATION ────────── -->
+  {% if education %}
+  <div class="section">
+    <div class="section-title">Education</div>
+    {% for edu in education %}
+    <div class="entry">
+      <div class="entry-header">
+        <span class="entry-org">{{ edu.institution }}</span>
+        <span class="entry-date">
+          {{ edu.start_date.strftime('%b %Y') }} &ndash;
+          {% if edu.is_current %}Present{% elif edu.end_date %}{{ edu.end_date.strftime('%b %Y') }}{% else %}Present{% endif %}
+        </span>
+      </div>
+      <div class="entry-sub">
+        <span class="entry-title">{{ edu.degree }}{% if edu.field_of_study %} in {{ edu.field_of_study }}{% endif %}</span>
+        {% if edu.location %}<span class="entry-location">{{ edu.location }}</span>{% endif %}
+      </div>
+      {% if edu.gpa %}
+      <div style="font-style:italic;">GPA: {{ edu.gpa }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ────────── EXPERIENCE ────────── -->
+  {% if experience %}
+  <div class="section">
+    <div class="section-title">Experience</div>
+    {% for exp in experience %}
+    <div class="entry">
+      <div class="entry-header">
+        <span class="entry-org">{{ exp.company_name }}</span>
+        <span class="entry-date">
+          {{ exp.start_date.strftime('%b %Y') }} &ndash;
+          {% if exp.is_current %}Present{% elif exp.end_date %}{{ exp.end_date.strftime('%b %Y') }}{% else %}Present{% endif %}
+        </span>
+      </div>
+      <div class="entry-sub">
+        <span class="entry-title">{{ exp.job_title }}{% if exp.is_remote %} (Remote){% endif %}</span>
+        {% if exp.location %}<span class="entry-location">{{ exp.location }}</span>{% endif %}
+      </div>
+      {% set all_bullets = [] %}
+      {% if exp.responsibilities %}{% for r in exp.responsibilities %}{% set _ = all_bullets.append(r) %}{% endfor %}{% endif %}
+      {% if exp.achievements %}{% for a in exp.achievements %}{% set _ = all_bullets.append(a) %}{% endfor %}{% endif %}
+      {% if all_bullets %}
+      <ul class="bullets">
+        {% for bullet in all_bullets %}
+        <li>{{ bullet }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ────────── PROJECTS ────────── -->
+  {% if projects %}
+  <div class="section">
+    <div class="section-title">Projects</div>
+    {% for proj in projects %}
+    <div class="entry">
+      <div class="project-header">
+        <span>
+          <span class="project-title">{{ proj.title }}</span>
+          {% if proj.technologies %}
+          <span class="project-tech"> | {{ proj.technologies | join(', ') }}</span>
+          {% endif %}
+        </span>
+        {% if proj.date_label %}
+        <span class="entry-date">{{ proj.date_label }}</span>
+        {% endif %}
+      </div>
+      {% if proj.highlights %}
+      <ul class="bullets">
+        {% for bullet in proj.highlights %}
+        <li>{{ bullet }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ────────── TECHNICAL SKILLS ────────── -->
+  {% if skills %}
+  <div class="section">
+    <div class="section-title">Technical Skills</div>
+    {% for category, skill_list in skills.items() %}
+    <div class="skills-row">
+      <strong>{{ category }}:</strong> {{ skill_list | join(', ') }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</body>
+</html>
