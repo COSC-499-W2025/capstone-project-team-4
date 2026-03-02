@@ -1,4 +1,5 @@
 ## Week 6-8
+<img width="1068" height="627" alt="image" src="https://github.com/user-attachments/assets/7796003a-7d27-497c-8068-16f09590ca29" />
 
 ### Summary and Continuity from Previous Week
 Was not merged previous week because of no reviews/not enough reviews
@@ -38,3 +39,4 @@ PR links
 ### Plan for Next Week
 - Quiz
 - Update system architecture, remember prs and contribution
+- Bug fixes
