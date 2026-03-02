@@ -213,18 +213,6 @@ def get_earliest_file_date_from_zip(zip_path: Path) -> Optional[datetime]:
     except Exception:
         return None
 
-def _extract_zip_skipping_macos_junk(zip_path: Path, dest: Path) -> None:
-    """
-    Extract all members except macOS junk.
-    Keeps directory structure intact.
-    """
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        for info in zf.infolist():
-            name = info.filename.replace("\\", "/")
-            if _is_macos_junk_zip_name(name):
-                continue
-            zf.extract(info, dest)
-
 def _normalize_zip_root(extracted_root: Path) -> Path:
     """
     If ZIP has exactly one visible top-level folder, treat that as the root.
@@ -312,6 +300,8 @@ class AnalysisService:
         zip_path: Path,
         project_name: Optional[str] = None,
         *,
+        use_cache: bool = True,
+        split_projects: bool = False,
         user_id: Optional[int] = None,
         _depth: int = 0,
         _max_depth: int = 5,
@@ -359,6 +349,8 @@ class AnalysisService:
                     self.analyze_from_zip(
                         inner_zip_path,
                         nested_name,
+                        use_cache=use_cache,
+                        split_projects=split_projects,
                         user_id=user_id,
                         _depth=_depth + 1,
                         _max_depth=_max_depth,
@@ -366,11 +358,17 @@ class AnalysisService:
                 )
 
             # 2) analyze project roots in the extracted content
-            project_roots = detect_project_roots(temp_path)
-            logger.info(f"Detected {len(project_roots)} project(s) in extracted ZIP at depth {_depth}")
+            base_root = _normalize_zip_root(temp_path)  
 
+            if not split_projects:
+                project_roots = [base_root]
+            else:
+                project_roots = detect_project_roots_in_zip(base_root)
+
+            logger.info(f"Detected {len(project_roots)} project(s) in extracted ZIP at depth {_depth} "f"(base_root={base_root})")
+    
             for idx, root in enumerate(project_roots, start=1):
-                rel = str(root.resolve().relative_to(temp_path.resolve())).replace("\\", "/")
+                rel = str(root.resolve().relative_to(base_root.resolve())).replace("\\", "/")
                 if _is_under_ignored_dir(rel):
                     continue
 
@@ -381,14 +379,13 @@ class AnalysisService:
                     project_name=derived_name,
                     source_type="zip",
                     source_url=str(zip_path),
-                    user_id=user_id,
                     zip_upload_time=datetime.utcnow(),
                     earliest_file_date_in_zip=earliest_file_date,
-                    user_id=user_id,
+                    use_cache=use_cache,
                 )
                 results.append(result)
 
-        return results
+            return results
 
     
     def analyze_from_directory(
@@ -421,9 +418,10 @@ class AnalysisService:
             source_type="local",
             source_url=str(directory_path),
             user_id=user_id,
+            use_cache=True,
         )
     
-    def _compute_project_tree_hash(files_meta: list[dict]) -> str:
+    def _compute_project_tree_hash(self, files_meta: list[dict]) -> str:
         h = hashlib.sha256()
 
         items: list[tuple[str, str]] = []
@@ -443,6 +441,7 @@ class AnalysisService:
         return h.hexdigest()
 
 
+    @staticmethod
     def _compute_analysis_key(project_hash: str, version: str) -> str:
         return hashlib.sha256(f"{project_hash}:{version}".encode("utf-8")).hexdigest()
 
@@ -451,14 +450,11 @@ class AnalysisService:
         self,
         github_url: str,
         branch: Optional[str] = None,
-        user_id: Optional[int] = None,
     ) -> List[AnalysisResult]:
         """
         Analyze one or more projects from a GitHub repository.
         Supports monorepos / multi-project repositories.
         """
-
-        from src.core.utils.project_detection import detect_project_roots, IGNORE_DIRS
 
         # Parse GitHub URL
         parsed = urlparse(github_url)
@@ -509,17 +505,17 @@ class AnalysisService:
             results: List[AnalysisResult] = []
 
             for root in project_roots:
-                name = root.name if root != clone_path else project_name
+                derived_name = root.name if root != clone_path else project_name
 
                 result = self._run_analysis_pipeline(
                     project_path=root,
-                    project_name=name,
+                    project_name=derived_name,
                     source_type="github",
-                    source_url=github_url,
-                    user_id=user_id,
+                    source_url=github_url,   
+                    use_cache=True,
                 )
-                results.append(result)
 
+                results.append(result)
             return results
 
     def _run_analysis_pipeline(
@@ -531,7 +527,9 @@ class AnalysisService:
         user_id: Optional[int] = None,
         zip_upload_time: Optional[datetime] = None,
         earliest_file_date_in_zip: Optional[datetime] = None,
-        user_id: Optional[int] = None,
+        *,
+        use_cache: bool = True,
+
     ) -> AnalysisResult:
         """
         Run the full analysis pipeline on a project.
@@ -640,32 +638,23 @@ class AnalysisService:
 
             return h.hexdigest()
 
-        project_tree_hash = _compute_project_tree_hash(file_list)
+        project_tree_hash = self._compute_project_tree_hash(file_list)
         analysis_key = hashlib.sha256(
             f"{project_tree_hash}:{settings.app_version}".encode("utf-8")
         ).hexdigest()
 
-        logger.info(
-            "[CACHE] project_tree_hash=%s analysis_key=%s",
-            project_tree_hash,
-            analysis_key,
-        )
+        logger.info("[CACHE] project_tree_hash=%s analysis_key=%s", project_tree_hash, analysis_key)
 
         cached_project = None
-        if settings.skip_analysis_cache:
-            logger.info("Cache bypass enabled via SKIP_ANALYSIS_CACHE")
-        else:
-            cached_project = self.project_repo.get_latest_by_analysis_key(analysis_key)
 
-        stage_timings["cache_lookup"] = time.time() - step_start
-        if cached_project:
+        if settings.skip_analysis_cache or not use_cache:
             logger.info(
-                "Cache HIT: analysis_key=%s (cached project_id=%s)",
+                "Cache BYPASSED (%s): analysis_key=%s",
+                "SKIP_ANALYSIS_CACHE" if settings.skip_analysis_cache else "use_cache=False",
                 analysis_key,
-                cached_project.id,
             )
         else:
-            logger.info("Cache MISS: analysis_key=%s", analysis_key)
+            cached_project = self.project_repo.get_latest_by_analysis_key(analysis_key)
 
         # Step 2: Create project entry (ALWAYS new project_id)
         logger.info("Step 2: Creating project entry")
@@ -673,7 +662,6 @@ class AnalysisService:
         project = self.project_repo.create_project(
             name=project_name,
             root_path=project_root,
-            user_id=user_id,
             source_type=source_type,
             source_url=source_url,
             content_hash=project_tree_hash,
@@ -691,12 +679,9 @@ class AnalysisService:
                 cached_project.id,
                 project_id,
             )
-            self._clone_project_analysis(
-                from_project_id=cached_project.id,
-                to_project_id=project_id,
-            )
 
-            # Keep timestamps logic consistent (optional but recommended)
+            self._clone_project_analysis(from_project_id=cached_project.id, to_project_id=project_id)
+
             zip_uploaded_at = zip_upload_time if source_type == "zip" else datetime.utcnow()
             first_file_created = earliest_file_date_in_zip if earliest_file_date_in_zip else datetime.utcnow()
             first_commit_date = get_first_commit_date(str(project_path))
@@ -716,8 +701,9 @@ class AnalysisService:
                 project_started_at=project_started_at,
             )
 
-           
+            self.db.commit()
             return self.get_analysis_result(project_id)
+
         
         logger.info("Steps 3-6: Running parallel analysis")
         step_start = time.time()
@@ -731,76 +717,52 @@ class AnalysisService:
         frameworks_detected: List[dict] = []
 
         with ThreadPoolExecutor(max_workers=6) as executor:
-            task_start_times = {}  # Track start time for each task
-            futures = {}
-            
-            # Submit all tasks and record their start times
-            task_configs = [
-                ("contributors", git_analyze_contributors, project_root),
-                ("complexity", lambda: project_analysis_to_dict(analyze_project(project_path, file_paths)), None),
-                ("languages", lambda: ProjectAnalyzer().analyze_project_languages(project_root), None),
-            ]
-            
-            # Conditionally add library and tool detection
-            if settings.enable_library_tool_detection:
-                task_configs.extend([
-                    ("libraries", detect_libraries_recursive, project_path),
-                    ("tools", detect_tools_recursive, project_path),
-                ])
-            
-            # Conditionally add framework detection
-            if settings.enable_framework_detection:
-                task_configs.append(
-                    ("frameworks", self._detect_frameworks_best, project_path)
-                )
-            
-            for task_name, task_func, arg in task_configs:
-                task_start_times[task_name] = time.time()
-                if arg is not None:
-                    future = executor.submit(task_func, arg)
-                else:
-                    future = executor.submit(task_func)
-                futures[future] = task_name
+            futures = {
+                executor.submit(git_analyze_contributors, project_root): "contributors",
+                executor.submit(
+                    lambda: project_analysis_to_dict(analyze_project(project_path, file_paths))
+                ): "complexity",
+                executor.submit(detect_libraries_recursive, project_path): "libraries",
+                executor.submit(detect_tools_recursive, project_path): "tools",
+                executor.submit(lambda: ProjectAnalyzer().analyze_project_languages(project_root)): "languages",
+                executor.submit(self._detect_frameworks_best, project_path): "frameworks",
+            }
 
             for future in as_completed(futures):
                 task_name = futures[future]
-                elapsed = time.time() - task_start_times[task_name]
                 try:
                     result = future.result()
                     if task_name == "contributors":
                         contributors = result
-                        logger.info("Git analysis complete: Found %d contributors in %.2fs", len(contributors), elapsed)
+                        logger.info("Git analysis complete: Found %d contributors", len(contributors))
                     elif task_name == "complexity":
                         complexity_dict = result
                         logger.info(
-                            "Complexity analysis complete: Found %d functions in %.2fs",
+                            "Complexity analysis complete: Found %d functions",
                             len(complexity_dict.get("functions", [])),
-                            elapsed,
                         )
                     elif task_name == "libraries":
                         library_report = result
                         logger.info(
-                            "Library detection complete: Found %d libraries in %.2fs",
+                            "Library detection complete: Found %d libraries",
                             library_report.get("total_count", 0),
-                            elapsed,
                         )
                     elif task_name == "tools":
                         tool_report = result
                         logger.info(
-                            "Tool detection complete: Found %d tools in %.2fs",
+                            "Tool detection complete: Found %d tools",
                             tool_report.get("total_count", 0),
-                            elapsed,
                         )
                     elif task_name == "languages":
                         languages_detected = sorted(
                             [lang for lang, count in result.items() if lang != "Unknown" and count > 0]
                         )
-                        logger.info("Language detection complete: Found %d languages in %.2fs", len(languages_detected), elapsed)
+                        logger.info("Language detection complete: Found %d languages", len(languages_detected))
                     elif task_name == "frameworks":
                         frameworks_detected = result or []
-                        logger.info("Framework detection complete: Found %d frameworks in %.2fs", len(frameworks_detected), elapsed)
+                        logger.info("Framework detection complete: Found %d frameworks", len(frameworks_detected))
                 except Exception as e:
-                    logger.warning("%s analysis failed in %.2fs: %s", task_name, elapsed, e)
+                    logger.warning("%s analysis failed: %s", task_name, e)
 
         stage_timings["parallel_analysis"] = time.time() - step_start
         logger.info(

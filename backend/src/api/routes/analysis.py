@@ -29,12 +29,27 @@ router = APIRouter(prefix="/projects/analyze", tags=["analysis"])
 async def analyze_upload(
     file: UploadFile = File(..., description="ZIP file to analyze"),
     project_name: Optional[str] = Form(None, description="Custom project name"),
+    reuse_cached_analysis: bool = Form(
+        True,
+        description="If true, reuse previous analysis when the same project content is uploaded again.",
+    ),
+    split_projects: bool = Form(
+        False,
+        description="If true, split upload into multiple projects",
+    ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Log incoming request details
-    logger.info(f"Received upload request - filename: {file.filename}, content_type: {file.content_type}, project_name: {project_name}")
+  
+    logger.info(
+        "Received upload request - filename=%s content_type=%s project_name=%s reuse_cached_analysis=%s split_projects=%s",
+        file.filename,
+        file.content_type,
+        project_name,
+        reuse_cached_analysis,
+        split_projects,
+    )
 
     # Validate filename and extension
     if not file.filename:
@@ -43,57 +58,70 @@ async def analyze_upload(
 
     # Normalize to just the base name (some clients include paths)
     filename = Path(file.filename).name
-    logger.info(f"Normalized filename: {filename}")
+    logger.info("Normalized filename: %s", filename)
 
-    #  Always return list to match response_model=List[AnalysisResult]
+    # Reject macOS metadata files
     if filename.startswith("._") or filename == ".DS_Store":
-        logger.error(f"macOS metadata file detected: {filename}")
+        logger.error("macOS metadata file detected: %s", filename)
         raise InvalidFileError(
             "macOS metadata file detected (._*). Upload the real .zip file, not the sidecar."
         )
 
     if not filename.lower().endswith(".zip"):
-        logger.error(f"File does not end with .zip: {filename}")
+        logger.error("File does not end with .zip: %s", filename)
         raise InvalidFileError("File must be a ZIP archive")
 
-    # Save uploaded file to persistent location
+    tmp_path: Path | None = None
+
     try:
         settings.uploads_dir.mkdir(parents=True, exist_ok=True)
         saved_name = f"{uuid.uuid4().hex}_{filename}"
         tmp_path = settings.uploads_dir / saved_name
-        with tmp_path.open("wb") as tmp:
-            contents = await file.read()
-            logger.info(f"Read {len(contents)} bytes from uploaded file")
 
-            if not contents:
-                logger.error("Uploaded file is empty")
-                raise InvalidFileError("Uploaded file is empty")
+        contents = await file.read()
+        logger.info("Read %s bytes from uploaded file", len(contents))
 
-            tmp.write(contents)
-            logger.info(f"Saved uploaded ZIP to persistent path: {tmp_path}")
+        if not contents:
+            logger.error("Uploaded file is empty")
+            raise InvalidFileError("Uploaded file is empty")
+
+        tmp_path.write_bytes(contents)
+        logger.info("Saved uploaded ZIP to path: %s", tmp_path)
 
         # Run analysis
         service = AnalysisService(db)
         name = project_name or Path(filename).stem
-        logger.info(f"Starting analysis for project: {name}")
-        result = service.analyze_from_zip(tmp_path, name, user_id=current_user.id)
+        logger.info("Starting analysis for project: %s", name)
 
-        #  Always return list to match response_model=List[AnalysisResult]
+        result = service.analyze_from_zip(
+            tmp_path,
+            name,
+            user_id=current_user.id,
+            use_cache=reuse_cached_analysis,
+            split_projects=split_projects,      
+      )
+
+        # Always return list to match response_model=List[AnalysisResult]
         final_result = result if isinstance(result, list) else [result]
-        logger.info(f"Analysis completed successfully, returning {len(final_result)} project(s)")
+        logger.info("Analysis completed successfully, returning %s project(s)", len(final_result))
         return final_result
 
     except (FileNotFoundError, ValueError) as e:
-        # FileNotFoundError: temp file missing (rare)
-        # ValueError: invalid zip, etc.
-        logger.error(f"File or value error during analysis: {str(e)}")
+        logger.error("File or value error during analysis: %s", str(e))
         raise InvalidFileError(str(e))
     except InvalidFileError:
-        # Re-raise as-is (already logged above)
         raise
     except Exception as e:
         logger.exception("Analysis failed with unexpected error")
         raise AnalysisError(str(e))
+    finally:
+        if tmp_path is not None:
+            try:
+                if tmp_path.exists():
+                    tmp_path.unlink()
+                    logger.info("Deleted uploaded ZIP after analysis: %s", tmp_path)
+            except Exception as e:
+                logger.warning("Failed to delete uploaded ZIP %s: %s", tmp_path, e)
 
 
 @router.post("/{project_id}/analyze-libraries-tools", status_code=200)
