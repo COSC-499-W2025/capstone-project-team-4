@@ -5,11 +5,11 @@ import { Route, Routes } from "react-router-dom";
 import "./App.css";
 */
 
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Main from '@/pages/Instruction';
 import Generator from '@/pages/Generator';
+import Main from '@/pages/Instruction';
+import { Route, Routes } from 'react-router-dom';
 import "./App.css";
+import ProfilesPage from "./pages/ProfilesPage";
 
 function App() {
     return (
@@ -17,6 +17,7 @@ function App() {
         <Routes>
             <Route path="/" element={<Main />} />
             <Route path="/generate" element={<Generator />} />
+            <Route path="/profiles" element={<ProfilesPage />} />
         </Routes>
         </main>
     );
