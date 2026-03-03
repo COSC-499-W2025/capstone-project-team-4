@@ -1,7 +1,6 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Home, Sparkles } from 'lucide-react';
+import { Home, Sparkles, UserCircle } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 
 const Navigation = () => {
   const location = useLocation();
@@ -37,6 +36,16 @@ const Navigation = () => {
                 >
                   <Sparkles className="h-4 w-4" />
                   <span>Generate</span>
+                </Button>
+              </Link>
+              {/* User Profiles */}
+              <Link to="/profiles">
+                <Button
+                  variant={location.pathname === '/profiles' ? 'default' : 'ghost'}
+                  className="flex items-center space-x-2"
+                >
+                  <UserCircle className="h-4 w-4" />
+                  <span>User Profiles</span>
                 </Button>
               </Link>
             </div>
