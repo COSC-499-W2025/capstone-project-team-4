@@ -4,7 +4,7 @@ import logging
 import re
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from src.api.exceptions import UserNotFoundError
