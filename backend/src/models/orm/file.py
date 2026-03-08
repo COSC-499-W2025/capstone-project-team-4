@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Float, ForeignKey, Index, Integer, String, Text, Column, UniqueConstraint
+from sqlalchemy import Float, ForeignKey, Integer, String, Text, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.database import Base
