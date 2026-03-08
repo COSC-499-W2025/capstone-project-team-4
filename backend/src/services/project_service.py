@@ -434,12 +434,6 @@ class ProjectService:
             normalized = self._normalize_path(f.path)
             file_lang_map[normalized] = f.language.name if f.language else None
 
-        project_frameworks = (
-            self.project_repo.get_frameworks(project_id)
-            if hasattr(self.project_repo, "get_frameworks")
-            else []
-        )
-
         # Calculate totals
         total_commits = sum(c.commits for c in contributors)
         total_lines_added = sum(c.total_lines_added for c in contributors)

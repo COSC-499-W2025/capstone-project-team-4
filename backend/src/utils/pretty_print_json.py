@@ -12,7 +12,7 @@ def readable_size(num_bytes):
         elif num_bytes >= 1_000:
             return f"{num_bytes / 1_000:.2f} KB"
         return f"{num_bytes} bytes"
-    except:
+    except Exception:
         return "?"
 
 
