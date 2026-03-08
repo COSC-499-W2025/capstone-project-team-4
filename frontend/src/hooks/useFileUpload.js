@@ -1,5 +1,17 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { getAccessToken } from "@/lib/auth";
+
+function getAuthHeaders() {
+  const token = getAccessToken();
+  if (!token) {
+    return {};
+  }
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}
 
 export const useFileUpload = () => {
   // Initialize state from localStorage if available
@@ -83,7 +95,11 @@ export const useFileUpload = () => {
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await axios.post("/api/projects/analyze/upload", formData);
+        const response = await axios.post("/api/projects/analyze/upload", formData, {
+          headers: {
+            ...getAuthHeaders(),
+          },
+        });
 
         const payload = response.data;
         const items = Array.isArray(payload) ? payload : [payload];
@@ -113,6 +129,11 @@ export const useFileUpload = () => {
             try {
               const contributorResponse = await axios.get(
                 `/api/projects/${data.project_id}/contributors/default-branch-stats`,
+                {
+                  headers: {
+                    ...getAuthHeaders(),
+                  },
+                },
               );
               contributorDetails = contributorResponse.data;
             } catch (contributorError) {
@@ -149,8 +170,19 @@ export const useFileUpload = () => {
     } catch (error) {
       console.error("Error processing files:", error);
       setError(error.message);
+      const status = error?.response?.status;
+      const details =
+        error?.response?.data?.detail || error?.response?.data?.message || error.message;
+
+      if (status === 401) {
+        alert(
+          `Error: ${details}\n\nYour session is missing or expired. Please log in and try again.`,
+        );
+        return;
+      }
+
       alert(
-        `Error: ${error.message}\n\nPlease check that your backend server is running.`,
+        `Error: ${details}\n\nPlease check that your backend server is running.`,
       );
     } finally {
       setIsLoading(false);
