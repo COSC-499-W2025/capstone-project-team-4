@@ -6,7 +6,6 @@ from typing import Optional, Tuple
 from sqlalchemy.orm import Session
 
 from src.core.security import verify_password, create_access_token
-from src.models.orm.user import User
 from src.models.schemas.user import UserCreate, UserResponse, UserLogin, LoginResponse
 from src.repositories.user_repository import UserRepository
 from src.repositories.data_privacy_settings_repository import (

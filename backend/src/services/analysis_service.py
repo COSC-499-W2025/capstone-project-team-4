@@ -1,71 +1,73 @@
 """Analysis service - main orchestration for project analysis pipeline."""
 
+import hashlib
 import logging
+import os
+import shutil
+import tempfile
 import time
 import zipfile
-import tempfile
-import shutil
-import os
-import hashlib
-import pathlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple, List, Dict, Union
+from typing import Dict, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
 from sqlalchemy import select
-from src.models.orm.file import File
-from src.models.orm.complexity import Complexity
-from src.models.orm.skill import ProjectSkill, ProjectSkillTimeline
-from src.models.orm.framework import ProjectFramework
-from src.models.orm.library import ProjectLibrary
-from src.models.orm.tool import ProjectTool
-from src.models.orm.resume import ResumeItem
-from src.models.orm.project import ProjectAnalysisSummary
-from src.models.orm.contributor import Contributor, ContributorFile
-from src.models.orm.contributor_commit import ContributorCommit
+from sqlalchemy.orm import Session
 
-from src.models.schemas.analysis import AnalysisResult, AnalysisStatus, ComplexitySummary
 from src.config.settings import settings
-from src.repositories.project_repository import ProjectRepository
-from src.repositories.file_repository import FileRepository
-from src.repositories.contributor_repository import ContributorRepository
-from src.repositories.complexity_repository import ComplexityRepository
-from src.repositories.skill_repository import SkillRepository
-from src.repositories.resume_repository import ResumeRepository
-from src.repositories.library_repository import LibraryRepository
-from src.repositories.tool_repository import ToolRepository
-from src.repositories.framework_repository import FrameworkRepository
-from src.core.utils.project_detection import detect_project_roots
 
 # Core analyzers
-from src.core.detectors.metadata import parse_metadata
 from src.core.analyzers.contributor import (
     analyze_contributors as git_analyze_contributors,
-    get_project_creation_date,
+)
+from src.core.analyzers.contributor import (
     get_first_commit_date,
 )
 from src.core.analyzers.project_stats import (
     analyze_project,
-    project_analysis_to_dict,
     calculate_project_stats,
+    project_analysis_to_dict,
 )
-
-from src.core.detectors.language import ProjectAnalyzer
-from src.core.detectors.skill import analyze_project_skills
-from src.core.validators.cross_validator import CrossValidator
-from src.core.detectors.library import detect_libraries_recursive
-from src.core.detectors.tool import detect_tools_recursive
 from src.core.detectors.framework import detect_frameworks_recursive
+from src.core.detectors.language import ProjectAnalyzer
+from src.core.detectors.library import detect_libraries_recursive
+from src.core.detectors.skill import analyze_project_skills
+from src.core.detectors.tool import detect_tools_recursive
 from src.core.generators.resume import generate_resume_item
 from src.core.utils.file_walker import (
+    FileInfo,
     collect_all_file_info,
     file_info_to_metadata_dict,
-    FileInfo,
 )
+from src.core.utils.project_detection import detect_project_roots
+from src.core.validators.cross_validator import CrossValidator
+from src.models.orm.complexity import Complexity
+from src.models.orm.contributor import Contributor, ContributorFile
+from src.models.orm.contributor_commit import ContributorCommit
+from src.models.orm.file import File
+from src.models.orm.framework import ProjectFramework
+from src.models.orm.library import ProjectLibrary
+from src.models.orm.project import ProjectAnalysisSummary
+from src.models.orm.resume import ResumeItem
+from src.models.orm.skill import ProjectSkill, ProjectSkillTimeline
+from src.models.orm.tool import ProjectTool
+from src.models.schemas.analysis import (
+    AnalysisResult,
+    AnalysisStatus,
+    ComplexitySummary,
+)
+from src.repositories.complexity_repository import ComplexityRepository
+from src.repositories.contributor_repository import ContributorRepository
+from src.repositories.file_repository import FileRepository
+from src.repositories.framework_repository import FrameworkRepository
+from src.repositories.library_repository import LibraryRepository
+from src.repositories.project_repository import ProjectRepository
+from src.repositories.resume_repository import ResumeRepository
+from src.repositories.skill_repository import SkillRepository
+from src.repositories.tool_repository import ToolRepository
 
 PROJECT_MARKERS = {
     ".git",
@@ -84,27 +86,54 @@ PROJECT_MARKERS = {
 }
 
 CODE_EXTS = {
-    ".py", ".js", ".ts", ".tsx", ".jsx",
-    ".java", ".kt", ".c", ".cpp", ".h", ".hpp",
-    ".cs", ".go", ".rs", ".php", ".rb", ".swift",
+    ".py",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".java",
+    ".kt",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".go",
+    ".rs",
+    ".php",
+    ".rb",
+    ".swift",
 }
 
 IGNORE_DIRS = {
-    ".git", ".venv", "venv", "node_modules", "dist", "build", ".next",
-    "__pycache__", ".pytest_cache", ".mypy_cache", ".idea", ".vscode",
+    ".git",
+    ".venv",
+    "venv",
+    "node_modules",
+    "dist",
+    "build",
+    ".next",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".idea",
+    ".vscode",
 }
 
 logger = logging.getLogger(__name__)
 logger.info("LOADED analysis_service from: %s", __file__)
 
+
 def _is_macos_junk_zip_name(name: str) -> bool:
     n = name.replace("\\", "/")
     base = Path(n).name
     return (
-        n.startswith("__MACOSX/") or "/__MACOSX/" in n
+        n.startswith("__MACOSX/")
+        or "/__MACOSX/" in n
         or base == ".DS_Store"
         or base.startswith("._")
     )
+
 
 def _extract_zip_skipping_macos_junk(zip_path: Path, dest: Path) -> None:
     with zipfile.ZipFile(zip_path, "r") as zf:
@@ -118,10 +147,12 @@ def _extract_zip_skipping_macos_junk(zip_path: Path, dest: Path) -> None:
             members.append(info)
         zf.extractall(dest, members=members)
 
+
 def _is_under_ignored_dir(rel_path: Union[str, Path]) -> bool:
-    
+
     p = Path(str(rel_path).replace("\\", "/"))
     return any(part in IGNORE_DIRS for part in p.parts)
+
 
 def _extract_inner_zips_recursively(root: Path, max_zip_depth: int = 2) -> None:
     """
@@ -152,6 +183,7 @@ def _extract_inner_zips_recursively(root: Path, max_zip_depth: int = 2) -> None:
 
     # recurse one level down
     _extract_inner_zips_recursively(root, max_zip_depth=max_zip_depth - 1)
+
 
 def list_inner_zip_entries(zip_path: Path) -> list[str]:
     """
@@ -214,12 +246,16 @@ def get_earliest_file_date_from_zip(zip_path: Path) -> Optional[datetime]:
     except Exception:
         return None
 
+
 def _normalize_zip_root(extracted_root: Path) -> Path:
     """
     If ZIP has exactly one visible top-level folder, treat that as the root.
     """
-    children = [p for p in extracted_root.iterdir() if p.is_dir() and not p.name.startswith(".")]
+    children = [
+        p for p in extracted_root.iterdir() if p.is_dir() and not p.name.startswith(".")
+    ]
     return children[0] if len(children) == 1 else extracted_root
+
 
 def _looks_like_project_root(folder: Path, min_code_files: int = 2) -> bool:
     if not folder.is_dir():
@@ -257,7 +293,11 @@ def detect_project_roots_in_zip(extracted_root: Path, max_depth: int = 4) -> lis
     if _looks_like_project_root(base):
         return [base]
 
-    top_dirs = [d for d in base.iterdir() if d.is_dir() and d.name not in IGNORE_DIRS and not d.name.startswith(".")]
+    top_dirs = [
+        d
+        for d in base.iterdir()
+        if d.is_dir() and d.name not in IGNORE_DIRS and not d.name.startswith(".")
+    ]
     top_projects = [d for d in top_dirs if _looks_like_project_root(d)]
     if top_projects:
         return sorted(top_projects, key=lambda p: p.name.lower())
@@ -279,6 +319,7 @@ def detect_project_roots_in_zip(extracted_root: Path, max_depth: int = 4) -> lis
             dirs.clear()  # don't descend into a detected project
 
     return sorted(projects, key=lambda p: str(p).lower()) if projects else [base]
+
 
 class AnalysisService:
     """Service for orchestrating project analysis."""
@@ -326,10 +367,12 @@ class AnalysisService:
             raise ValueError(f"Invalid ZIP file: {zip_path}")
 
         if _depth > _max_depth:
-            raise ValueError("ZIP nesting too deep. Please upload fewer nested ZIP layers.")
+            raise ValueError(
+                "ZIP nesting too deep. Please upload fewer nested ZIP layers."
+            )
 
         base_name = project_name or zip_path.stem
-    
+
         earliest_file_date = get_earliest_file_date_from_zip(zip_path)
 
         results: List["AnalysisResult"] = []
@@ -361,21 +404,30 @@ class AnalysisService:
                 )
 
             # 2) analyze project roots in the extracted content
-            base_root = _normalize_zip_root(temp_path)  
+            base_root = _normalize_zip_root(temp_path)
 
             if not split_projects:
                 project_roots = [base_root]
             else:
                 project_roots = detect_project_roots_in_zip(base_root)
 
-            logger.info(f"Detected {len(project_roots)} project(s) in extracted ZIP at depth {_depth} "f"(base_root={base_root})")
-    
+            logger.info(
+                f"Detected {len(project_roots)} project(s) in extracted ZIP at depth {_depth} "
+                f"(base_root={base_root})"
+            )
+
             for idx, root in enumerate(project_roots, start=1):
-                rel = str(root.resolve().relative_to(base_root.resolve())).replace("\\", "/")
+                rel = str(root.resolve().relative_to(base_root.resolve())).replace(
+                    "\\", "/"
+                )
                 if _is_under_ignored_dir(rel):
                     continue
 
-                derived_name = base_name if len(project_roots) == 1 else f"{base_name} - {root.name or f'project-{idx}'}"
+                derived_name = (
+                    base_name
+                    if len(project_roots) == 1
+                    else f"{base_name} - {root.name or f'project-{idx}'}"
+                )
 
                 result = self._run_analysis_pipeline(
                     project_path=root,
@@ -385,13 +437,11 @@ class AnalysisService:
                     zip_upload_time=datetime.utcnow(),
                     earliest_file_date_in_zip=earliest_file_date,
                     use_cache=use_cache,
-                  
                 )
                 results.append(result)
 
             return results
 
-    
     def analyze_from_directory(
         self,
         directory_path: Path,
@@ -424,7 +474,7 @@ class AnalysisService:
             user_id=user_id,
             use_cache=True,
         )
-    
+
     def _compute_project_tree_hash(self, files_meta: list[dict]) -> str:
         h = hashlib.sha256()
 
@@ -448,11 +498,11 @@ class AnalysisService:
     def _compute_analysis_key(project_hash: str, version: str) -> str:
         return hashlib.sha256(f"{project_hash}:{version}".encode("utf-8")).hexdigest()
 
-
     def analyze_from_github(
         self,
         github_url: str,
         branch: Optional[str] = None,
+        user_id: Optional[int] = None,
     ) -> List[AnalysisResult]:
         """
         Analyze one or more projects from a GitHub repository.
@@ -514,7 +564,7 @@ class AnalysisService:
                     project_path=root,
                     project_name=derived_name,
                     source_type="github",
-                    source_url=github_url,   
+                    source_url=github_url,
                     use_cache=True,
                     user_id=user_id,
                 )
@@ -533,7 +583,6 @@ class AnalysisService:
         earliest_file_date_in_zip: Optional[datetime] = None,
         *,
         use_cache: bool = True,
-
     ) -> AnalysisResult:
         """
         Run the full analysis pipeline on a project.
@@ -550,7 +599,6 @@ class AnalysisService:
 
         file_info_list = collect_all_file_info(project_path, show_progress=True)
         original_count = len(file_info_list)
-
 
         def _sha256_file(path: str, chunk_size: int = 1024 * 1024) -> str:
             h = hashlib.sha256()
@@ -641,7 +689,6 @@ class AnalysisService:
         project_root = str(Path(project_path).resolve())
         file_list = [file_info_to_metadata_dict(f) for f in file_info_list]
 
-        
         for meta in file_list:
             p = (meta.get("path") or "").replace("\\", "/")
             if p and p in hash_by_path:
@@ -693,14 +740,20 @@ class AnalysisService:
             f"{project_tree_hash}:{settings.app_version}".encode("utf-8")
         ).hexdigest()
 
-        logger.info("[CACHE] project_tree_hash=%s analysis_key=%s", project_tree_hash, analysis_key)
+        logger.info(
+            "[CACHE] project_tree_hash=%s analysis_key=%s",
+            project_tree_hash,
+            analysis_key,
+        )
 
         cached_project = None
 
         if settings.skip_analysis_cache or not use_cache:
             logger.info(
                 "Cache BYPASSED (%s): analysis_key=%s",
-                "SKIP_ANALYSIS_CACHE" if settings.skip_analysis_cache else "use_cache=False",
+                "SKIP_ANALYSIS_CACHE"
+                if settings.skip_analysis_cache
+                else "use_cache=False",
                 analysis_key,
             )
         else:
@@ -708,7 +761,9 @@ class AnalysisService:
 
         # Step 2: Create project entry (ALWAYS new project_id)
         logger.info("Step 2: Creating project entry")
-        logger.info(f"project_tree_hash={project_tree_hash} analysis_key={analysis_key}")
+        logger.info(
+            f"project_tree_hash={project_tree_hash} analysis_key={analysis_key}"
+        )
 
         project = self.project_repo.create_project(
             name=project_name,
@@ -724,7 +779,7 @@ class AnalysisService:
             ),
         )
 
-        project_id = project.id       
+        project_id = project.id
         logger.info(f"Step 2 complete: Project ID {project_id}")
 
         if incremental_base is not None and unchanged_paths:
@@ -732,7 +787,7 @@ class AnalysisService:
                 from_project_id=incremental_base.id,
                 to_project_id=project_id,
                 paths_to_clone=unchanged_paths,
-        )
+            )
 
         if cached_project is not None:
             logger.info(
@@ -741,10 +796,18 @@ class AnalysisService:
                 project_id,
             )
 
-            self._clone_project_analysis(from_project_id=cached_project.id, to_project_id=project_id)
+            self._clone_project_analysis(
+                from_project_id=cached_project.id, to_project_id=project_id
+            )
 
-            zip_uploaded_at = zip_upload_time if source_type == "zip" else datetime.utcnow()
-            first_file_created = earliest_file_date_in_zip if earliest_file_date_in_zip else datetime.utcnow()
+            zip_uploaded_at = (
+                zip_upload_time if source_type == "zip" else datetime.utcnow()
+            )
+            first_file_created = (
+                earliest_file_date_in_zip
+                if earliest_file_date_in_zip
+                else datetime.utcnow()
+            )
             first_commit_date = get_first_commit_date(str(project_path))
 
             if first_commit_date and first_file_created:
@@ -765,7 +828,6 @@ class AnalysisService:
             self.db.commit()
             return self.get_analysis_result(project_id)
 
-        
         logger.info("Steps 3-6: Running parallel analysis")
         step_start = time.time()
 
@@ -791,27 +853,49 @@ class AnalysisService:
             futures = {}
 
             # choose the right list for complexity
-            complexity_paths = complexity_input_paths if "complexity_input_paths" in locals() else file_paths
+            complexity_paths = (
+                complexity_input_paths
+                if "complexity_input_paths" in locals()
+                else file_paths
+            )
 
             task_configs = [
                 ("contributors", git_analyze_contributors, project_root),
-                ("complexity", lambda: project_analysis_to_dict(analyze_project(project_path, complexity_paths)), None),
-                ("languages", lambda: ProjectAnalyzer().analyze_project_languages(project_root), None),
+                (
+                    "complexity",
+                    lambda: project_analysis_to_dict(
+                        analyze_project(project_path, complexity_paths)
+                    ),
+                    None,
+                ),
+                (
+                    "languages",
+                    lambda: ProjectAnalyzer().analyze_project_languages(project_root),
+                    None,
+                ),
             ]
 
             if settings.enable_library_tool_detection:
-                task_configs.extend([
-                    ("libraries", detect_libraries_recursive, project_path),
-                    ("tools", detect_tools_recursive, project_path),
-                ])
+                task_configs.extend(
+                    [
+                        ("libraries", detect_libraries_recursive, project_path),
+                        ("tools", detect_tools_recursive, project_path),
+                    ]
+                )
 
             if settings.enable_framework_detection:
-                task_configs.append(("frameworks", self._detect_frameworks_best, project_path))
+                task_configs.append(
+                    ("frameworks", self._detect_frameworks_best, project_path)
+                )
 
             for task_name, task_func, arg in task_configs:
                 task_start_times[task_name] = time.time()
-                future = executor.submit(task_func, arg) if arg is not None else executor.submit(task_func)
-                futures[future] = task_name 
+                future = (
+                    executor.submit(task_func, arg)
+                    if arg is not None
+                    else executor.submit(task_func)
+                )
+                futures[future] = task_name
 
             for future in as_completed(futures):
                 task_name = futures[future]
@@ -819,7 +903,10 @@ class AnalysisService:
                     result = future.result()
                     if task_name == "contributors":
                         contributors = result
-                        logger.info("Git analysis complete: Found %d contributors", len(contributors))
+                        logger.info(
+                            "Git analysis complete: Found %d contributors",
+                            len(contributors),
+                        )
                     elif task_name == "complexity":
                         complexity_dict = result
                         logger.info(
@@ -840,12 +927,22 @@ class AnalysisService:
                         )
                     elif task_name == "languages":
                         languages_detected = sorted(
-                            [lang for lang, count in result.items() if lang != "Unknown" and count > 0]
+                            [
+                                lang
+                                for lang, count in result.items()
+                                if lang != "Unknown" and count > 0
+                            ]
                         )
-                        logger.info("Language detection complete: Found %d languages", len(languages_detected))
+                        logger.info(
+                            "Language detection complete: Found %d languages",
+                            len(languages_detected),
+                        )
                     elif task_name == "frameworks":
                         frameworks_detected = result or []
-                        logger.info("Framework detection complete: Found %d frameworks", len(frameworks_detected))
+                        logger.info(
+                            "Framework detection complete: Found %d frameworks",
+                            len(frameworks_detected),
+                        )
                 except Exception as e:
                     logger.warning("%s analysis failed: %s", task_name, e)
 
@@ -855,12 +952,13 @@ class AnalysisService:
             stage_timings["parallel_analysis"],
         )
 
-
         try:
             # Step 5.5: Extract skills with pre-detected signals
             logger.info("Step 5.5: Extracting skills with library/tool context")
             step_start = time.time()
-            framework_names = [fw.get("name") for fw in frameworks_detected if fw.get("name")]
+            framework_names = [
+                fw.get("name") for fw in frameworks_detected if fw.get("name")
+            ]
             skill_report = analyze_project_skills(
                 project_root,
                 libraries=library_report.get("libraries", []),
@@ -899,18 +997,32 @@ class AnalysisService:
 
             # Step 6: Calculate project stats (uses contributors from parallel analysis)
             logger.info("Step 6: Calculating project stats")
-            project_stats = calculate_project_stats(project_root, file_list, contributors)
+            project_stats = calculate_project_stats(
+                project_root, file_list, contributors
+            )
             logger.info("Step 6 complete")
 
             languages = sorted(set(languages_detected))
             frameworks = sorted(
-                set(fw.get("name", "") for fw in all_enhanced_frameworks if fw.get("name"))
+                set(
+                    fw.get("name", "")
+                    for fw in all_enhanced_frameworks
+                    if fw.get("name")
+                )
             )
             libraries = sorted(
-                {lib.get("name", "").strip() for lib in library_report.get("libraries", []) if lib.get("name")}
+                {
+                    lib.get("name", "").strip()
+                    for lib in library_report.get("libraries", [])
+                    if lib.get("name")
+                }
             )
             tools_and_technologies = sorted(
-                {tool.get("name", "").strip() for tool in tool_report.get("tools", []) if tool.get("name")}
+                {
+                    tool.get("name", "").strip()
+                    for tool in tool_report.get("tools", [])
+                    if tool.get("name")
+                }
             )
             contextual_skills = sorted(
                 [
@@ -925,13 +1037,14 @@ class AnalysisService:
 
             if incremental_base is not None and unchanged_paths:
                 delta_file_list = [
-                    f for f in file_list
+                    f
+                    for f in file_list
                     if f["path"].replace("\\", "/") not in unchanged_paths
                 ]
                 self._save_files(project_id, delta_file_list)
             else:
                 self._save_files(project_id, file_list)
-                
+
             self._save_complexity(project_id, complexity_dict.get("functions", []))
 
             if contributors:
@@ -986,8 +1099,14 @@ class AnalysisService:
             # Build result
             complexity_summary = self.complexity_repo.get_summary(project_id)
 
-            zip_uploaded_at = zip_upload_time if source_type == "zip" else datetime.utcnow()
-            first_file_created = earliest_file_date_in_zip if earliest_file_date_in_zip else datetime.utcnow()
+            zip_uploaded_at = (
+                zip_upload_time if source_type == "zip" else datetime.utcnow()
+            )
+            first_file_created = (
+                earliest_file_date_in_zip
+                if earliest_file_date_in_zip
+                else datetime.utcnow()
+            )
             first_commit_date = get_first_commit_date(str(project_path))
 
             if first_commit_date and first_file_created:
@@ -1010,8 +1129,12 @@ class AnalysisService:
             self._save_analysis_summary(
                 project_id=project_id,
                 total_files_processed=len(file_list),
-                total_files_analyzed=len([f for f in file_list if f.get("lines_of_code", 0) > 0]),
-                total_files_skipped=len([f for f in file_list if f.get("lines_of_code", 0) == 0]),
+                total_files_analyzed=len(
+                    [f for f in file_list if f.get("lines_of_code", 0) > 0]
+                ),
+                total_files_skipped=len(
+                    [f for f in file_list if f.get("lines_of_code", 0) == 0]
+                ),
                 analysis_duration_seconds=total_duration,
                 stage_durations=stage_timings,
             )
@@ -1037,7 +1160,9 @@ class AnalysisService:
                     total_functions=complexity_summary.get("total_functions", 0),
                     avg_complexity=complexity_summary.get("avg_complexity", 0.0),
                     max_complexity=complexity_summary.get("max_complexity", 0),
-                    high_complexity_count=complexity_summary.get("high_complexity_count", 0),
+                    high_complexity_count=complexity_summary.get(
+                        "high_complexity_count", 0
+                    ),
                 ),
                 zip_uploaded_at=zip_uploaded_at,
                 first_file_created=first_file_created,
@@ -1055,9 +1180,11 @@ class AnalysisService:
         Assumes the destination project row already exists.
         """
         try:
-            # Files 
+            # Files
             src_files = list(
-                self.db.scalars(select(File).where(File.project_id == from_project_id)).all()
+                self.db.scalars(
+                    select(File).where(File.project_id == from_project_id)
+                ).all()
             )
             new_files = [
                 File(
@@ -1078,7 +1205,9 @@ class AnalysisService:
 
             # Complexity
             src_cx = list(
-                self.db.scalars(select(Complexity).where(Complexity.project_id == from_project_id)).all()
+                self.db.scalars(
+                    select(Complexity).where(Complexity.project_id == from_project_id)
+                ).all()
             )
             self.db.add_all(
                 [
@@ -1094,9 +1223,13 @@ class AnalysisService:
                 ]
             )
 
-            # Skills 
+            # Skills
             src_skills = list(
-                self.db.scalars(select(ProjectSkill).where(ProjectSkill.project_id == from_project_id)).all()
+                self.db.scalars(
+                    select(ProjectSkill).where(
+                        ProjectSkill.project_id == from_project_id
+                    )
+                ).all()
             )
             self.db.add_all(
                 [
@@ -1113,7 +1246,9 @@ class AnalysisService:
             # Skill timeline
             src_tl = list(
                 self.db.scalars(
-                    select(ProjectSkillTimeline).where(ProjectSkillTimeline.project_id == from_project_id)
+                    select(ProjectSkillTimeline).where(
+                        ProjectSkillTimeline.project_id == from_project_id
+                    )
                 ).all()
             )
             self.db.add_all(
@@ -1128,9 +1263,13 @@ class AnalysisService:
                 ]
             )
 
-            #Frameworks / Libraries / Tools
+            # Frameworks / Libraries / Tools
             src_fw = list(
-                self.db.scalars(select(ProjectFramework).where(ProjectFramework.project_id == from_project_id)).all()
+                self.db.scalars(
+                    select(ProjectFramework).where(
+                        ProjectFramework.project_id == from_project_id
+                    )
+                ).all()
             )
             self.db.add_all(
                 [
@@ -1148,21 +1287,27 @@ class AnalysisService:
             )
 
             src_lib = list(
-                self.db.scalars(select(ProjectLibrary).where(ProjectLibrary.project_id == from_project_id)).all()
+                self.db.scalars(
+                    select(ProjectLibrary).where(
+                        ProjectLibrary.project_id == from_project_id
+                    )
+                ).all()
             )
             self.db.add_all(
                 [
                     ProjectLibrary(
                         project_id=to_project_id,
-                        library_id=l.library_id,
-                        detection_score=l.detection_score,
+                        library_id=lib.library_id,
+                        detection_score=lib.detection_score,
                     )
-                    for l in src_lib
+                    for lib in src_lib
                 ]
             )
 
             src_tools = list(
-                self.db.scalars(select(ProjectTool).where(ProjectTool.project_id == from_project_id)).all()
+                self.db.scalars(
+                    select(ProjectTool).where(ProjectTool.project_id == from_project_id)
+                ).all()
             )
             self.db.add_all(
                 [
@@ -1175,9 +1320,11 @@ class AnalysisService:
                 ]
             )
 
-            #Resume items
+            # Resume items
             src_resume = list(
-                self.db.scalars(select(ResumeItem).where(ResumeItem.project_id == from_project_id)).all()
+                self.db.scalars(
+                    select(ResumeItem).where(ResumeItem.project_id == from_project_id)
+                ).all()
             )
             self.db.add_all(
                 [
@@ -1191,9 +1338,11 @@ class AnalysisService:
                 ]
             )
 
-            #Analysis summary 
+            # Analysis summary
             src_summary = self.db.scalar(
-                select(ProjectAnalysisSummary).where(ProjectAnalysisSummary.project_id == from_project_id)
+                select(ProjectAnalysisSummary).where(
+                    ProjectAnalysisSummary.project_id == from_project_id
+                )
             )
             if src_summary:
                 self.db.add(
@@ -1207,9 +1356,11 @@ class AnalysisService:
                     )
                 )
 
-            #Contributors
+            # Contributors
             src_contribs = list(
-                self.db.scalars(select(Contributor).where(Contributor.project_id == from_project_id)).all()
+                self.db.scalars(
+                    select(Contributor).where(Contributor.project_id == from_project_id)
+                ).all()
             )
 
             old_to_new_contrib_id: dict[int, int] = {}
@@ -1232,7 +1383,11 @@ class AnalysisService:
 
                 # contributor_files
                 src_cfiles = list(
-                    self.db.scalars(select(ContributorFile).where(ContributorFile.contributor_id == c.id)).all()
+                    self.db.scalars(
+                        select(ContributorFile).where(
+                            ContributorFile.contributor_id == c.id
+                        )
+                    ).all()
                 )
                 self.db.add_all(
                     [
@@ -1247,7 +1402,11 @@ class AnalysisService:
 
                 # contributor_commits
                 src_commits = list(
-                    self.db.scalars(select(ContributorCommit).where(ContributorCommit.contributor_id == c.id)).all()
+                    self.db.scalars(
+                        select(ContributorCommit).where(
+                            ContributorCommit.contributor_id == c.id
+                        )
+                    ).all()
                 )
                 self.db.add_all(
                     [
@@ -1269,108 +1428,113 @@ class AnalysisService:
             raise
 
     def _clone_files_and_complexity_for_paths(
-            self,
-            from_project_id: int,
-            to_project_id: int,
-            paths_to_clone: set[str],
-        ) -> None:
-            """
-            Clone File rows + Complexity rows for a subset of paths from one project to another.
-            Used for incremental reuse so unchanged files don't get re-inserted/re-analyzed.
-            """
-            if not paths_to_clone:
-                return
+        self,
+        from_project_id: int,
+        to_project_id: int,
+        paths_to_clone: set[str],
+    ) -> None:
+        """
+        Clone File rows + Complexity rows for a subset of paths from one project to another.
+        Used for incremental reuse so unchanged files don't get re-inserted/re-analyzed.
+        """
+        if not paths_to_clone:
+            return
 
-            # normalize to forward slashes (DB paths should match whatever you save)
-            norm_paths = {p.replace("\\", "/") for p in paths_to_clone}
+        # normalize to forward slashes (DB paths should match whatever you save)
+        norm_paths = {p.replace("\\", "/") for p in paths_to_clone}
 
-            # --- clone files ---
-            src_files = self.file_repo.get_files_by_paths(from_project_id, norm_paths)
+        # --- clone files ---
+        src_files = self.file_repo.get_files_by_paths(from_project_id, norm_paths)
 
-            # build {path -> old_file_id} for complexity cloning
-            old_file_id_by_path = {f.path.replace("\\", "/"): f.id for f in src_files}
+        # build {path -> old_file_id} for complexity cloning
+        old_file_id_by_path = {f.path.replace("\\", "/"): f.id for f in src_files}
 
-            # create new file rows for the new project
-            new_files = []
-            for f in src_files:
-                new_files.append(
-                    {
-                        "project_id": to_project_id,
-                        "path": f.path.replace("\\", "/"),
-                        "type": getattr(f, "type", None),
-                        "size": getattr(f, "size", None),
-                        "language": getattr(f, "language", None),
-                        "content_hash": getattr(f, "content_hash", None),
-                    }
-                )
+        # create new file rows for the new project
+        new_files = []
+        for f in src_files:
+            new_files.append(
+                {
+                    "project_id": to_project_id,
+                    "path": f.path.replace("\\", "/"),
+                    "type": getattr(f, "type", None),
+                    "size": getattr(f, "size", None),
+                    "language": getattr(f, "language", None),
+                    "content_hash": getattr(f, "content_hash", None),
+                }
+            )
 
-            # bulk insert via repo (prefer repo method if you have one)
-            self.file_repo.bulk_create_from_dicts(new_files)
+        # bulk insert via repo (prefer repo method if you have one)
+        self.file_repo.bulk_create_from_dicts(new_files)
 
-            # re-fetch new file ids so we can map complexity rows
-            dst_files = self.file_repo.get_files_by_paths(to_project_id, norm_paths)
-            new_file_id_by_path = {f.path.replace("\\", "/"): f.id for f in dst_files}
+        # --- clone complexity ---
+        # Pull complexity rows for the old file ids and insert with new file ids
+        old_file_ids = list(old_file_id_by_path.values())
+        if not old_file_ids:
+            return
 
-            # --- clone complexity ---
-            # Pull complexity rows for the old file ids and insert with new file ids
-            old_file_ids = list(old_file_id_by_path.values())
-            if not old_file_ids:
-                return
+        rows = self.complexity_repo.get_by_project_and_paths(
+            from_project_id, norm_paths
+        )
 
-            rows = self.complexity_repo.get_by_project_and_paths(from_project_id, norm_paths)
+        cloned_rows = []
+        for r in rows:
+            cloned_rows.append(
+                {
+                    "project_id": to_project_id,
+                    "file_path": r.file_path.replace("\\", "/"),
+                    "function_name": r.function_name,
+                    "cyclomatic_complexity": r.cyclomatic_complexity,
+                    "start_line": r.start_line,
+                    "end_line": r.end_line,
+                }
+            )
 
-            cloned_rows = []
-            for r in rows:
-                cloned_rows.append(
-                    {
-                        "project_id": to_project_id,
-                        "file_path": r.file_path.replace("\\", "/"),
-                        "function_name": r.function_name,
-                        "cyclomatic_complexity": r.cyclomatic_complexity,
-                        "start_line": r.start_line,
-                        "end_line": r.end_line,
-                    }
-                )
+        if cloned_rows:
+            self.complexity_repo.bulk_create_from_dicts(cloned_rows)
 
-            if cloned_rows:
-                self.complexity_repo.bulk_create_from_dicts(cloned_rows)
-                
     def _detect_project_root(self, base_path: Path) -> Path:
         """
         Detect the actual project root using multiple strategies:
         1. Single subdirectory (most common ZIP structure)
         2. Directory containing .git folder (excluding __MACOSX)
         3. Fall back to base_path
-        
+
         Args:
             base_path: Root path to search
-            
+
         Returns:
             Path to detected project root
         """
         # Strategy 1: Check for single subdirectory (exclude __MACOSX and hidden)
-        subdirs = [d for d in base_path.iterdir() 
-                   if d.is_dir() and not d.name.startswith('.') and d.name != '__MACOSX']
+        subdirs = [
+            d
+            for d in base_path.iterdir()
+            if d.is_dir() and not d.name.startswith(".") and d.name != "__MACOSX"
+        ]
         if len(subdirs) == 1:
             return subdirs[0]
-        
+
         # Strategy 2: Search for .git directory (excluding __MACOSX)
-        git_dirs = list(base_path.glob('**/.git'))
+        git_dirs = list(base_path.glob("**/.git"))
         # Filter out any .git directories in __MACOSX folder
-        git_dirs = [gd for gd in git_dirs if '__MACOSX' not in str(gd)]
+        git_dirs = [gd for gd in git_dirs if "__MACOSX" not in str(gd)]
         if git_dirs:
             # Return parent of the first .git found
             project_root = git_dirs[0].parent
-            logger.info(f"Found .git directory at {project_root.resolve().relative_to(base_path.resolve())}")
+            logger.info(
+                f"Found .git directory at {project_root.resolve().relative_to(base_path.resolve())}"
+            )
             return project_root
-        
+
         # Strategy 3: Fall back to base path
-        logger.debug(f"No single subdirectory or .git found, using base path")
+        logger.debug("No single subdirectory or .git found, using base path")
         return base_path
 
     def _detect_frameworks_best(self, project_path: Path) -> List[dict]:
         """Detect frameworks and return best-confidence unique list."""
-        rules_path = Path(__file__).resolve().parent.parent / "core" / "rules" / "frameworks.yml"
+        rules_path = (
+            Path(__file__).resolve().parent.parent / "core" / "rules" / "frameworks.yml"
+        )
         if not rules_path.exists():
             logger.warning("Framework rules file not found at %s", rules_path)
             return []
@@ -1437,57 +1601,70 @@ class AnalysisService:
             self.file_repo.create_files_bulk(files_data)
 
     def _save_complexity(self, project_id: int, functions: list[dict]) -> None:
-        
+
         if not functions:
             return
 
         complexity_data = []
         for fn in functions:
-            complexity_data.append({
-                "project_id": project_id,                    
-                "file_path": fn.get("file_path") or fn.get("file") or "",
-                "function_name": fn.get("name") or fn.get("function_name") or "",
-                "start_line": fn.get("start_line"),
-                "end_line": fn.get("end_line"),
-                "cyclomatic_complexity": fn.get("complexity") or fn.get("cyclomatic_complexity") or 0,
-        })
+            complexity_data.append(
+                {
+                    "project_id": project_id,
+                    "file_path": fn.get("file_path") or fn.get("file") or "",
+                    "function_name": fn.get("name") or fn.get("function_name") or "",
+                    "start_line": fn.get("start_line"),
+                    "end_line": fn.get("end_line"),
+                    "cyclomatic_complexity": fn.get("complexity")
+                    or fn.get("cyclomatic_complexity")
+                    or 0,
+                }
+            )
 
         self.complexity_repo.create_complexities_bulk(project_id, complexity_data)
 
     def _save_contributors(self, project_id: int, contributors: list) -> None:
         """Save contributor data to database."""
         from datetime import datetime
+
         from src.models.orm.contributor_commit import ContributorCommit
-        
+
         # Delete old contributors for this project
         self.contributor_repo.delete_by_project_id(project_id)
-        
+
         contributors_data = []
         for c in contributors:
             files_modified = []
             for filename, mods in c.get("files_modified", {}).items():
-                files_modified.append({
-                    "filename": filename,
-                    "modifications": mods,
-                })
+                files_modified.append(
+                    {
+                        "filename": filename,
+                        "modifications": mods,
+                    }
+                )
 
-            contributors_data.append({
-                "project_id": project_id,
-                "name": c.get("name"),
-                "email": c.get("email"),
-                "github_username": c.get("github_username"),
-                "github_email": c.get("github_email"),
-                "commits": c.get("commits", 0),
-                "percent": c.get("commit_percent", 0.0),  # Map commit_percent to percent (DB field)
-                "total_lines_added": c.get("total_lines_added", 0),
-                "total_lines_deleted": c.get("total_lines_deleted", 0),
-                "files_modified": files_modified,
-                "commit_dates": c.get("commit_dates", []),  # Store for later use
-            })
+            contributors_data.append(
+                {
+                    "project_id": project_id,
+                    "name": c.get("name"),
+                    "email": c.get("email"),
+                    "github_username": c.get("github_username"),
+                    "github_email": c.get("github_email"),
+                    "commits": c.get("commits", 0),
+                    "percent": c.get(
+                        "commit_percent", 0.0
+                    ),  # Map commit_percent to percent (DB field)
+                    "total_lines_added": c.get("total_lines_added", 0),
+                    "total_lines_deleted": c.get("total_lines_deleted", 0),
+                    "files_modified": files_modified,
+                    "commit_dates": c.get("commit_dates", []),  # Store for later use
+                }
+            )
 
         if contributors_data:
-            created_contributors = self.contributor_repo.create_contributors_bulk(contributors_data)
-            
+            created_contributors = self.contributor_repo.create_contributors_bulk(
+                contributors_data
+            )
+
             # Save commit history for each contributor
             for i, contributor_orm in enumerate(created_contributors):
                 commit_dates = contributors_data[i].get("commit_dates", [])
@@ -1495,17 +1672,19 @@ class AnalysisService:
                     commit_objs = []
                     for commit_date in commit_dates:
                         if isinstance(commit_date, datetime):
-                            commit_objs.append(ContributorCommit(
-                                contributor_id=contributor_orm.id,
-                                commit_hash="",  # Not available in current data structure
-                                commit_date=commit_date,
-                                author_date=commit_date,
-                                commit_message="",
-                            ))
-                    
+                            commit_objs.append(
+                                ContributorCommit(
+                                    contributor_id=contributor_orm.id,
+                                    commit_hash="",  # Not available in current data structure
+                                    commit_date=commit_date,
+                                    author_date=commit_date,
+                                    commit_message="",
+                                )
+                            )
+
                     if commit_objs:
                         self.db.add_all(commit_objs)
-            
+
             self.db.commit()
 
     def _save_skills(
@@ -1538,13 +1717,15 @@ class AnalysisService:
 
         for category, skills in skill_categories.items():
             for skill in skills:
-                skills_data.append({
-                    "project_id": project_id,
-                    "skill": skill,
-                    "category": category,
-                    "frequency": skill_frequencies.get(skill, 1),
-                    "source": skill_sources.get(skill),
-                })
+                skills_data.append(
+                    {
+                        "project_id": project_id,
+                        "skill": skill,
+                        "category": category,
+                        "frequency": skill_frequencies.get(skill, 1),
+                        "source": skill_sources.get(skill),
+                    }
+                )
 
         if skills_data:
             self.skill_repo.create_skills_bulk(skills_data)
@@ -1586,7 +1767,6 @@ class AnalysisService:
             contributors: List of contributor data with commit history
             project_path: Path to project for git history extraction
         """
-        from collections import defaultdict
 
         # Only use skills from skill_categories - these are the meaningful skills
         # detected by the skill detector (not raw file formats like JSON, YAML, etc.)
@@ -1610,20 +1790,24 @@ class AnalysisService:
             timeline_data = []
             for skill in all_skills:
                 # Add entry for first occurrence
-                timeline_data.append({
-                    "project_id": project_id,
-                    "skill": skill,
-                    "date": min_date,
-                    "count": 1,
-                })
-                # Add entry for last occurrence if different
-                if max_date != min_date:
-                    timeline_data.append({
+                timeline_data.append(
+                    {
                         "project_id": project_id,
                         "skill": skill,
-                        "date": max_date,
+                        "date": min_date,
                         "count": 1,
-                    })
+                    }
+                )
+                # Add entry for last occurrence if different
+                if max_date != min_date:
+                    timeline_data.append(
+                        {
+                            "project_id": project_id,
+                            "skill": skill,
+                            "date": max_date,
+                            "count": 1,
+                        }
+                    )
         else:
             # Fall back to file modification dates
             logger.info("No git history available, using file modification dates")
@@ -1646,23 +1830,29 @@ class AnalysisService:
 
             timeline_data = []
             for skill in all_skills:
-                timeline_data.append({
-                    "project_id": project_id,
-                    "skill": skill,
-                    "date": min_date,
-                    "count": 1,
-                })
-                if max_date != min_date:
-                    timeline_data.append({
+                timeline_data.append(
+                    {
                         "project_id": project_id,
                         "skill": skill,
-                        "date": max_date,
+                        "date": min_date,
                         "count": 1,
-                    })
+                    }
+                )
+                if max_date != min_date:
+                    timeline_data.append(
+                        {
+                            "project_id": project_id,
+                            "skill": skill,
+                            "date": max_date,
+                            "count": 1,
+                        }
+                    )
 
         if timeline_data:
             self.skill_repo.create_timeline_bulk(timeline_data)
-            logger.info(f"Saved {len(timeline_data)} skill timeline entries for project {project_id}")
+            logger.info(
+                f"Saved {len(timeline_data)} skill timeline entries for project {project_id}"
+            )
 
     def _extract_commit_dates_from_git(self, project_path: Optional[str]) -> List:
         """
@@ -1678,7 +1868,7 @@ class AnalysisService:
             return []
 
         try:
-            from git import Repo, InvalidGitRepositoryError
+            from git import InvalidGitRepositoryError, Repo
         except ImportError:
             return []
 
@@ -1740,12 +1930,12 @@ class AnalysisService:
     ) -> None:
         """
         Save project analysis summary with timing and statistics.
-        
+
         This function populates the ProjectAnalysisSummary table with:
         - File processing statistics (total, analyzed, skipped)
         - Total analysis duration
         - Per-stage timing breakdown for performance analysis
-        
+
         Args:
             project_id: Project ID
             total_files_processed: Total number of files found in project
@@ -1763,14 +1953,18 @@ class AnalysisService:
                 analysis_duration_seconds=analysis_duration_seconds,
                 stage_durations=stage_durations,
             )
-            
+
             # Log performance insights
             if stage_durations:
                 slowest_stage = max(stage_durations.items(), key=lambda x: x[1])
-                logger.info(f"Performance: Slowest stage was '{slowest_stage[0]}' at {slowest_stage[1]:.2f}s")
-                
+                logger.info(
+                    f"Performance: Slowest stage was '{slowest_stage[0]}' at {slowest_stage[1]:.2f}s"
+                )
+
         except Exception as e:
-            logger.error(f"Failed to save analysis summary for project {project_id}: {e}")
+            logger.error(
+                f"Failed to save analysis summary for project {project_id}: {e}"
+            )
 
     def _resolve_deferred_analysis_path(
         self,
@@ -1788,7 +1982,11 @@ class AnalysisService:
 
         if source_url:
             source_path = Path(source_url)
-            if source_path.exists() and source_path.suffix.lower() == ".zip" and zipfile.is_zipfile(source_path):
+            if (
+                source_path.exists()
+                and source_path.suffix.lower() == ".zip"
+                and zipfile.is_zipfile(source_path)
+            ):
                 temp_dir = tempfile.TemporaryDirectory()
                 extract_root = Path(temp_dir.name)
 
@@ -1817,7 +2015,9 @@ class AnalysisService:
         """
         contributor = self.contributor_repo.get_with_files(contributor_id)
         if not contributor or contributor.project_id != project_id:
-            raise HTTPException(status_code=404, detail=f"Contributor not found: {contributor_id}")
+            raise HTTPException(
+                status_code=404, detail=f"Contributor not found: {contributor_id}"
+            )
 
         touched_files: list[Path] = []
         lockfile_names = {
@@ -1901,7 +2101,9 @@ class AnalysisService:
         logger.info("Starting unified tech-stack analysis for project %d", project_id)
         start_time = time.time()
 
-        project_root, temp_dir = self._resolve_deferred_analysis_path(project_path, source_url)
+        project_root, temp_dir = self._resolve_deferred_analysis_path(
+            project_path, source_url
+        )
         try:
             library_report = detect_libraries_recursive(project_root)
             frameworks_detected = self._detect_frameworks_best(project_root)
@@ -1951,14 +2153,18 @@ class AnalysisService:
         )
         start_time = time.time()
 
-        project_root, temp_dir = self._resolve_deferred_analysis_path(project_path, source_url)
+        project_root, temp_dir = self._resolve_deferred_analysis_path(
+            project_path, source_url
+        )
         scope_temp = None
         try:
-            scope_root, scope_temp, files_considered = self._build_contributor_scope_workspace(
-                project_id=project_id,
-                contributor_id=contributor_id,
-                project_root=project_root,
-                include_transitive=include_transitive,
+            scope_root, scope_temp, files_considered = (
+                self._build_contributor_scope_workspace(
+                    project_id=project_id,
+                    contributor_id=contributor_id,
+                    project_root=project_root,
+                    include_transitive=include_transitive,
+                )
             )
 
             if files_considered == 0:
@@ -2025,8 +2231,10 @@ class AnalysisService:
         """
         logger.info("Starting library and tool analysis for project %d", project_id)
         start_time = time.time()
-        project_root, temp_dir = self._resolve_deferred_analysis_path(project_path, source_url)
-        
+        project_root, temp_dir = self._resolve_deferred_analysis_path(
+            project_path, source_url
+        )
+
         try:
             # Delete existing libraries and tools
             self.library_repo.delete_by_project(project_id)
@@ -2038,7 +2246,9 @@ class AnalysisService:
 
             # Save to database
             if library_report.get("libraries"):
-                self.library_repo.create_libraries_bulk(library_report["libraries"], project_id)
+                self.library_repo.create_libraries_bulk(
+                    library_report["libraries"], project_id
+                )
             if tool_report.get("tools"):
                 self.tool_repo.create_tools_bulk(tool_report["tools"], project_id)
 
@@ -2052,7 +2262,7 @@ class AnalysisService:
         finally:
             if temp_dir is not None:
                 temp_dir.cleanup()
-        
+
         elapsed = time.time() - start_time
         logger.info(
             "Library and tool analysis complete for project %d: %d libraries, %d tools in %.2fs",
@@ -2061,7 +2271,7 @@ class AnalysisService:
             tool_report.get("total_count", 0),
             elapsed,
         )
-        
+
         return {
             "project_id": project_id,
             "libraries_found": library_report.get("total_count", 0),
@@ -2082,8 +2292,10 @@ class AnalysisService:
         """
         logger.info("Starting framework analysis for project %d", project_id)
         start_time = time.time()
-        project_root, temp_dir = self._resolve_deferred_analysis_path(project_path, source_url)
-        
+        project_root, temp_dir = self._resolve_deferred_analysis_path(
+            project_path, source_url
+        )
+
         try:
             # Delete existing frameworks
             self.framework_repo.delete_by_project(project_id)
@@ -2093,7 +2305,9 @@ class AnalysisService:
 
             # Save to database
             if frameworks_detected:
-                self.framework_repo.create_frameworks_bulk(frameworks_detected, project_id)
+                self.framework_repo.create_frameworks_bulk(
+                    frameworks_detected, project_id
+                )
 
             framework_names = sorted(
                 {
@@ -2105,7 +2319,7 @@ class AnalysisService:
         finally:
             if temp_dir is not None:
                 temp_dir.cleanup()
-        
+
         elapsed = time.time() - start_time
         logger.info(
             "Framework analysis complete for project %d: %d frameworks in %.2fs",
@@ -2113,7 +2327,7 @@ class AnalysisService:
             len(frameworks_detected) if frameworks_detected else 0,
             elapsed,
         )
-        
+
         return {
             "project_id": project_id,
             "frameworks_found": len(frameworks_detected) if frameworks_detected else 0,
@@ -2135,10 +2349,18 @@ class AnalysisService:
         skills = self.skill_repo.get_by_project(project_id)
 
         # Get stored timestamps with fallbacks
-        zip_uploaded_at = project.zip_uploaded_at or project.created_at or datetime.utcnow()
-        first_file_created = project.first_file_created or self.file_repo.get_earliest_file_date(project_id) or datetime.utcnow()
+        zip_uploaded_at = (
+            project.zip_uploaded_at or project.created_at or datetime.utcnow()
+        )
+        first_file_created = (
+            project.first_file_created
+            or self.file_repo.get_earliest_file_date(project_id)
+            or datetime.utcnow()
+        )
         first_commit_date = project.first_commit_date
-        project_started_at = project.project_started_at or first_commit_date or first_file_created
+        project_started_at = (
+            project.project_started_at or first_commit_date or first_file_created
+        )
 
         return AnalysisResult(
             project_id=project_id,
@@ -2161,7 +2383,9 @@ class AnalysisService:
                 total_functions=complexity_summary.get("total_functions", 0),
                 avg_complexity=complexity_summary.get("avg_complexity", 0.0),
                 max_complexity=complexity_summary.get("max_complexity", 0),
-                high_complexity_count=complexity_summary.get("high_complexity_count", 0),
+                high_complexity_count=complexity_summary.get(
+                    "high_complexity_count", 0
+                ),
             ),
             zip_uploaded_at=zip_uploaded_at,
             first_file_created=first_file_created,
