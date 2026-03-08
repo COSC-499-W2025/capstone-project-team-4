@@ -1,8 +1,8 @@
-import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Home, Sparkles } from 'lucide-react';
-import { clearAccessToken, isAuthenticated } from '@/lib/auth';
+import React from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Home, Sparkles, User } from "lucide-react";
+import { clearAccessToken, isAuthenticated } from "@/lib/auth";
 
 const Navigation = () => {
   const location = useLocation();
@@ -11,18 +11,18 @@ const Navigation = () => {
 
   React.useEffect(() => {
     const syncAuthState = () => setAuthed(isAuthenticated());
-    window.addEventListener('storage', syncAuthState);
-    window.addEventListener('focus', syncAuthState);
+    window.addEventListener("storage", syncAuthState);
+    window.addEventListener("focus", syncAuthState);
     return () => {
-      window.removeEventListener('storage', syncAuthState);
-      window.removeEventListener('focus', syncAuthState);
+      window.removeEventListener("storage", syncAuthState);
+      window.removeEventListener("focus", syncAuthState);
     };
   }, []);
 
   const handleLogout = () => {
     clearAccessToken();
     setAuthed(false);
-    navigate('/login');
+    navigate("/login");
   };
 
   return (
@@ -36,22 +36,24 @@ const Navigation = () => {
                 Resume Generator
               </h1>
             </div>
-            
+
             {/* Navigation Links */}
             <div className="hidden sm:ml-6 sm:flex sm:space-x-4">
               <Link to="/">
                 <Button
-                  variant={location.pathname === '/' ? 'default' : 'ghost'}
+                  variant={location.pathname === "/" ? "default" : "ghost"}
                   className="flex items-center space-x-2"
                 >
                   <Home className="h-4 w-4" />
                   <span>Home</span>
                 </Button>
               </Link>
-              
+
               <Link to="/generate">
                 <Button
-                  variant={location.pathname === '/generate' ? 'default' : 'ghost'}
+                  variant={
+                    location.pathname === "/generate" ? "default" : "ghost"
+                  }
                   className="flex items-center space-x-2"
                 >
                   <Sparkles className="h-4 w-4" />
@@ -60,13 +62,29 @@ const Navigation = () => {
               </Link>
 
               {authed ? (
+                <Link to="/account">
+                  <Button
+                    variant={
+                      location.pathname === "/account" ? "default" : "ghost"
+                    }
+                    className="flex items-center space-x-2"
+                  >
+                    <User className="h-4 w-4" />
+                    <span>Account</span>
+                  </Button>
+                </Link>
+              ) : null}
+
+              {authed ? (
                 <Button variant="ghost" onClick={handleLogout}>
                   Logout
                 </Button>
               ) : (
                 <Link to="/login">
                   <Button
-                    variant={location.pathname === '/login' ? 'default' : 'ghost'}
+                    variant={
+                      location.pathname === "/login" ? "default" : "ghost"
+                    }
                     className="flex items-center space-x-2"
                   >
                     <span>Login</span>
