@@ -136,13 +136,6 @@ export default function LoginForm() {
             <Label htmlFor="password" className="text-slate-700">
               Password
             </Label>
-            <button
-              type="button"
-              className="text-xs text-slate-500 hover:text-slate-900"
-              onClick={() => setBanner("Reset not wired yet.")}
-            >
-              Forgot password?
-            </button>
           </div>
 
           <div className="relative">

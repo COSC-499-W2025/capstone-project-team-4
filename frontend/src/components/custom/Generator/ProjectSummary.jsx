@@ -33,7 +33,7 @@ import {
 import EditProjectModal from '@/components/custom/Generator/EditProjectModal';
 
 const ProjectSummary = ({ projects, onUpdateProject }) => {
-  const [sortBy, setSortBy] = useState('contributions');
+  const [sortBy, setSortBy] = useState('date');
   const [editingProject, setEditingProject] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
   
@@ -500,14 +500,14 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
                       </div>
 
                       {/* Progress bar showing contribution proportion */}
-                      {contributorData.items.length > 0 && (
+                      {contributorData.items.length > 0 && contributorData.items[0].total_lines_changed > 0 && (
                         <div className="mt-2">
                           <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                            <div 
+                            <div
                               className="h-full bg-blue-500 rounded-full transition-all"
                               style={{
                                 width: `${Math.min(
-                                  (contributor.total_lines_changed / 
+                                  (contributor.total_lines_changed /
                                     contributorData.items[0].total_lines_changed) * 100,
                                   100
                                 )}%`
