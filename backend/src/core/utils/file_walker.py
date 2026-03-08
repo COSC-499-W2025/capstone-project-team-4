@@ -22,7 +22,6 @@ from src.core.constants import (
     HIDDEN_FILE_EXCEPTIONS,
     MAX_FILE_SIZE,
     MIN_FILE_SIZE,
-    filter_directories,
 )
 
 logger = logging.getLogger(__name__)
