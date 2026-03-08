@@ -1,6 +1,7 @@
+import axios from "axios";
 import { Eye, EyeOff, Info } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ function isValidEmail(v) {
 }
 
 export default function SignupForm() {
+    const navigate = useNavigate();
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
 
@@ -23,6 +25,8 @@ export default function SignupForm() {
     const [confirm, setConfirm] = useState("");
 
     const [agree, setAgree] = useState(false);
+    const [banner, setBanner] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [touched, setTouched] = useState({
         name: false,
@@ -55,16 +59,37 @@ export default function SignupForm() {
         );
     }, [name, email, password, confirm, agree]);
 
-    function onSubmit(e) {
+    async function onSubmit(e) {
         e.preventDefault();
+        setBanner("");
 
         if (!canSubmit) {
         setTouched({ name: true, email: true, password: true, confirm: true });
+        setBanner("Please fix the fields below.");
         return;
         }
 
-        // Frontend-only placeholder
-        alert("Signup not wired yet (frontend-only).");
+        setIsSubmitting(true);
+        try {
+        await axios.post("/api/auth/register", {
+            email,
+            password,
+        });
+
+        navigate("/login", {
+            replace: true,
+            state: { email },
+        });
+        } catch (error) {
+        const apiMessage =
+            error?.response?.data?.detail ||
+            error?.response?.data?.message ||
+            error?.message ||
+            "Signup failed.";
+        setBanner(typeof apiMessage === "string" ? apiMessage : "Signup failed.");
+        } finally {
+        setIsSubmitting(false);
+        }
     }
 
     return (
@@ -76,10 +101,18 @@ export default function SignupForm() {
             <AlertDescription className="flex gap-2 text-sm text-slate-700">
             <Info className="mt-0.5 h-4 w-4 text-slate-500" />
             <span>
-                You’ll be able to upload projects, review extracted insights, and export.
+                Create an account, then sign in to upload projects and generate resume output.
             </span>
             </AlertDescription>
         </Alert>
+
+        {banner ? (
+            <Alert className="border-slate-200 bg-white text-slate-900">
+            <AlertDescription className="text-sm text-slate-700">
+                {banner}
+            </AlertDescription>
+            </Alert>
+        ) : null}
 
         <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -195,8 +228,8 @@ export default function SignupForm() {
             </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={!canSubmit}>
-            Create account
+            <Button type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
+            {isSubmitting ? "Creating account..." : "Create account"}
             </Button>
 
             <p className="text-center text-sm text-slate-600">

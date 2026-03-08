@@ -61,6 +61,7 @@ const renderWithRouter = (component) => {
 describe('Instruction Page', () => {
   beforeEach(() => {
     mockNavigate.mockClear();
+    localStorage.removeItem('access_token');
   });
 
   it('renders the page correctly', () => {
@@ -121,13 +122,13 @@ describe('Instruction Page', () => {
     expect(screen.getByText('Get Started')).toBeInTheDocument();
   });
 
-  it('navigates to /generate when "Get Started" is clicked', () => {
+  it('navigates to /login when unauthenticated and "Get Started" is clicked', () => {
     renderWithRouter(<Instruction />);
     
     const getStartedButton = screen.getByText('Get Started');
     fireEvent.click(getStartedButton);
     
-    expect(mockNavigate).toHaveBeenCalledWith('/generate');
+    expect(mockNavigate).toHaveBeenCalledWith('/login');
   });
 
   it('has correct layout structure', () => {
@@ -160,6 +161,16 @@ describe('Instruction Page', () => {
     
     // Click and verify navigation
     fireEvent.click(button);
+    expect(mockNavigate).toHaveBeenCalledWith('/login');
+  });
+
+  it('navigates to /generate when authenticated and "Get Started" is clicked', () => {
+    localStorage.setItem('access_token', 'test-token');
+    renderWithRouter(<Instruction />);
+
+    const getStartedButton = screen.getByText('Get Started');
+    fireEvent.click(getStartedButton);
+
     expect(mockNavigate).toHaveBeenCalledWith('/generate');
   });
 

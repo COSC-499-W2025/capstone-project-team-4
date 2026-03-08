@@ -62,7 +62,7 @@ export default function AuthShell({
 
                 <div className="mt-4 h-px bg-slate-200/70" />
                 <p className="mt-3 text-xs text-slate-500">
-                    UI-only for now. We’ll connect FastAPI auth next.
+                    Accounts are now connected to FastAPI authentication.
                 </p>
                 </div>
             </aside>
