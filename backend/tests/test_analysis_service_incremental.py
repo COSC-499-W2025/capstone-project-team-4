@@ -9,7 +9,6 @@ import src.services.analysis_service as analysis_service_mod
 from src.services.analysis_service import AnalysisService
 
 from dataclasses import dataclass
-from typing import Optional
 from datetime import datetime, timezone
 
 @pytest.fixture(autouse=True)

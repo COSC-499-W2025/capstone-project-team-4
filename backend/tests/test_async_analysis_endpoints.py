@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from unittest.mock import Mock, patch, MagicMock
-from contextlib import asynccontextmanager
+from unittest.mock import patch, MagicMock
 from typing import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import app
-from src.models.database import get_db
 
 
 @pytest.fixture()

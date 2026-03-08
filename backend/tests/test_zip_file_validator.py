@@ -2,7 +2,6 @@ from __future__ import annotations
 from pathlib import Path
 import zipfile
 import os
-import sys
 import platform
 import pytest
 

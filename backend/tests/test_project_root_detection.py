@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import pytest
 
 
 from src.core.utils.project_detection import detect_project_roots
