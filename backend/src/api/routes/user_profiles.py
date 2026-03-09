@@ -129,3 +129,29 @@ async def delete_user_profile_by_user_id(
     if not success:
         raise UserProfileNotFoundError(user_id)
     return
+
+@router.get("/me", response_model=UserProfileDetail)
+async def get_my_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get the current authenticated user's profile.
+    """
+    service = UserProfileService(db)
+    profile = service.get_profile_by_user_id(current_user.id)
+    if not profile:
+        raise UserProfileNotFoundError(current_user.id)
+    return profile
+
+@router.put("/me", response_model=UserProfileDetail)
+async def upsert_my_profile(
+    data: UserProfileCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Create or update the current authenticated user's profile.
+    """
+    service = UserProfileService(db)
+    return service.upsert_profile_by_user_id(current_user.id, data)

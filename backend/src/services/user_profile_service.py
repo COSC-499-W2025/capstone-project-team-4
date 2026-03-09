@@ -326,3 +326,29 @@ class UserProfileService:
             created_at=exp.created_at,
             updated_at=exp.updated_at,
         )
+
+    def upsert_profile_by_user_id(
+        self,
+        user_id: int,
+        data: UserProfileCreate,
+    ) -> UserProfileDetail:
+        """
+        Create or update a user profile by user ID.
+
+        Args:
+            user_id: ID of the user
+            data: Full profile data
+
+        Returns:
+            UserProfileDetail
+        """
+        existing = self.profile_repo.get_by_user_id(user_id)
+
+        if not existing:
+            return self.create_profile(user_id, data)
+
+        update_data = data.model_dump()
+        profile = self.profile_repo.update_profile(existing.id, **update_data)
+
+        logger.info(f"Upserted user profile for user {user_id}")
+        return self.get_profile(profile.id)

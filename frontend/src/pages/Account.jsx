@@ -5,6 +5,7 @@ import { AlertCircle, CheckCircle2, User, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import Navigation from "@/components/Navigation";
+import ProfileDialog from "@/components/custom/ProfileDialog";
 import { Button } from "@/components/ui/button";
 import { clearAccessToken, getAccessToken } from "@/lib/auth";
 
@@ -19,6 +20,7 @@ export default function AccountPage() {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [manageDataOpen, setManageDataOpen] = useState(false);
   const [privacy, setPrivacy] = useState({ allow_data_collection: false, allow_ai_resume_generation: false });
   const [privacyLoading, setPrivacyLoading] = useState(false);
@@ -207,7 +209,11 @@ export default function AccountPage() {
               <p className="mt-1 text-xs text-slate-600">
                 Name, bio, links, and resume metadata.
               </p>
-              <Button className="mt-3 w-full" variant="outline" disabled>
+              <Button
+                className="mt-3 w-full"
+                variant="outline"
+                onClick={() => setIsProfileDialogOpen(true)}
+              >
                 Edit Profile
               </Button>
             </div>
@@ -235,6 +241,9 @@ export default function AccountPage() {
             </div>
           </div>
         </section>
+        <ProfileDialog
+          open={isProfileDialogOpen}
+          onOpenChange={setIsProfileDialogOpen} />
 
         <Dialog open={manageDataOpen} onOpenChange={setManageDataOpen}>
           <DialogContent className="sm:max-w-lg">
