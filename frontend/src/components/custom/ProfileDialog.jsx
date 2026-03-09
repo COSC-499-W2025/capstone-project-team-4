@@ -112,62 +112,66 @@ export default function ProfileDialog({ open, onOpenChange }) {
                     </div>
                 ) : (
                     <div className="grid gap-4">
+                        <label className="text-sm font-medium">
+                            First Name <span className="text-red-500">*</span>
+                        </label>
                         {error && <div className="text-sm text-red-600">{error}</div>}
-
                         <Input
+                            required
                             placeholder="First Name"
                             value={form.first_name}
                             onChange={(e) => updateField("first_name", e.target.value)}
                         />
-
+                        <label className="text-sm font-medium">
+                            Last Name <span className="text-red-500">*</span>
+                        </label>
                         <Input
+                            required
                             placeholder="Last Name"
                             value={form.last_name}
                             onChange={(e) => updateField("last_name", e.target.value)}
                         />
-
+                        <label className="text-sm font-medium"> Phone </label>
                         <Input
                             placeholder="Phone"
                             value={form.phone}
                             onChange={(e) => updateField("phone", e.target.value)}
                         />
-
-                        <Input
-                            placeholder="City"
-                            value={form.city}
-                            onChange={(e) => updateField("city", e.target.value)}
-                        />
-
-                        <Input
-                            placeholder="State"
-                            value={form.state}
-                            onChange={(e) => updateField("state", e.target.value)}
-                        />
-
+                        <label className="text-sm font-medium"> Address </label>
                         <Input
                             placeholder="Country"
                             value={form.country}
                             onChange={(e) => updateField("country", e.target.value)}
                         />
-
+                        <Input
+                            placeholder="State / Province"
+                            value={form.state}
+                            onChange={(e) => updateField("state", e.target.value)}
+                        />
+                        <Input
+                            placeholder="City"
+                            value={form.city}
+                            onChange={(e) => updateField("city", e.target.value)}
+                        />
+                        <label className="text-sm font-medium"> LinkedIn URL </label>
                         <Input
                             placeholder="LinkedIn URL"
                             value={form.linkedin_url}
                             onChange={(e) => updateField("linkedin_url", e.target.value)}
                         />
-
+                        <label className="text-sm font-medium"> GitHub URL </label>
                         <Input
                             placeholder="GitHub URL"
                             value={form.github_url}
                             onChange={(e) => updateField("github_url", e.target.value)}
                         />
-
+                        <label className="text-sm font-medium"> Portfolio URL </label>
                         <Input
                             placeholder="Portfolio URL"
                             value={form.portfolio_url}
                             onChange={(e) => updateField("portfolio_url", e.target.value)}
                         />
-
+                        <label className="text-sm font-medium"> Summary </label>
                         <Textarea
                             placeholder="Summary"
                             value={form.summary}
