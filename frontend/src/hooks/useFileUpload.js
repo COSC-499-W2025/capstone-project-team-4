@@ -214,7 +214,7 @@ export const useFileUpload = () => {
         });
       }
     } catch {
-
+    console.error("Failed to load privacy settings:", err);
     }
     processFiles();
   };
