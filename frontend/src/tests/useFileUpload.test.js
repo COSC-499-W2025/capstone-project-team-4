@@ -5,6 +5,7 @@ vi.mock('axios', () => ({
   default: {
     post: vi.fn(),
     get: vi.fn(),
+    put: vi.fn(),
   },
 }));
 
@@ -130,4 +131,45 @@ describe('useFileUpload', () => {
     expect(result.current.projectData).toBeNull();
     expect(result.current.uploadedFiles).toEqual([]);
   });
+
+  it('handleConsentAccept calls PUT privacy-settings with allow_data_collection true', async () => {
+    axios.get.mockResolvedValueOnce({ data: { id: 42, items: [] } });
+    axios.put = vi.fn().mockResolvedValue({});
+
+    const { result } = renderHook(() => useFileUpload());
+
+    await act(async () => {
+      await result.current.handleConsentAccept();
+    });
+
+    expect(axios.put).toHaveBeenCalledWith(
+      '/api/privacy-settings/42',
+      { allow_data_collection: true },
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer fake-token' }) })
+    );
+  });
+
+  it('handleConsentAccept still processes files if backend call fails', async () => {
+    axios.get.mockRejectedValueOnce(new Error('Network error'));
+    axios.post.mockResolvedValue({ data: [fakeProject] });
+
+    localStorageMock.setItem('consentGiven', 'false');
+
+    const { result } = renderHook(() => useFileUpload());
+
+    act(() => {
+      result.current.handleFileDrop([
+        new File(['content'], 'test.zip', { type: 'application/zip' }),
+      ]);
+    });
+
+    await act(async () => {
+      await result.current.handleConsentAccept();
+    });
+
+    expect(localStorageMock.getItem('consentGiven')).toBe('true');
+    expect(result.current.projectData).toHaveLength(1);
+  });
+
 });
+
