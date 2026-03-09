@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Upload, FileArchive, X } from 'lucide-react';
+import { Upload, FileArchive } from 'lucide-react';
 
 const Dropzone = ({ onDrop, accept = {}, multiple = true }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -40,9 +40,7 @@ const Dropzone = ({ onDrop, accept = {}, multiple = true }) => {
       return false;
     });
 
-    // CRITICAL: Call the parent's onDrop handler
     if (onDrop && acceptedFiles.length > 0) {
-      console.log('Dropzone: Calling onDrop with', acceptedFiles.length, 'files');
       onDrop(acceptedFiles);
     }
   }, [accept, onDrop]);
@@ -50,9 +48,7 @@ const Dropzone = ({ onDrop, accept = {}, multiple = true }) => {
   const handleFileInput = useCallback((e) => {
     const files = Array.from(e.target.files || []);
     
-    // CRITICAL: Call the parent's onDrop handler
     if (onDrop && files.length > 0) {
-      console.log('Dropzone: Calling onDrop from file input with', files.length, 'files');
       onDrop(files);
     }
     

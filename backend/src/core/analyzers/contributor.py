@@ -73,7 +73,6 @@ def get_project_creation_date(project_path: str) -> Optional[datetime]:
         datetime object of project creation, or None if unable to determine
     """
     from pathlib import Path as PathlibPath
-    import os
     
     if Repo is None:
         logger.warning("GitPython not installed")
@@ -184,14 +183,14 @@ def analyze_contributors(
             # Use default branch (usually 'main' or 'master')
             try:
                 default_branch = repo.active_branch.name
-            except:
+            except Exception:
                 # If HEAD is detached, try common default branch names
                 for branch_name in ['main', 'master']:
                     try:
                         repo.commit(branch_name)
                         default_branch = branch_name
                         break
-                    except:
+                    except Exception:
                         continue
                 else:
                     default_branch = "HEAD"

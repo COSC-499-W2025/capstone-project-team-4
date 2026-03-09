@@ -1,7 +1,6 @@
 """User profiles API routes."""
 
 import logging
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -22,7 +21,6 @@ from src.api.exceptions import (
 from src.models.orm.user import User
 from src.api.dependencies import get_current_user
 
-from .experience import router as experience_router
 
 logger = logging.getLogger(__name__)
 

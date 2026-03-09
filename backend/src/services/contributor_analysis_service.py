@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple
 
 import yaml
 
-from src.models.orm.contributor import Contributor, ContributorFile
+from src.models.orm.contributor import Contributor
 from src.models.schemas.contributor import (
     AreaShareSchema,
     ContributorAnalysisDetailResponseSchema,
@@ -412,7 +412,6 @@ class ContributorAnalysisService:
             # Parse the output line by line
             lines = result.stdout.strip().split("\n")
             current_author = None
-            file_found = False
 
             for line in lines:
                 if not line.strip():
@@ -449,7 +448,6 @@ class ContributorAnalysisService:
                                 deleted = int(deleted_str)
                                 total_added += added
                                 total_deleted += deleted
-                                file_found = True
                                 logger.debug(f"  Match: {file_in_commit} -> +{added} -{deleted}")
                             except ValueError:
                                 pass
@@ -657,7 +655,7 @@ class ContributorAnalysisService:
         repo_path = project.root_path
         branch = self._resolve_branch_or_raise(repo_path, branch)
 
-        logger.info(f"PROJECT INFO:")
+        logger.info("PROJECT INFO:")
         logger.info(f"  project.root_path={project.root_path}")
         logger.info(f"  repo_path={repo_path}")
         logger.info(f"  branch={branch}")

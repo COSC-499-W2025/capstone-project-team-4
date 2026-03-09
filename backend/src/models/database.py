@@ -54,34 +54,6 @@ def get_db_context() -> Generator[Session, None, None]:
 def init_db() -> None:
     """Initialize database by creating all tables."""
     # Import all models to ensure they're registered with Base
-    from src.models.orm import (
-        User,
-        Project,
-        ProjectAnalysisSummary,
-        ProjectSnapshot,
-        ProjectThumbnail,
-        File,
-        Language,
-        Contributor,
-        ContributorFile,
-        Complexity,
-        Skill,
-        ProjectSkill,
-        ProjectSkillTimeline,
-        ResumeItem,
-        Framework,
-        ProjectFramework,
-        Library,
-        ProjectLibrary,
-        Tool,
-        ProjectTool,
-        UserProfile,
-        Experience,
-        ExperienceType,
-        Education,
-        DataPrivacySettings,
-        Portfolio,
-    )
 
     Base.metadata.create_all(bind=engine)
     _repair_projects_table_schema()

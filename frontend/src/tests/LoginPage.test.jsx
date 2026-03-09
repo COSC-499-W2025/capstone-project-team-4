@@ -86,7 +86,18 @@ describe("LoginPage Component", () => {
         expect(headings.length).toBeGreaterThan(0);
     });
 
-    // Test 8: Check responsive container classes (similar idea to your Home test)
+    // Test 8: Forgot password button should be present
+    it("renders a Forgot password button", () => {
+        render(
+        <MemoryRouter>
+            <LoginPage />
+        </MemoryRouter>
+        );
+
+        expect(screen.getByText(/Forgot password/i)).toBeInTheDocument();
+    });
+
+    // Test 9: Check responsive container classes (similar idea to your Home test)
     it("has responsive container classes", () => {
         const { container } = render(
         <MemoryRouter>

@@ -1,7 +1,6 @@
 """Full resume composition and export service."""
 
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
