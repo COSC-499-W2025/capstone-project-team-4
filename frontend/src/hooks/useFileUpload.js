@@ -198,8 +198,24 @@ export const useFileUpload = () => {
     }
   };
 
-  const handleConsentAccept = () => {
+  const handleConsentAccept = async () => {
     setConsentGiven(true);
+    // Saves the consent to backend privacy settings
+    try {
+      const token = getAccessToken();
+      if (token) {
+        const userRes = await axios.get("/api/auth/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        await axios.put(`/api/privacy-settings/${userRes.data.id}`, {
+          allow_data_collection: true,
+        }, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+    } catch {
+    console.error("Failed to load privacy settings:", err);
+    }
     processFiles();
   };
 
