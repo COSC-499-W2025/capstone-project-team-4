@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from src.models.database import get_db
@@ -13,6 +13,8 @@ from src.models.schemas.data_privacy_settings import (
 from src.repositories.data_privacy_settings_repository import DataPrivacySettingsRepository
 from src.repositories.user_repository import UserRepository
 from src.api.exceptions import UserNotFoundError, PrivacySettingsNotFoundError
+from src.models.orm.user import User
+from src.api.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,7 @@ router = APIRouter(prefix="/privacy-settings", tags=["privacy-settings"])
 async def get_privacy_settings(
     user_id: int,
     db: Session = Depends(get_db),
+    current_user : User = Depends(get_current_user)
 ):
     """
     Get privacy settings for a user.
@@ -30,6 +33,9 @@ async def get_privacy_settings(
     - Returns the user's AI consent settings
     - Creates default settings if none exist
     """
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
     user_repo = UserRepository(db)
     privacy_repo = DataPrivacySettingsRepository(db)
 
@@ -58,6 +64,7 @@ async def update_privacy_settings(
     user_id: int,
     data: DataPrivacySettingsUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Update privacy settings for a user.
@@ -66,6 +73,8 @@ async def update_privacy_settings(
     - Only provided fields will be updated
     - Automatically updates consent_given_at when consent is newly given
     """
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     user_repo = UserRepository(db)
     privacy_repo = DataPrivacySettingsRepository(db)
 
