@@ -1,8 +1,47 @@
-import { describe, it } from "vitest";
+import { render, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import Dropzone from "@/components/custom/Home/Dropzone";
 
-// Placeholder test to prevent "No test suite found" error
-describe("Dropzone Component (disabled)", () => {
-  it.skip("tests temporarily disabled", () => {});
+describe("Dropzone Component", () => {
+  let consoleSpy;
+
+  beforeEach(() => {
+    consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  it("renders without crashing", () => {
+    const { container } = render(<Dropzone onDrop={() => {}} />);
+    expect(container.firstChild).not.toBeNull();
+  });
+
+  it("calls onDrop with selected files", () => {
+    const onDrop = vi.fn();
+    const { container } = render(
+      <Dropzone onDrop={onDrop} accept={{ "application/zip": [".zip"] }} />
+    );
+
+    const input = container.querySelector('input[type="file"]');
+    const file = new File(["content"], "test.zip", { type: "application/zip" });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(onDrop).toHaveBeenCalledWith([file]);
+  });
+
+  it("does not call console.log when files are dropped", () => {
+    const { container } = render(
+      <Dropzone onDrop={() => {}} accept={{ "application/zip": [".zip"] }} />
+    );
+
+    const input = container.querySelector('input[type="file"]');
+    const file = new File(["content"], "test.zip", { type: "application/zip" });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(consoleSpy).not.toHaveBeenCalled();
+  });
 });
 
 // TEMPORARILY DISABLED - require fix
