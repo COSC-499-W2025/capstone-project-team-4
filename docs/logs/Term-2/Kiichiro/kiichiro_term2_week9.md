@@ -26,4 +26,6 @@ Reviewed PRs
 
 - Chronological, domain-specific (backend/frontend/infra), and comparison charts has API for it, yet not implemented the UI. My focus for next week is to visualize some of the analysis result.
 
+<img width="1087" height="639" alt="Screenshot 2026-03-08 at 19 52 08" src="https://github.com/user-attachments/assets/e4c52acd-80ac-4480-ad37-f2e6cea9650c" />
+
 Hours Worked: ~8 hours
