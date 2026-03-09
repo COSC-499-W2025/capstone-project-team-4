@@ -8,13 +8,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import app
+from src.api.dependencies import get_current_user
 from src.models.database import get_db
 from src.services.analysis_service import AnalysisService
 
 
 @pytest.fixture()
 def client() -> Iterator[TestClient]:
-    """TestClient with lifespan disabled and DB dependency overridden."""
+    """TestClient with lifespan disabled and DB/auth dependencies overridden."""
 
     @asynccontextmanager
     async def no_lifespan(_app):
@@ -27,7 +28,10 @@ def client() -> Iterator[TestClient]:
         # Route only needs a dependency object; service is monkeypatched.
         yield SimpleNamespace()
 
+    fake_user = SimpleNamespace(id=1, email="test@example.com", is_active=True)
+
     app.dependency_overrides[get_db] = _get_db_override
+    app.dependency_overrides[get_current_user] = lambda: fake_user
     try:
         with TestClient(app) as test_client:
             yield test_client
@@ -53,6 +57,8 @@ def test_upload_endpoint_passes_reuse_cached_analysis_false(client, monkeypatch)
     captured = {}
 
     def fake_analyze_from_zip(self, zip_path, project_name, use_cache=True, **kwargs):
+        if kwargs.get("reuse_cached_analysis") is not None:
+            use_cache = kwargs["reuse_cached_analysis"]
         captured["use_cache"] = use_cache
         return [_analysis_result_payload(1)]
 
@@ -72,6 +78,8 @@ def test_upload_endpoint_passes_reuse_cached_analysis_true_by_default(client, mo
     captured = {}
 
     def fake_analyze_from_zip(self, zip_path, project_name, use_cache=True, **kwargs):
+        if kwargs.get("reuse_cached_analysis") is not None:
+            use_cache = kwargs["reuse_cached_analysis"]
         captured["use_cache"] = use_cache
         return [_analysis_result_payload(1)]
 

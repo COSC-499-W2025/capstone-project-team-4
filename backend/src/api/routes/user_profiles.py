@@ -1,7 +1,6 @@
 """User profiles API routes."""
 
 import logging
-from typing import List
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -20,7 +19,6 @@ from src.api.exceptions import (
     UserNotFoundError,
 )
 
-from .experience import router as experience_router
 
 logger = logging.getLogger(__name__)
 

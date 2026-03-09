@@ -377,7 +377,7 @@ def test_generate_portfolio_endpoint_server_error(mock_service_class):
 
 def test_customize_portfolio_project_requires_auth():
     """PUT /api/portfolio/{id}/projects/{name}/customize returns 401 without auth token."""
-    response = client.put("/api/portfolio/1/projects/string/customize", json={"name": "New Name"})
+    client.put("/api/portfolio/1/projects/string/customize", json={"name": "New Name"})
 
 # --- Edit service layer tests ---
 
@@ -536,6 +536,7 @@ def test_customize_portfolio_project_success(mock_service_class):
     assert data["content"]["projects"][0]["name"] == "Super Cool React App"
     assert data["content"]["projects"][0]["description"] == "I built this!"
    
+@patch("src.api.routes.portfolio.PortfolioService")
 def test_edit_portfolio_endpoint_success(mock_service_class):
     """PUT /api/portfolio/1/edit returns 200 with updated data."""
     from src.api.dependencies import get_current_user
@@ -561,8 +562,13 @@ def test_edit_portfolio_endpoint_success(mock_service_class):
             "/api/portfolio/1/edit",
             json={"title": "Updated Title", "summary": "Updated summary."},
         )
-    
-    
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["title"] == "Updated Title"
+    assert data["summary"] == "Updated summary."
 
 
 @patch("src.api.routes.portfolio.PortfolioService")

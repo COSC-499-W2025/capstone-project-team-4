@@ -17,18 +17,14 @@ Updated to use unified constants from src/core/constants.py
 
 import os
 import logging
-import re
 import yaml
 from pathlib import Path
-from typing import Dict, Any, Iterator, Tuple, Optional, List
-from dataclasses import dataclass, field
+from typing import Dict, Any, Iterator, Tuple, Optional
+from dataclasses import dataclass
 
 from src.core.constants import (
     SKIP_DIRECTORIES,
-    SKIP_EXTENSIONS,
-    SKIP_FILENAMES,
     HIDDEN_FILE_EXCEPTIONS,
-    MAX_FILE_SIZE,
     MIN_FILE_SIZE,
     DEFAULT_MAX_SIZE,
 )
@@ -79,7 +75,7 @@ EXTENSION_MAP = {
     ".kt": "Kotlin",
     ".scala": "Scala",
     ".groovy": "Groovy",
-    ".gradle": "Groovy",
+    ".gradle": "Gradle",
     ".clj": "Clojure",
     ".cljs": "ClojureScript",
     
@@ -134,38 +130,33 @@ EXTENSION_MAP = {
     
     # SQL
     ".sql": "SQL",
-    ".pl": "PL/SQL",
     ".tsql": "T-SQL",
-    
+
     # Configuration
     ".json": "JSON",
     ".yaml": "YAML",
     ".yml": "YAML",
-    ".toml": "TOML",
     ".xml": "XML",
     ".ini": "INI",
     ".cfg": "Config",
     ".conf": "Config",
     ".config": "Config",
     ".properties": "Java Properties",
-    ".gradle": "Gradle",
-    
+
     # Markdown
     ".md": "Markdown",
     ".markdown": "Markdown",
     ".mdown": "Markdown",
     ".mkd": "Markdown",
     ".mdx": "MDX",
-    
+
     # Other
     ".r": "R",
     ".R": "R",
     ".swift": "Swift",
-    ".kt": "Kotlin",
     ".lua": "Lua",
     ".pl": "Perl",
     ".pm": "Perl",
-    ".go": "Go",
     ".proto": "Protocol Buffer",
     ".graphql": "GraphQL",
     ".gql": "GraphQL",
@@ -964,7 +955,7 @@ class StatsFormatter:
             if len(unknown_files) > limit:
                 print(f"... and {len(unknown_files) - limit} more unknown files")
         else:
-            print(f"\nNo unknown files found!")
+            print("\nNo unknown files found!")
 
 
 # =============================================================================

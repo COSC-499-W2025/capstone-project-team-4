@@ -11,8 +11,8 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from src.core.analyzers import contributor as contributor_mod
-from src.core.analyzers.contributor import analyze_contributors
+from src.core.analyzers import contributor as contributor_mod  # noqa: E402
+from src.core.analyzers.contributor import analyze_contributors  # noqa: E402
 
 
 def _run_git(cwd: str, args: list[str], env: dict | None = None) -> None:
