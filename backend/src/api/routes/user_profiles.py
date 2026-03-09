@@ -81,6 +81,8 @@ async def create_user_profile(
     - Creates a new user profile with personal information
     - User must exist
     """
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     service = UserProfileService(db)
     user_repo = UserRepository(db)
 
@@ -88,9 +90,6 @@ async def create_user_profile(
     user = user_repo.get(user_id)
     if not user:
         raise UserNotFoundError(user_id)
-
-    if current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
 
     return service.create_profile(user_id, data)
 
@@ -107,12 +106,12 @@ async def update_user_profile_by_user_id(
 
     - Returns updated profile details
     """
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     service = UserProfileService(db)
     profile = service.update_profile_by_user_id(user_id, data)
     if not profile:
         raise UserProfileNotFoundError(user_id)
-    if current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
     return profile
 
 
@@ -125,11 +124,10 @@ async def delete_user_profile_by_user_id(
     """
     Delete a user profile using user ID.
     """
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     service = UserProfileService(db)
     success = service.delete_profile_by_user_id(user_id)
     if not success:
         raise UserProfileNotFoundError(user_id)
-
-    if current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
     return

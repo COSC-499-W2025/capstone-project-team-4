@@ -28,10 +28,10 @@ async def get_experiences(
     """
     Get all experiences for a specific user.
     """
-    service = UserProfileService(db)
-    experiences = service.get_experiences_by_user_id(user_id)
     if current_user.id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
+    service = UserProfileService(db)
+    experiences = service.get_experiences_by_user_id(user_id)
     return experiences
 
 
@@ -45,10 +45,10 @@ async def create_experience(
     """
     Create a new experience for a specific user.
     """
-    service = UserProfileService(db)
-    experience = service.create_experience(user_id, data)
     if current_user.id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
+    service = UserProfileService(db)
+    experience = service.create_experience(user_id, data)
     return experience
 
 
@@ -63,12 +63,12 @@ async def update_experience(
     """
     Update an existing experience for a specific user.
     """
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     service = UserProfileService(db)
     experience = service.update_experience(user_id, experience_id, data)
     if not experience:
         raise ExperienceNotFoundError(experience_id)
-    if current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
     return experience
 
 
@@ -82,10 +82,10 @@ async def delete_experience(
     """
     Delete an experience for a specific user.
     """
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     service = UserProfileService(db)
     success = service.delete_experience(user_id, experience_id)
     if not success:
         raise ExperienceNotFoundError(experience_id)
-    if current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
     return
