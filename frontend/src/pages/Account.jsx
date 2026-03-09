@@ -1,8 +1,9 @@
 import axios from "axios";
-import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, User } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 import Navigation from "@/components/Navigation";
+import ProfileDialog from "@/components/custom/ProfileDialog";
 import { Button } from "@/components/ui/button";
 import { clearAccessToken, getAccessToken } from "@/lib/auth";
 
@@ -17,6 +18,7 @@ export default function AccountPage() {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
 
   const authHeader = useMemo(() => {
     const token = getAccessToken();
@@ -158,7 +160,11 @@ export default function AccountPage() {
               <p className="mt-1 text-xs text-slate-600">
                 Name, bio, links, and resume metadata.
               </p>
-              <Button className="mt-3 w-full" variant="outline" disabled>
+              <Button
+                className="mt-3 w-full"
+                variant="outline"
+                onClick={() => setIsProfileDialogOpen(true)}
+              >
                 Edit Profile
               </Button>
             </div>
@@ -186,6 +192,9 @@ export default function AccountPage() {
             </div>
           </div>
         </section>
+        <ProfileDialog
+          open={isProfileDialogOpen}
+          onOpenChange={setIsProfileDialogOpen} />
       </div>
     </div>
   );
