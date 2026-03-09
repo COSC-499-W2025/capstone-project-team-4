@@ -22,7 +22,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Union, Any
+from typing import Dict, List, Optional, Set, Union, Any
 
 import yaml
 

@@ -2,9 +2,7 @@ import json
 import os
 import pandas as pd
 import pytest
-from datetime import datetime
-from pathlib import Path
-from unittest.mock import patch, mock_open, MagicMock
+from unittest.mock import patch, MagicMock
 
 from src.core.detectors.metadata import parse_metadata, save_metadata_json, should_skip_file
 

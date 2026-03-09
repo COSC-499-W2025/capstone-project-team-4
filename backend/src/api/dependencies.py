@@ -1,10 +1,9 @@
 """FastAPI dependencies for dependency injection & auth."""
 
-from typing import Generator
 
 from sqlalchemy.orm import Session
 
-from src.models.database import SessionLocal, get_db
+from src.models.database import get_db
 from src.services.analysis_service import AnalysisService
 from src.services.project_service import ProjectService
 from src.services.skill_service import SkillService
@@ -14,7 +13,6 @@ from src.services.resume_service import ResumeService
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
-from sqlalchemy.orm import Session
 from sqlalchemy import select
 from src.core.security import SECRET_KEY, ALGORITHM
 from src.models.orm.user import User

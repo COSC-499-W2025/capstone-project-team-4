@@ -42,7 +42,6 @@ def validate_zip(file_path: str | Path) -> Tuple[bool, List[str]]:
     Returns:
         Tuple of (is_valid, list_of_errors)
     """
-    errors: List[str] = []
     p = Path(file_path)
 
     # Existence check first

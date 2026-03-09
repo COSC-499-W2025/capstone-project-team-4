@@ -1,18 +1,16 @@
-from fastapi.testclient import TestClient
-from src.api.main import app
+import uuid
 import pytest
 
-client = TestClient(app)
+from fastapi.testclient import TestClient
+from src.api.main import app
 
+client = TestClient(app)
 
 # Generate a unique email every time so tests don't fail
 @pytest.fixture
 def test_user_data():
-    import time
-
-    # Creates "test_232323_@example.com"
     return {
-        "email": f"test_{int(time.time())}@example.com",
+        "email": f"test_{uuid.uuid4().hex[:8]}@example.com",
         "password": "strongpassword123",
     }
 
@@ -89,4 +87,164 @@ def test_protected_route_invalid_token():
     """Should fail with 401 when token is garbage"""
     headers = {"Authorization": "Bearer faKe.ToKen.123"}
     response = client.get("/api/auth/me", headers=headers)
+    assert response.status_code == 401
+
+# Now testing the different auth endpoints
+
+# For privacy settings
+
+def test_privacy_settings_authorized(test_user_data):
+    # Register and Login
+    client.post("/api/auth/register", json=test_user_data)
+    login_res = client.post("/api/auth/login", data={"username": test_user_data["email"], "password": test_user_data["password"]})
+    token = login_res.json()["access_token"]
+    
+    headers = {"Authorization": f"Bearer {token}"}
+    me_res = client.get("/api/auth/me", headers=headers)
+    my_user_id = me_res.json()["id"]
+
+    response = client.get(f"/api/privacy-settings/{my_user_id}", headers=headers)
+    
+    assert response.status_code not in [401, 403]
+
+def test_privacy_settings_forbidden(test_user_data):
+    # Register and Login
+    client.post("/api/auth/register", json=test_user_data)
+    login_res = client.post("/api/auth/login", data={"username": test_user_data["email"], "password": test_user_data["password"]})
+    token = login_res.json()["access_token"]
+    
+    headers = {"Authorization": f"Bearer {token}"}
+    me_res = client.get("/api/auth/me", headers=headers)
+    my_user_id = me_res.json()["id"]
+
+    sneaky_target_id = my_user_id + 999 
+    response = client.get(f"/api/privacy-settings/{sneaky_target_id}", headers=headers)
+    
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Not authorized"
+
+def test_privacy_settings_unauthenticated():
+    # We provide absolutely no headers/tokens
+    response = client.get("/api/privacy-settings/1")
+    assert response.status_code == 401
+
+# For experiences
+
+def test_get_experiences_authorized(test_user_data):
+    client.post("/api/auth/register", json=test_user_data)
+    login_res = client.post("/api/auth/login", data={"username": test_user_data["email"], "password": test_user_data["password"]})
+    token = login_res.json()["access_token"]
+    
+    headers = {"Authorization": f"Bearer {token}"}
+    me_res = client.get("/api/auth/me", headers=headers)
+    my_user_id = me_res.json()["id"]
+
+    response = client.get(f"/api/user-profiles/{my_user_id}/experiences", headers=headers)
+    assert response.status_code not in [401, 403]
+
+def test_get_experiences_forbidden(test_user_data):
+    client.post("/api/auth/register", json=test_user_data)
+    login_res = client.post("/api/auth/login", data={"username": test_user_data["email"], "password": test_user_data["password"]})
+    token = login_res.json()["access_token"]
+    
+    headers = {"Authorization": f"Bearer {token}"}
+    me_res = client.get("/api/auth/me", headers=headers)
+    my_user_id = me_res.json()["id"]
+
+    sneaky_target_id = my_user_id + 999 
+    response = client.get(f"/api/user-profiles/{sneaky_target_id}/experiences", headers=headers)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Not authorized"
+
+def test_get_experiences_unauthenticated():
+    response = client.get("/api/user-profiles/1/experiences")
+    assert response.status_code == 401
+
+
+# POST Experiences
+
+def test_post_experiences_authorized(test_user_data):
+    client.post("/api/auth/register", json=test_user_data)
+    login_res = client.post("/api/auth/login", data={"username": test_user_data["email"], "password": test_user_data["password"]})
+    token = login_res.json()["access_token"]
+    
+    headers = {"Authorization": f"Bearer {token}"}
+    me_res = client.get("/api/auth/me", headers=headers)
+    my_user_id = me_res.json()["id"]
+
+    # Basic payload to pass potential Pydantic validation before auth kicks in
+    payload = {"title": "Test Role", "company": "Test Company"} 
+    response = client.post(f"/api/user-profiles/{my_user_id}/experiences", json=payload, headers=headers)
+    assert response.status_code not in [401, 403]
+
+def test_post_experiences_unauthenticated():
+    payload = {"title": "Test Role", "company": "Test Company"}
+    response = client.post("/api/user-profiles/1/experiences", json=payload)
+    assert response.status_code == 401
+
+
+# PUT Experiences Auth Tests
+
+def test_put_experiences_authorized(test_user_data):
+    client.post("/api/auth/register", json=test_user_data)
+    login_res = client.post("/api/auth/login", data={"username": test_user_data["email"], "password": test_user_data["password"]})
+    token = login_res.json()["access_token"]
+    
+    headers = {"Authorization": f"Bearer {token}"}
+    me_res = client.get("/api/auth/me", headers=headers)
+    my_user_id = me_res.json()["id"]
+
+    payload = {"title": "Updated Role"}
+    response = client.put(f"/api/user-profiles/{my_user_id}/experiences/1", json=payload, headers=headers)
+    assert response.status_code not in [401, 403]
+
+def test_put_experiences_forbidden(test_user_data):
+    client.post("/api/auth/register", json=test_user_data)
+    login_res = client.post("/api/auth/login", data={"username": test_user_data["email"], "password": test_user_data["password"]})
+    token = login_res.json()["access_token"]
+    
+    headers = {"Authorization": f"Bearer {token}"}
+    me_res = client.get("/api/auth/me", headers=headers)
+    my_user_id = me_res.json()["id"]
+
+    sneaky_target_id = my_user_id + 999
+    payload = {"title": "Updated Role"}
+    response = client.put(f"/api/user-profiles/{sneaky_target_id}/experiences/1", json=payload, headers=headers)
+    assert response.status_code == 403
+
+def test_put_experiences_unauthenticated():
+    payload = {"title": "Updated Role"}
+    response = client.put("/api/user-profiles/1/experiences/1", json=payload)
+    assert response.status_code == 401
+
+
+# DELETE Experiences Auth Tests 
+
+def test_delete_experiences_authorized(test_user_data):
+    client.post("/api/auth/register", json=test_user_data)
+    login_res = client.post("/api/auth/login", data={"username": test_user_data["email"], "password": test_user_data["password"]})
+    token = login_res.json()["access_token"]
+    
+    headers = {"Authorization": f"Bearer {token}"}
+    me_res = client.get("/api/auth/me", headers=headers)
+    my_user_id = me_res.json()["id"]
+
+    response = client.delete(f"/api/user-profiles/{my_user_id}/experiences/1", headers=headers)
+    assert response.status_code not in [401, 403]
+
+def test_delete_experiences_forbidden(test_user_data):
+    client.post("/api/auth/register", json=test_user_data)
+    login_res = client.post("/api/auth/login", data={"username": test_user_data["email"], "password": test_user_data["password"]})
+    token = login_res.json()["access_token"]
+    
+    headers = {"Authorization": f"Bearer {token}"}
+    me_res = client.get("/api/auth/me", headers=headers)
+    my_user_id = me_res.json()["id"]
+
+    sneaky_target_id = my_user_id + 999
+    response = client.delete(f"/api/user-profiles/{sneaky_target_id}/experiences/1", headers=headers)
+    assert response.status_code == 403
+
+def test_delete_experiences_unauthenticated():
+    response = client.delete("/api/user-profiles/1/experiences/1")
     assert response.status_code == 401

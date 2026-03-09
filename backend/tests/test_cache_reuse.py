@@ -1,8 +1,5 @@
 import hashlib
 from dataclasses import dataclass
-from pathlib import Path
-import time
-import pytest
 
 def compute_project_tree_hash(files_meta: list[dict]) -> str:
     h = hashlib.sha256()

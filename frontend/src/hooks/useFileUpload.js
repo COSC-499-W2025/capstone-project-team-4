@@ -16,13 +16,21 @@ function getAuthHeaders() {
 export const useFileUpload = () => {
   // Initialize state from localStorage if available
   const [uploadedFiles, setUploadedFiles] = useState(() => {
-    const saved = localStorage.getItem("uploadedFiles");
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem("uploadedFiles");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
 
   const [projectData, setProjectData] = useState(() => {
-    const saved = localStorage.getItem("projectData");
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem("projectData");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -166,7 +174,8 @@ export const useFileUpload = () => {
         }
       }
 
-      setProjectData(results);
+      setProjectData((prev) => [...(prev || []), ...results]);
+      setUploadedFiles([]);
     } catch (error) {
       console.error("Error processing files:", error);
       setError(error.message);

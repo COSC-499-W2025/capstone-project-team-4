@@ -3,7 +3,6 @@ import subprocess
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from datetime import datetime
 
 import pytest
 
@@ -11,10 +10,8 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from src.services.contributor_analysis_service import ContributorAnalysisService
-from src.models.schemas.contributor import AreaShareSchema, TopFileItemSchema
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from src.services.contributor_analysis_service import ContributorAnalysisService  # noqa: E402
+from src.models.schemas.contributor import TopFileItemSchema  # noqa: E402
 
 
 def _run_git(cwd: str, args: list[str], env: dict | None = None) -> None:
@@ -168,7 +165,7 @@ def test_classify_file_to_area(git_repo):
     assert service._classify_file_to_area("frontend/components/Button.jsx") == "frontend"
     
     # Other areas (should return None or configured area)
-    result = service._classify_file_to_area("docs/README.md")
+    service._classify_file_to_area("docs/README.md")
     # Could be "docs" or None depending on domain_mapping.yaml
 
 
