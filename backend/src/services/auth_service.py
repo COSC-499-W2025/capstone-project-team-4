@@ -5,12 +5,19 @@ from typing import Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from src.core.security import verify_password, create_access_token
-from src.models.schemas.user import UserCreate, UserResponse, UserLogin, LoginResponse
-from src.repositories.user_repository import UserRepository
+from src.core.security import create_access_token, hash_password, verify_password
+from src.models.orm.user import User
+from src.models.schemas.user import (
+    LoginResponse,
+    PasswordChangeRequest,
+    UserCreate,
+    UserLogin,
+    UserResponse,
+)
 from src.repositories.data_privacy_settings_repository import (
     DataPrivacySettingsRepository,
 )
+from src.repositories.user_repository import UserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -184,3 +191,28 @@ class AuthService:
 
         logger.info(f"User activated: {user.email}")
         return True
+
+    def change_password(
+        self, user: User, payload: PasswordChangeRequest
+    ) -> tuple[bool, str | None]:
+        """
+        Verifies the old password and updates the user's password to the new one.
+        """
+        # 1. Verify the old password is correct
+        # (Check what your actual hashed password column is named in the User ORM. Usually 'hashed_password')
+        if not verify_password(payload.old_password, user.password_hash):
+            return False, "Incorrect current password."
+
+        # 2. Prevent changing to the exact same password
+        if payload.old_password == payload.new_password:
+            return False, "New password cannot be the same as the old password."
+
+        # 3. Hash the new password and update the user object
+        user.password_hash = hash_password(payload.new_password)
+
+        # 4. Save the changes to the database
+        self.db.add(user)
+        self.db.commit()
+        self.db.refresh(user)
+
+        return True, None

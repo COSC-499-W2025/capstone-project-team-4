@@ -37,6 +37,13 @@ class UserResponse(UserBase):
     updated_at: datetime
 
 
+class PasswordChangeRequest(BaseModel):
+    old_password: str
+    new_password: str = Field(
+        ..., min_length=6, description="Password must be at least 6 characters"
+    )
+
+
 class UserLogin(BaseModel):
     """Schema for user login request."""
 
