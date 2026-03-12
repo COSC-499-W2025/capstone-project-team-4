@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import Main from "@/pages/Instruction";
 import Generator from "@/pages/Generator";
 import AccountPage from "@/pages/Account";
+import ResumeBuilder from "@/pages/ResumeBuilder";
 import LoginPage from "@/pages/auth/login";
 import SignupPage from "@/pages/auth/signup";
 import { isAuthenticated } from "@/lib/auth";
@@ -36,6 +37,14 @@ function App() {
           element={
             <ProtectedRoute>
               <AccountPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/resume-builder"
+          element={
+            <ProtectedRoute>
+              <ResumeBuilder />
             </ProtectedRoute>
           }
         />

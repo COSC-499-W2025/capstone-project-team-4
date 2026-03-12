@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, Sparkles, User } from "lucide-react";
+import { FileText, Home, Sparkles, User } from "lucide-react";
 import { clearAccessToken, isAuthenticated } from "@/lib/auth";
 
 const Navigation = () => {
@@ -60,6 +60,20 @@ const Navigation = () => {
                   <span>Generate</span>
                 </Button>
               </Link>
+
+              {authed ? (
+                <Link to="/resume-builder">
+                  <Button
+                    variant={
+                      location.pathname === "/resume-builder" ? "default" : "ghost"
+                    }
+                    className="flex items-center space-x-2"
+                  >
+                    <FileText className="h-4 w-4" />
+                    <span>Resume Builder</span>
+                  </Button>
+                </Link>
+              ) : null}
 
               {authed ? (
                 <Link to="/account">
