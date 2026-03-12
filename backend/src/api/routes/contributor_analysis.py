@@ -90,7 +90,9 @@ async def get_contributor_analysis(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error analyzing contributor {contributor_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error analyzing contributor {contributor_id}: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=500,
             detail="Failed to analyze contributor contributions",
@@ -103,7 +105,9 @@ async def get_contributor_directories(
     contributor_id: int,
     branch: Optional[str] = None,
     depth: int = Query(3, ge=1, le=8, description="Directory depth to aggregate paths"),
-    top_n: int = Query(10, ge=1, le=50, description="Number of top directories to return"),
+    top_n: int = Query(
+        10, ge=1, le=50, description="Number of top directories to return"
+    ),
     db: Session = Depends(get_db),
 ) -> ContributorDirectoriesResponseSchema:
     """Get directory-level contribution breakdown for a specific contributor.

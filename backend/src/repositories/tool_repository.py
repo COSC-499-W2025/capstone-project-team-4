@@ -101,7 +101,9 @@ class ToolRepository(BaseRepository[ProjectTool]):
         )
         return self.create(project_tool)
 
-    def create_tools_bulk(self, tools_data: List[dict], project_id: int) -> List[ProjectTool]:
+    def create_tools_bulk(
+        self, tools_data: List[dict], project_id: int
+    ) -> List[ProjectTool]:
         """Create multiple tools efficiently."""
         project_tools = []
         seen = set()
@@ -119,8 +121,7 @@ class ToolRepository(BaseRepository[ProjectTool]):
 
             # Get or create the tool lookup record
             tool = self.get_or_create_tool(
-                name=name,
-                category=data.get("category", "other")
+                name=name, category=data.get("category", "other")
             )
 
             # Check if project-tool association exists
@@ -146,7 +147,9 @@ class ToolRepository(BaseRepository[ProjectTool]):
 
     def count_by_project(self, project_id: int) -> int:
         """Count tools in a project."""
-        stmt = select(func.count(ProjectTool.id)).where(ProjectTool.project_id == project_id)
+        stmt = select(func.count(ProjectTool.id)).where(
+            ProjectTool.project_id == project_id
+        )
         return self.db.scalar(stmt) or 0
 
     def count_by_category(self, project_id: int) -> Dict[str, int]:

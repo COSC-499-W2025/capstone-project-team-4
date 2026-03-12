@@ -106,7 +106,9 @@ class FrameworkRepository(BaseRepository[ProjectFramework]):
             # Convert validation_sources list to JSON string
             validation_sources = data.get("validation_sources")
             if isinstance(validation_sources, list):
-                validation_sources = json.dumps(validation_sources) if validation_sources else None
+                validation_sources = (
+                    json.dumps(validation_sources) if validation_sources else None
+                )
 
             project_framework = ProjectFramework(
                 project_id=project_id,

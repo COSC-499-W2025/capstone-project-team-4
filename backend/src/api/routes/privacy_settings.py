@@ -10,7 +10,9 @@ from src.models.schemas.data_privacy_settings import (
     DataPrivacySettingsResponse,
     DataPrivacySettingsUpdate,
 )
-from src.repositories.data_privacy_settings_repository import DataPrivacySettingsRepository
+from src.repositories.data_privacy_settings_repository import (
+    DataPrivacySettingsRepository,
+)
 from src.repositories.user_repository import UserRepository
 from src.api.exceptions import UserNotFoundError, PrivacySettingsNotFoundError
 from src.models.orm.user import User
@@ -25,7 +27,7 @@ router = APIRouter(prefix="/privacy-settings", tags=["privacy-settings"])
 async def get_privacy_settings(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user : User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get privacy settings for a user.
@@ -35,7 +37,7 @@ async def get_privacy_settings(
     """
     if current_user.id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
-    
+
     user_repo = UserRepository(db)
     privacy_repo = DataPrivacySettingsRepository(db)
 
@@ -64,7 +66,7 @@ async def update_privacy_settings(
     user_id: int,
     data: DataPrivacySettingsUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Update privacy settings for a user.

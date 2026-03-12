@@ -107,7 +107,9 @@ def validate_zip(file_path: str | Path) -> Tuple[bool, List[str]]:
                 if norm in seen_lower:
                     return (
                         False,
-                        [f"case-insensitive name collision: {name} vs {seen_lower[norm]}"],
+                        [
+                            f"case-insensitive name collision: {name} vs {seen_lower[norm]}"
+                        ],
                     )
                 seen_lower[norm] = name
 

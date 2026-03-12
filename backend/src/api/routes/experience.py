@@ -1,4 +1,5 @@
 """Experience API routes."""
+
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,7 +24,7 @@ router = APIRouter(prefix="/user-profiles/{user_id}/experiences", tags=["experie
 async def get_experiences(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get all experiences for a specific user.
@@ -40,7 +41,7 @@ async def create_experience(
     user_id: int,
     data: ExperienceCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Create a new experience for a specific user.
@@ -58,7 +59,7 @@ async def update_experience(
     experience_id: int,
     data: ExperienceUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Update an existing experience for a specific user.
@@ -77,7 +78,7 @@ async def delete_experience(
     user_id: int,
     experience_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Delete an experience for a specific user.

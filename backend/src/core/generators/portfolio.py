@@ -58,7 +58,9 @@ def _build_ai_context(
         parts.append("\nWork Experience:")
         for exp in experiences:
             end = exp.get("end_date") or "Present"
-            parts.append(f"- {exp.get('job_title', 'N/A')} at {exp.get('company_name', 'N/A')} ({exp.get('start_date', 'N/A')} - {end})")
+            parts.append(
+                f"- {exp.get('job_title', 'N/A')} at {exp.get('company_name', 'N/A')} ({exp.get('start_date', 'N/A')} - {end})"
+            )
             if exp.get("description"):
                 parts.append(f"  {exp['description'][:200]}")
 
@@ -194,7 +196,9 @@ def _generate_template_based(
     title = f"{user_name}'s Software Engineering Portfolio"
 
     parts = []
-    parts.append(f"Software developer with experience across {len(projects_data)} project{'s' if len(projects_data) != 1 else ''}.")
+    parts.append(
+        f"Software developer with experience across {len(projects_data)} project{'s' if len(projects_data) != 1 else ''}."
+    )
 
     if technologies:
         tech_str = ", ".join(technologies[:8])

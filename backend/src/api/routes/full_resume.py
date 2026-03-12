@@ -31,7 +31,7 @@ def _safe_filename(name: str) -> str:
 async def get_resume_json(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Compose and return a full structured resume as JSON.
@@ -43,7 +43,7 @@ async def get_resume_json(
     service = FullResumeService(db)
     if current_user.id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
-    
+
     try:
         return service.compose_resume(user_id)
     except ValueError:
@@ -55,7 +55,7 @@ async def export_resume(
     user_id: int,
     format: str = Query("pdf", description="Export format: pdf, html, or markdown"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Export the full resume in the requested format.
@@ -67,7 +67,7 @@ async def export_resume(
     """
     if current_user.id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
-    
+
     valid_formats = {"pdf", "html", "markdown"}
     if format not in valid_formats:
         raise HTTPException(

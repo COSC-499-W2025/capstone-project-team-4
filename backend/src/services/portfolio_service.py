@@ -9,12 +9,19 @@ from sqlalchemy.orm.attributes import flag_modified
 from src.config.settings import settings
 from src.models.orm.portfolio import Portfolio
 from src.models.orm.user import User
-from src.models.schemas.portfolio import PortfolioResponse, PortfolioProjectCustomize, PortfolioUpdate
+from src.models.schemas.portfolio import (
+    PortfolioResponse,
+    PortfolioProjectCustomize,
+    PortfolioUpdate,
+)
 from src.repositories.portfolio_repository import PortfolioRepository
 from src.repositories.project_repository import ProjectRepository
 from src.repositories.skill_repository import SkillRepository
 from src.repositories.resume_repository import ResumeRepository
-from src.repositories.user_profile_repository import UserProfileRepository, ExperienceRepository
+from src.repositories.user_profile_repository import (
+    UserProfileRepository,
+    ExperienceRepository,
+)
 from src.core.generators.portfolio import generate_portfolio
 
 logger = logging.getLogger(__name__)
@@ -51,7 +58,9 @@ class PortfolioService:
 
         # 1. Get user profile for name and summary
         profile = self.profile_repo.get_by_user_id(user_id)
-        user_name = f"{profile.first_name} {profile.last_name}" if profile else user.email
+        user_name = (
+            f"{profile.first_name} {profile.last_name}" if profile else user.email
+        )
         profile_summary = profile.summary if profile else None
 
         # 2. Get all user's projects
@@ -77,13 +86,15 @@ class PortfolioService:
             latest_resume = self.resume_repo.get_latest(project_id)
             highlights = latest_resume.highlights if latest_resume else []
 
-            projects_data.append({
-                "name": project.name,
-                "languages": languages,
-                "frameworks": frameworks,
-                "skills": skill_categories,
-                "resume_highlights": highlights or [],
-            })
+            projects_data.append(
+                {
+                    "name": project.name,
+                    "languages": languages,
+                    "frameworks": frameworks,
+                    "skills": skill_categories,
+                    "resume_highlights": highlights or [],
+                }
+            )
 
         # Deduplicate aggregated skills
         for cat in aggregated_skills:
@@ -223,19 +234,25 @@ class PortfolioService:
         experiences = self.experience_repo.get_by_user(user_id)
         result = []
         for exp in experiences:
-            result.append({
-                "company_name": exp.company_name,
-                "job_title": exp.job_title,
-                "experience_type": exp.experience_type,
-                "start_date": str(exp.start_date) if exp.start_date else None,
-                "end_date": str(exp.end_date) if exp.end_date else None,
-                "is_current": exp.is_current,
-                "description": exp.description,
-            })
+            result.append(
+                {
+                    "company_name": exp.company_name,
+                    "job_title": exp.job_title,
+                    "experience_type": exp.experience_type,
+                    "start_date": str(exp.start_date) if exp.start_date else None,
+                    "end_date": str(exp.end_date) if exp.end_date else None,
+                    "is_current": exp.is_current,
+                    "description": exp.description,
+                }
+            )
         return result
 
     def customize_project(
-        self, portfolio_id: int, user_id: int, project_name: str, update_data: PortfolioProjectCustomize
+        self,
+        portfolio_id: int,
+        user_id: int,
+        project_name: str,
+        update_data: PortfolioProjectCustomize,
     ) -> Tuple[Optional[PortfolioResponse], Optional[str]]:
         """
         Updates custom fields for a specific project inside the portfolio JSON.
@@ -244,7 +261,7 @@ class PortfolioService:
         portfolio = self.portfolio_repo.get(portfolio_id)
         if not portfolio:
             return None, "Portfolio not found"
-            
+
         # Security Check
         if portfolio.user_id != user_id:
             return None, "Not authorized to edit this portfolio"
@@ -258,17 +275,17 @@ class PortfolioService:
         for proj in projects:
             if proj.get("name") == project_name:
                 project_found = True
-                
+
                 # Apply the customizations
                 if update_data.name is not None:
-                    proj["name"] = update_data.name 
+                    proj["name"] = update_data.name
                 if update_data.languages is not None:
                     proj["languages"] = update_data.languages
                 if update_data.frameworks is not None:
                     proj["frameworks"] = update_data.frameworks
                 if update_data.resume_highlights is not None:
                     proj["resume_highlights"] = update_data.resume_highlights
-                # Custom stuff here 
+                # Custom stuff here
                 if update_data.custom_name is not None:
                     proj["custom_name"] = update_data.custom_name
                 if update_data.description is not None:
@@ -282,8 +299,8 @@ class PortfolioService:
 
         # Save the JSON back and return
         portfolio.content = content
-        flag_modified(portfolio, "content") 
-        
+        flag_modified(portfolio, "content")
+
         updated_portfolio = self.portfolio_repo.update(portfolio)
 
         return PortfolioResponse(

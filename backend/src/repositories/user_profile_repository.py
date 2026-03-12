@@ -146,7 +146,9 @@ class ExperienceRepository(BaseRepository[Experience]):
 
         for key, value in kwargs.items():
             if hasattr(experience, key) and value is not None:
-                if key in ("responsibilities", "achievements") and isinstance(value, list):
+                if key in ("responsibilities", "achievements") and isinstance(
+                    value, list
+                ):
                     value = json.dumps(value)
                 setattr(experience, key, value)
 
