@@ -17,7 +17,12 @@ from src.models.schemas.project import (
     ProjectDetail,
     ProjectThumbnailResponse,
 )
-from src.models.schemas.analysis import AnalysisResult, AnalysisStatus, ComplexitySummary, TextualProjectShowcaseResponse
+from src.models.schemas.analysis import (
+    AnalysisResult,
+    AnalysisStatus,
+    ComplexitySummary,
+    TextualProjectShowcaseResponse,
+)
 from src.models.schemas.contributor import (
     ContributorAnalysisSchema,
     ProjectContributorsAnalysisResponse,
@@ -463,7 +468,9 @@ class ProjectService:
             net_lines = c.total_lines_added - c.total_lines_deleted
 
             # Calculate change statistics
-            contributor_total_lines_changed = c.total_lines_added + c.total_lines_deleted
+            contributor_total_lines_changed = (
+                c.total_lines_added + c.total_lines_deleted
+            )
             lines_changed_per_commit = (
                 round(contributor_total_lines_changed / c.commits, 2)
                 if c.commits > 0
@@ -561,7 +568,7 @@ class ProjectService:
     def project_exists(self, project_id: int) -> bool:
         """Check if a project exists."""
         return self.project_repo.get(project_id) is not None
-    
+
     def get_textual_project_showcase(
         self, project_id: int
     ) -> Optional[TextualProjectShowcaseResponse]:

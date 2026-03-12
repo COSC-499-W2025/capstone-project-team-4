@@ -25,7 +25,9 @@ class Library(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Library(id={self.id}, name='{self.name}', ecosystem='{self.ecosystem}')>"
+        return (
+            f"<Library(id={self.id}, name='{self.name}', ecosystem='{self.ecosystem}')>"
+        )
 
 
 class ProjectLibrary(Base):
@@ -35,7 +37,10 @@ class ProjectLibrary(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     project_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer,
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     library_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("libraries.id"), nullable=False, index=True

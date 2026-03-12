@@ -41,11 +41,30 @@ except ModuleNotFoundError:  # pragma: no cover
 # =============================================================================
 
 TEXT_SCAN_EXTS = {
-    ".py", ".ts", ".tsx", ".js", ".jsx",
-    ".json", ".yml", ".yaml", ".toml", ".txt",
-    ".cfg", ".ini", ".xml", ".md", ".properties",
-    ".gradle", ".kts", ".cs", ".sln", ".java",
-    ".php", ".rb", ".go", ".rs"
+    ".py",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".json",
+    ".yml",
+    ".yaml",
+    ".toml",
+    ".txt",
+    ".cfg",
+    ".ini",
+    ".xml",
+    ".md",
+    ".properties",
+    ".gradle",
+    ".kts",
+    ".cs",
+    ".sln",
+    ".java",
+    ".php",
+    ".rb",
+    ".go",
+    ".rs",
 }
 
 
@@ -107,7 +126,11 @@ def scan_text_any(folder: Path, needles: list[str], excludes: set[str]) -> bool:
     if not needles:
         return False
     for p in folder.rglob("*"):
-        if p.is_file() and p.suffix.lower() in TEXT_SCAN_EXTS and not path_in_excludes(p, excludes):
+        if (
+            p.is_file()
+            and p.suffix.lower() in TEXT_SCAN_EXTS
+            and not path_in_excludes(p, excludes)
+        ):
             txt = read_text_safe(p)
             if not txt:
                 continue
@@ -120,6 +143,7 @@ def scan_text_any(folder: Path, needles: list[str], excludes: set[str]) -> bool:
 # =============================================================================
 # Rules loading
 # =============================================================================
+
 
 @lru_cache(maxsize=16)
 def _load_tool_rules(rules_path: str) -> dict:
@@ -139,6 +163,7 @@ def get_default_rules_path() -> Path:
 # =============================================================================
 # Signal evaluation (similar to framework.py)
 # =============================================================================
+
 
 def eval_signal(
     sig: dict,
@@ -169,10 +194,17 @@ def eval_signal(
         key = sig.get("key") or "dependencies"
         contains = (sig.get("contains") or "").lower()
 
-        if key in {"dependencies", "devDependencies", "peerDependencies", "optionalDependencies"}:
+        if key in {
+            "dependencies",
+            "devDependencies",
+            "peerDependencies",
+            "optionalDependencies",
+        }:
             deps = pkg_json.get(key) or {}
         else:
-            deps = (pkg_json.get("dependencies") or {}) | (pkg_json.get("devDependencies") or {})
+            deps = (pkg_json.get("dependencies") or {}) | (
+                pkg_json.get("devDependencies") or {}
+            )
 
         if any(contains in (name or "").lower() for name in deps.keys()):
             emitted.append(f"pkg_json_dep:{key}:{contains}")
@@ -243,7 +275,9 @@ def eval_signal(
     # --- Python: requirements*.txt ---
     if t == "req_txt_contains":
         needle = (sig.get("value") or "").lower()
-        candidates = list(folder.glob("requirements*.txt")) + list(folder.rglob("requirements/*.txt"))
+        candidates = list(folder.glob("requirements*.txt")) + list(
+            folder.rglob("requirements/*.txt")
+        )
         for p in candidates:
             txt = read_text_safe(p) or ""
             if needle in txt.lower():
@@ -254,7 +288,9 @@ def eval_signal(
 
     # --- Python: toml_dep (pyproject.toml) ---
     if t in {"toml_dep", "poetry_dep"}:
-        key = sig.get("key") or ("tool.poetry.dependencies" if t == "poetry_dep" else "project.dependencies")
+        key = sig.get("key") or (
+            "tool.poetry.dependencies" if t == "poetry_dep" else "project.dependencies"
+        )
         needle = (sig.get("contains") or "").lower()
         pyproj = folder / "pyproject.toml"
         if pyproj.exists():
@@ -317,7 +353,9 @@ def eval_signal(
         if composer.exists():
             data = load_json_safe(composer)
             if data:
-                all_deps = list((data.get("require") or {}).keys()) + list((data.get("require-dev") or {}).keys())
+                all_deps = list((data.get("require") or {}).keys()) + list(
+                    (data.get("require-dev") or {}).keys()
+                )
                 if any(needle in d.lower() for d in all_deps):
                     emitted.append(f"composer:{needle}")
                     config_file = "composer.json"
@@ -379,6 +417,7 @@ def eval_signal(
 # Detection pipeline
 # =============================================================================
 
+
 def detect_tools_in_folder(folder: Path, rules: dict) -> list[dict]:
     """
     Detect tools in a single folder using YAML rules.
@@ -407,8 +446,12 @@ def detect_tools_in_folder(folder: Path, rules: dict) -> list[dict]:
 
         for tool_name, spec in tools_in_category.items():
             if not isinstance(spec, dict):
-                logger.debug("categories.%s.%s is %s; expected dict. Skipped.",
-                           category_name, tool_name, type(spec).__name__)
+                logger.debug(
+                    "categories.%s.%s is %s; expected dict. Skipped.",
+                    category_name,
+                    tool_name,
+                    type(spec).__name__,
+                )
                 continue
 
             score = 0.0
@@ -431,21 +474,20 @@ def detect_tools_in_folder(folder: Path, rules: dict) -> list[dict]:
 
             min_needed = float(spec.get("min_score", default_min))
             if score >= min_needed and fired:
-                results.append({
-                    "name": tool_name,
-                    "category": category_name,
-                    "confidence": min(1.0, round(score, 3)),
-                    "signals": fired[:50],
-                    "config_file": config_file,
-                })
+                results.append(
+                    {
+                        "name": tool_name,
+                        "category": category_name,
+                        "confidence": min(1.0, round(score, 3)),
+                        "signals": fired[:50],
+                        "config_file": config_file,
+                    }
+                )
 
     return results
 
 
-def detect_tools_recursive(
-    project_root: Path,
-    rules_path: str | None = None
-) -> dict:
+def detect_tools_recursive(project_root: Path, rules_path: str | None = None) -> dict:
     """
     From the project root, detect tools and technologies.
 
@@ -515,6 +557,7 @@ def detect_tools_recursive(
 # =============================================================================
 # Output formatting
 # =============================================================================
+
 
 def pretty_print_results(results: dict) -> None:
     """Print tool detection results in a human-readable format."""

@@ -41,6 +41,7 @@ class FileInfo:
     (metadata parsing, skill extraction, complexity analysis)
     without redundant file system traversals.
     """
+
     path: Path
     relative_path: str
     filename: str
@@ -90,9 +91,17 @@ class UnifiedFileWalker:
             min_file_size: Minimum file size in bytes (default: MIN_FILE_SIZE)
         """
         self.skip_dirs = skip_dirs if skip_dirs is not None else SKIP_DIRECTORIES
-        self.skip_extensions = skip_extensions if skip_extensions is not None else SKIP_EXTENSIONS
-        self.skip_filenames = skip_filenames if skip_filenames is not None else SKIP_FILENAMES
-        self.hidden_exceptions = hidden_exceptions if hidden_exceptions is not None else HIDDEN_FILE_EXCEPTIONS
+        self.skip_extensions = (
+            skip_extensions if skip_extensions is not None else SKIP_EXTENSIONS
+        )
+        self.skip_filenames = (
+            skip_filenames if skip_filenames is not None else SKIP_FILENAMES
+        )
+        self.hidden_exceptions = (
+            hidden_exceptions
+            if hidden_exceptions is not None
+            else HIDDEN_FILE_EXCEPTIONS
+        )
         self.max_file_size = max_file_size
         self.min_file_size = min_file_size
 
@@ -154,7 +163,9 @@ class UnifiedFileWalker:
                 skip, reason = self.should_skip_file(file_path, root)
                 yield file_path, reason if skip else None
 
-    def should_analyze_file(self, file_path: Path, root_path: Optional[Path] = None) -> bool:
+    def should_analyze_file(
+        self, file_path: Path, root_path: Optional[Path] = None
+    ) -> bool:
         """
         Determine if a file should be analyzed.
 
@@ -168,7 +179,9 @@ class UnifiedFileWalker:
         skip, _ = self.should_skip_file(file_path, root_path)
         return not skip
 
-    def should_skip_file(self, file_path: Path, root_path: Optional[Path] = None) -> Tuple[bool, str]:
+    def should_skip_file(
+        self, file_path: Path, root_path: Optional[Path] = None
+    ) -> Tuple[bool, str]:
         """
         Determine if a file should be skipped and why.
 
@@ -183,7 +196,7 @@ class UnifiedFileWalker:
         extension = file_path.suffix.lower()
 
         # Check hidden files (except allowed ones)
-        if filename.startswith('.') and filename not in self.hidden_exceptions:
+        if filename.startswith(".") and filename not in self.hidden_exceptions:
             return True, f"hidden file: {filename}"
 
         # Check file extension
@@ -212,16 +225,22 @@ class UnifiedFileWalker:
             # Skip system directories like /tmp, /var, etc.
             for part in file_path.parent.parts:
                 # Only check directory names, not full path components
-                if part in self.skip_dirs and part not in ('/', 'tmp', 'temp', 'var'):
+                if part in self.skip_dirs and part not in ("/", "tmp", "temp", "var"):
                     return True, f"in skipped directory: {part}"
 
         # Check file size
         try:
             file_size = file_path.stat().st_size
             if file_size > self.max_file_size:
-                return True, f"file too large: {file_size} bytes (max: {self.max_file_size})"
+                return (
+                    True,
+                    f"file too large: {file_size} bytes (max: {self.max_file_size})",
+                )
             if file_size < self.min_file_size:
-                return True, f"file too small: {file_size} bytes (min: {self.min_file_size})"
+                return (
+                    True,
+                    f"file too small: {file_size} bytes (min: {self.min_file_size})",
+                )
         except OSError as e:
             logger.warning("Could not get file size for %s: %s", file_path, e)
             # Let it through if we can't get the size
@@ -308,7 +327,10 @@ def collect_all_file_info(
     Returns:
         List of FileInfo objects with all metadata
     """
-    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+    from concurrent.futures import (
+        ThreadPoolExecutor,
+        TimeoutError as FuturesTimeoutError,
+    )
     from tqdm import tqdm
     import mimetypes
     import magic
@@ -342,7 +364,11 @@ def collect_all_file_info(
     walker = UnifiedFileWalker()
     file_paths = list(walker.walk(root))
 
-    iterator = tqdm(file_paths, desc="Collecting file info", unit=" files") if show_progress else file_paths
+    iterator = (
+        tqdm(file_paths, desc="Collecting file info", unit=" files")
+        if show_progress
+        else file_paths
+    )
 
     for file_path in iterator:
         try:

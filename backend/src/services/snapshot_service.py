@@ -34,15 +34,58 @@ IGNORED_DIRS = {
 }
 
 TEXT_EXTENSIONS = {
-    ".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".go", ".rb", ".rs",
-    ".c", ".cpp", ".h", ".hpp", ".cs", ".php", ".swift", ".kt", ".scala",
-    ".sh", ".sql", ".html", ".css", ".scss", ".md", ".json", ".yaml",
-    ".yml", ".toml", ".xml",
+    ".py",
+    ".js",
+    ".ts",
+    ".jsx",
+    ".tsx",
+    ".java",
+    ".go",
+    ".rb",
+    ".rs",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".php",
+    ".swift",
+    ".kt",
+    ".scala",
+    ".sh",
+    ".sql",
+    ".html",
+    ".css",
+    ".scss",
+    ".md",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".xml",
 }
 
 CODE_EXTENSIONS = {
-    ".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".go", ".rb", ".rs",
-    ".c", ".cpp", ".h", ".hpp", ".cs", ".php", ".swift", ".kt", ".scala", ".sh", ".sql",
+    ".py",
+    ".js",
+    ".ts",
+    ".jsx",
+    ".tsx",
+    ".java",
+    ".go",
+    ".rb",
+    ".rs",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".php",
+    ".swift",
+    ".kt",
+    ".scala",
+    ".sh",
+    ".sql",
 }
 
 TEXT_ONLY_EXTENSIONS = {".txt", ".md", ".rtf", ".csv"}
@@ -86,7 +129,11 @@ class SnapshotService:
             )
 
         self.snapshot_repo.delete(snapshot_id)
-        return {"project_id": project_id, "snapshot_id": snapshot_id, "message": "Snapshot deleted successfully."}
+        return {
+            "project_id": project_id,
+            "snapshot_id": snapshot_id,
+            "message": "Snapshot deleted successfully.",
+        }
 
     def create_midpoint_snapshot(self, project_id: int) -> dict:
         return self._create_snapshot(project_id=project_id, snapshot_type="midpoint")
@@ -102,7 +149,9 @@ class SnapshotService:
         otherwise computes and persists a new comparison.
         """
         current_snap = self.snapshot_repo.get_latest_for_project(project_id, "current")
-        midpoint_snap = self.snapshot_repo.get_latest_for_project(project_id, "midpoint")
+        midpoint_snap = self.snapshot_repo.get_latest_for_project(
+            project_id, "midpoint"
+        )
         if not current_snap or not midpoint_snap:
             raise HTTPException(
                 status_code=404,
@@ -110,7 +159,9 @@ class SnapshotService:
             )
 
         # Return cached comparison if it exists for this snapshot pair
-        cached = self.comparison_repo.get_by_snapshot_ids(current_snap.id, midpoint_snap.id)
+        cached = self.comparison_repo.get_by_snapshot_ids(
+            current_snap.id, midpoint_snap.id
+        )
         if cached:
             return json.loads(cached.payload_json)
 
@@ -142,7 +193,10 @@ class SnapshotService:
         def set_delta(key: str) -> dict:
             cur_set = set(cur_metrics.get(key, []))
             mid_set = set(mid_metrics.get(key, []))
-            return {"added": sorted(cur_set - mid_set), "removed": sorted(mid_set - cur_set)}
+            return {
+                "added": sorted(cur_set - mid_set),
+                "removed": sorted(mid_set - cur_set),
+            }
 
         def count_delta(cur_val, mid_val) -> dict:
             return {"current": cur_val, "midpoint": mid_val, "delta": cur_val - mid_val}
@@ -169,7 +223,13 @@ class SnapshotService:
             },
             "counts": {
                 k: count_delta(cur_counts.get(k, 0), mid_counts.get(k, 0))
-                for k in ("language_count", "framework_count", "library_count", "tool_count", "skill_count")
+                for k in (
+                    "language_count",
+                    "framework_count",
+                    "library_count",
+                    "tool_count",
+                    "skill_count",
+                )
             },
             "languages": set_delta("languages"),
             "skills": set_delta("skills"),
@@ -205,20 +265,30 @@ class SnapshotService:
         """Create both current and midpoint snapshots in one request."""
         project = self.project_repo.get(project_id)
         if not project:
-            raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+            raise HTTPException(
+                status_code=404, detail=f"Project not found: {project_id}"
+            )
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             workspace = Path(tmp_dir)
-            repo_root = self._materialize_repo(project.root_path, project.source_url, workspace)
+            repo_root = self._materialize_repo(
+                project.root_path, project.source_url, workspace
+            )
 
-            current_commit = self._resolve_commit_point(repo_root, snapshot_type="current")
+            current_commit = self._resolve_commit_point(
+                repo_root, snapshot_type="current"
+            )
             current_snapshot = self._build_snapshot(
                 project_id, repo_root, current_commit, snapshot_type="current"
             )
             current_saved = self._persist_snapshot(project_id, current_snapshot)
 
-            midpoint_commit = self._resolve_commit_point(repo_root, snapshot_type="midpoint")
-            self._git(repo_root, "checkout", "--force", "--detach", midpoint_commit.hash)
+            midpoint_commit = self._resolve_commit_point(
+                repo_root, snapshot_type="midpoint"
+            )
+            self._git(
+                repo_root, "checkout", "--force", "--detach", midpoint_commit.hash
+            )
             self._git(repo_root, "clean", "-fd")
             midpoint_snapshot = self._build_snapshot(
                 project_id, repo_root, midpoint_commit, snapshot_type="midpoint"
@@ -234,19 +304,31 @@ class SnapshotService:
     def _create_snapshot(self, project_id: int, snapshot_type: str) -> dict:
         project = self.project_repo.get(project_id)
         if not project:
-            raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+            raise HTTPException(
+                status_code=404, detail=f"Project not found: {project_id}"
+            )
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             workspace = Path(tmp_dir)
-            repo_root = self._materialize_repo(project.root_path, project.source_url, workspace)
-            commit_point = self._resolve_commit_point(repo_root, snapshot_type=snapshot_type)
+            repo_root = self._materialize_repo(
+                project.root_path, project.source_url, workspace
+            )
+            commit_point = self._resolve_commit_point(
+                repo_root, snapshot_type=snapshot_type
+            )
             if snapshot_type == "midpoint":
-                self._git(repo_root, "checkout", "--force", "--detach", commit_point.hash)
+                self._git(
+                    repo_root, "checkout", "--force", "--detach", commit_point.hash
+                )
                 self._git(repo_root, "clean", "-fd")
-            snapshot = self._build_snapshot(project_id, repo_root, commit_point, snapshot_type=snapshot_type)
+            snapshot = self._build_snapshot(
+                project_id, repo_root, commit_point, snapshot_type=snapshot_type
+            )
             return self._persist_snapshot(project_id, snapshot)
 
-    def _materialize_repo(self, root_path: str, source_url: Optional[str], workspace: Path) -> Path:
+    def _materialize_repo(
+        self, root_path: str, source_url: Optional[str], workspace: Path
+    ) -> Path:
         root = Path(root_path)
         if root.exists():
             copied = workspace / "repo"
@@ -297,29 +379,55 @@ class SnapshotService:
         output = self._git(repo_root, "rev-list", "--reverse", "HEAD")
         commits = [line.strip() for line in output.splitlines() if line.strip()]
         if not commits:
-            raise HTTPException(status_code=400, detail="No commits found in repository history.")
+            raise HTTPException(
+                status_code=400, detail="No commits found in repository history."
+            )
         midpoint_index = (len(commits) - 1) // 2
-        return MidpointCommit(hash=commits[midpoint_index], index=midpoint_index, total_commits=len(commits))
+        return MidpointCommit(
+            hash=commits[midpoint_index],
+            index=midpoint_index,
+            total_commits=len(commits),
+        )
 
     def _get_current_commit(self, repo_root: Path) -> CommitPoint:
         output = self._git(repo_root, "rev-list", "--reverse", "HEAD")
         commits = [line.strip() for line in output.splitlines() if line.strip()]
         if not commits:
-            raise HTTPException(status_code=400, detail="No commits found in repository history.")
+            raise HTTPException(
+                status_code=400, detail="No commits found in repository history."
+            )
         current_index = len(commits) - 1
-        return CommitPoint(hash=commits[current_index], index=current_index, total_commits=len(commits))
+        return CommitPoint(
+            hash=commits[current_index], index=current_index, total_commits=len(commits)
+        )
 
     def _resolve_commit_point(self, repo_root: Path, snapshot_type: str) -> CommitPoint:
         if snapshot_type == "midpoint":
             midpoint = self._get_midpoint_commit(repo_root)
-            return CommitPoint(hash=midpoint.hash, index=midpoint.index, total_commits=midpoint.total_commits)
+            return CommitPoint(
+                hash=midpoint.hash,
+                index=midpoint.index,
+                total_commits=midpoint.total_commits,
+            )
         if snapshot_type == "current":
             return self._get_current_commit(repo_root)
-        raise HTTPException(status_code=400, detail=f"Unsupported snapshot type: {snapshot_type}")
+        raise HTTPException(
+            status_code=400, detail=f"Unsupported snapshot type: {snapshot_type}"
+        )
 
-    def _build_snapshot(self, project_id: int, repo_root: Path, commit_point: CommitPoint, snapshot_type: str) -> dict:
-        commit_iso = self._git(repo_root, "show", "-s", "--format=%cI", commit_point.hash).strip()
-        commit_message = self._git(repo_root, "show", "-s", "--format=%s", commit_point.hash).strip()
+    def _build_snapshot(
+        self,
+        project_id: int,
+        repo_root: Path,
+        commit_point: CommitPoint,
+        snapshot_type: str,
+    ) -> dict:
+        commit_iso = self._git(
+            repo_root, "show", "-s", "--format=%cI", commit_point.hash
+        ).strip()
+        commit_message = self._git(
+            repo_root, "show", "-s", "--format=%s", commit_point.hash
+        ).strip()
 
         total_files = 0
         total_lines = 0
@@ -393,7 +501,9 @@ class SnapshotService:
                 "hash": commit_point.hash,
                 "index": commit_point.index,
                 "total_commits": commit_point.total_commits,
-                "ratio": round((commit_point.index + 1) / commit_point.total_commits, 4),
+                "ratio": round(
+                    (commit_point.index + 1) / commit_point.total_commits, 4
+                ),
                 "message": commit_message,
                 "committed_at": commit_iso,
             },
@@ -439,7 +549,10 @@ class SnapshotService:
 
     def _collect_analysis_metrics(self, project_path: Path) -> dict:
         """Reuse existing analyzers to capture rich snapshot metrics."""
-        from src.core.analyzers.project_stats import analyze_project, project_analysis_to_dict
+        from src.core.analyzers.project_stats import (
+            analyze_project,
+            project_analysis_to_dict,
+        )
         from src.core.detectors.framework import detect_frameworks_recursive
         from src.core.detectors.language import ProjectAnalyzer
         from src.core.detectors.library import detect_libraries_recursive
@@ -462,7 +575,9 @@ class SnapshotService:
             "high_complexity_count": 0,
         }
         try:
-            complexity_dict = project_analysis_to_dict(analyze_project(project_path, file_paths))
+            complexity_dict = project_analysis_to_dict(
+                analyze_project(project_path, file_paths)
+            )
             complexities = [
                 int(f.get("cyclomatic_complexity", 0))
                 for f in complexity_dict.get("functions", [])
@@ -481,8 +596,16 @@ class SnapshotService:
         # Languages
         languages = []
         try:
-            language_stats = ProjectAnalyzer().analyze_project_languages(str(project_path))
-            languages = sorted([lang for lang, count in language_stats.items() if lang != "Unknown" and count > 0])
+            language_stats = ProjectAnalyzer().analyze_project_languages(
+                str(project_path)
+            )
+            languages = sorted(
+                [
+                    lang
+                    for lang, count in language_stats.items()
+                    if lang != "Unknown" and count > 0
+                ]
+            )
         except Exception:
             pass
 
@@ -497,21 +620,30 @@ class SnapshotService:
             tools_report = detect_tools_recursive(project_path)
         except Exception:
             pass
-        libraries = sorted({
-            lib.get("name", "").strip()
-            for lib in libraries_report.get("libraries", [])
-            if lib.get("name")
-        })
-        tools = sorted({
-            tool.get("name", "").strip()
-            for tool in tools_report.get("tools", [])
-            if tool.get("name")
-        })
+        libraries = sorted(
+            {
+                lib.get("name", "").strip()
+                for lib in libraries_report.get("libraries", [])
+                if lib.get("name")
+            }
+        )
+        tools = sorted(
+            {
+                tool.get("name", "").strip()
+                for tool in tools_report.get("tools", [])
+                if tool.get("name")
+            }
+        )
 
         # Frameworks via same detector + cross-validator flow as analysis service
         frameworks = []
         try:
-            rules_path = Path(__file__).resolve().parent.parent / "core" / "rules" / "frameworks.yml"
+            rules_path = (
+                Path(__file__).resolve().parent.parent
+                / "core"
+                / "rules"
+                / "frameworks.yml"
+            )
             raw_fw = detect_frameworks_recursive(project_path, str(rules_path))
             per_folder = raw_fw.get("frameworks", {})
             fw_detected = []
@@ -524,7 +656,9 @@ class SnapshotService:
                 tools=tools_report.get("tools", []),
             )
             enhanced = validator.get_enhanced_results().get_all_frameworks()
-            frameworks = sorted(set(f.get("name", "").strip() for f in enhanced if f.get("name")))
+            frameworks = sorted(
+                set(f.get("name", "").strip() for f in enhanced if f.get("name"))
+            )
         except Exception:
             frameworks = []
 
@@ -593,7 +727,8 @@ class SnapshotService:
             for info in zf.infolist():
                 name = info.filename.replace("\\", "/")
                 if (
-                    name.startswith("__MACOSX/") or "/__MACOSX/" in name
+                    name.startswith("__MACOSX/")
+                    or "/__MACOSX/" in name
                     or Path(name).name == ".DS_Store"
                     or Path(name).name.startswith("._")
                 ):
@@ -602,7 +737,9 @@ class SnapshotService:
 
     def _git(self, repo_root: Path, *args: str) -> str:
         cmd = ["git", "-C", str(repo_root), *args]
-        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        proc = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
         if proc.returncode != 0:
             raise HTTPException(
                 status_code=400,

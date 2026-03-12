@@ -51,7 +51,9 @@ class ContributorSchema(BaseModel):
     github_username: Optional[str] = None
     github_email: Optional[str] = None
     commits: int = 0
-    commit_percent: float = Field(0.0, alias="percent", serialization_alias="commit_percent")
+    commit_percent: float = Field(
+        0.0, alias="percent", serialization_alias="commit_percent"
+    )
     total_lines_added: int = 0
     total_lines_deleted: int = 0
     activity: ActivitySchema = Field(default_factory=ActivitySchema)
@@ -89,7 +91,9 @@ class ContributorAnalysisSchema(BaseModel):
     net_lines: int = 0  # lines_added - lines_deleted
     files_touched: int = 0  # Number of files modified
     contribution_score: float = 0.0  # 0-100 score
-    contribution_percentage: float = 0.0  # Graph visualization: percentage of total contribution
+    contribution_percentage: float = (
+        0.0  # Graph visualization: percentage of total contribution
+    )
     changes: ChangeStatsSchema = Field(default_factory=ChangeStatsSchema)
     area_scores: dict = Field(default_factory=dict)  # Domain -> percentage (0-100)
     top_paths: List[str] = Field(default_factory=list)
@@ -161,7 +165,8 @@ class ContributorAnalysisDetailResponseSchema(BaseModel):
     branch: str
     contributor: ContributorAnalysisDetailSchema
     generated_at: datetime
-      
+
+
 class ContributorDirectoriesResponseSchema(BaseModel):
     """Schema for contributor directory analysis endpoint response."""
 
@@ -205,5 +210,3 @@ class ContributorProjectsByUsernameResponseSchema(BaseModel):
     github_username: str
     total_projects: int = 0
     projects: List[ContributorProjectLinesSchema] = []
-
-

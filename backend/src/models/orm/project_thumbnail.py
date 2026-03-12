@@ -11,6 +11,7 @@ from src.models.database import Base
 if TYPE_CHECKING:
     from src.models.orm.project import Project
 
+
 class ProjectThumbnail(Base):
     """Stores a single thumbnail image for a project (1:1)."""
 

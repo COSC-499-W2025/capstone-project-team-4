@@ -13,7 +13,9 @@ from src.services.snapshot_service import SnapshotService
 router = APIRouter(prefix="/snapshots", tags=["snapshots"])
 
 
-@router.post("/{project_id}/create", response_model=SnapshotPairResponse, status_code=201)
+@router.post(
+    "/{project_id}/create", response_model=SnapshotPairResponse, status_code=201
+)
 async def create_current_and_midpoint_snapshots(
     project_id: int,
     db: Session = Depends(get_db),
@@ -34,7 +36,11 @@ async def delete_snapshot(
     return service.delete_snapshot(project_id, snapshot_id)
 
 
-@router.get("/{project_id}/compare", response_model=SnapshotCurrentMidpointComparisonResponse, status_code=200)
+@router.get(
+    "/{project_id}/compare",
+    response_model=SnapshotCurrentMidpointComparisonResponse,
+    status_code=200,
+)
 async def compare_current_and_midpoint_snapshots(
     project_id: int,
     db: Session = Depends(get_db),

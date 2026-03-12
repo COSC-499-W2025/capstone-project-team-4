@@ -19,7 +19,10 @@ class ContributorCommit(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     contributor_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("contributors.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer,
+        ForeignKey("contributors.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     commit_hash: Mapped[str] = mapped_column(String(40), nullable=False)
     commit_date: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
@@ -27,4 +30,6 @@ class ContributorCommit(Base):
     commit_message: Mapped[str] = mapped_column(String(500), nullable=True)
 
     # Relationships
-    contributor: Mapped["Contributor"] = relationship("Contributor", back_populates="commit_history")
+    contributor: Mapped["Contributor"] = relationship(
+        "Contributor", back_populates="commit_history"
+    )

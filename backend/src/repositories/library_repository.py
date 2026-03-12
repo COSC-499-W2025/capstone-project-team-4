@@ -48,7 +48,9 @@ class LibraryRepository(BaseRepository[ProjectLibrary]):
         )
         return list(self.db.scalars(stmt).all())
 
-    def get_grouped_by_ecosystem(self, project_id: int) -> Dict[str, List[ProjectLibrary]]:
+    def get_grouped_by_ecosystem(
+        self, project_id: int
+    ) -> Dict[str, List[ProjectLibrary]]:
         """Get libraries grouped by ecosystem."""
         libraries = self.get_by_project(project_id)
         grouped: Dict[str, List[ProjectLibrary]] = {}
@@ -101,7 +103,9 @@ class LibraryRepository(BaseRepository[ProjectLibrary]):
         )
         return self.create(project_library)
 
-    def create_libraries_bulk(self, libraries_data: List[dict], project_id: int) -> List[ProjectLibrary]:
+    def create_libraries_bulk(
+        self, libraries_data: List[dict], project_id: int
+    ) -> List[ProjectLibrary]:
         """Create multiple libraries efficiently."""
         project_libraries = []
         seen = set()
@@ -119,8 +123,7 @@ class LibraryRepository(BaseRepository[ProjectLibrary]):
 
             # Get or create the library lookup record
             library = self.get_or_create_library(
-                name=name,
-                ecosystem=data.get("ecosystem", "unknown")
+                name=name, ecosystem=data.get("ecosystem", "unknown")
             )
 
             # Check if project-library association exists
@@ -147,7 +150,9 @@ class LibraryRepository(BaseRepository[ProjectLibrary]):
 
     def count_by_project(self, project_id: int) -> int:
         """Count libraries in a project."""
-        stmt = select(func.count(ProjectLibrary.id)).where(ProjectLibrary.project_id == project_id)
+        stmt = select(func.count(ProjectLibrary.id)).where(
+            ProjectLibrary.project_id == project_id
+        )
         return self.db.scalar(stmt) or 0
 
     def count_by_ecosystem(self, project_id: int) -> Dict[str, int]:

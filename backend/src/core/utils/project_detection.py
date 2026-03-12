@@ -33,14 +33,28 @@ IGNORE_DIRS = {
     ".vscode",
 }
 
-CODE_EXTS = {".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".go", ".rs", ".c", ".cpp", ".cs"}
+CODE_EXTS = {
+    ".py",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".java",
+    ".go",
+    ".rs",
+    ".c",
+    ".cpp",
+    ".cs",
+}
 
 
 def _is_ignored_dir(p: Path) -> bool:
     return p.name in IGNORE_DIRS or p.name.startswith(".")
 
 
-def is_project_root(path: Path, min_code_files: int = 3, max_scan_files: int = 400) -> bool:
+def is_project_root(
+    path: Path, min_code_files: int = 3, max_scan_files: int = 400
+) -> bool:
     """Heuristic project root detector that avoids scanning into .venv/node_modules/etc."""
     if not path.is_dir() or _is_ignored_dir(path):
         return False
@@ -104,28 +118,30 @@ def detect_project_roots(root: Path, max_depth: int = 4) -> List[Path]:
             projects.append(p)
 
     # If we found nested projects, prefer the shallowest ones
-    projects = sorted(projects, key=lambda x: (len(x.resolve().relative_to(root).parts), x.name.lower()))
-
+    projects = sorted(
+        projects,
+        key=lambda x: (len(x.resolve().relative_to(root).parts), x.name.lower()),
+    )
 
     # Remove roots that are inside another detected root
     filtered: List[Path] = []
     for p in projects:
         p_resolved = p.resolve()
-        if not any(p_resolved.is_relative_to(parent.resolve()) for parent in filtered):  # py3.9+ has is_relative_to
+        if not any(
+            p_resolved.is_relative_to(parent.resolve()) for parent in filtered
+        ):  # py3.9+ has is_relative_to
             filtered.append(p)
 
     if len(filtered) >= 2:
-    # If this looks like a monorepo, analyze at the root level
+        # If this looks like a monorepo, analyze at the root level
         if is_monorepo_root(root):
             return [root]
         return filtered
 
-
     if len(filtered) == 1:
         return filtered
-    
-    return [root]
 
+    return [root]
 
 
 def _has_monorepo_marker(root: Path) -> bool:
