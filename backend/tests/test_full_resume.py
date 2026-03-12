@@ -408,14 +408,19 @@ class TestExportPDF:
 
 
 @pytest.fixture
-def api_client(db_session):
-    """TestClient with the DB session overridden to use in-memory SQLite."""
+def api_client(db_session, test_user):
+    """TestClient with the DB session and auth overridden to use in-memory SQLite."""
     from src.api.main import app
+    from src.api.dependencies import get_current_user
 
     def override_get_db():
         yield db_session
 
+    def override_get_current_user():
+        return test_user
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
     client = TestClient(app)
     yield client
     app.dependency_overrides.clear()
