@@ -4,17 +4,17 @@ import logging
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from src.api.dependencies import get_current_user
 from src.api.exceptions import UserNotFoundError
 from src.models.database import get_db
-from src.models.schemas.full_resume import FullResumeData
-from src.services.full_resume_service import FullResumeService
 
 # For auth
 from src.models.orm.user import User
-from src.api.dependencies import get_current_user
+from src.models.schemas.full_resume import FullResumeData
+from src.services.full_resume_service import FullResumeService
 
 logger = logging.getLogger(__name__)
 
