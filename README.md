@@ -16,7 +16,7 @@ _A tool for analyzing projects and generating professional resume items from you
 
 | Name              | Student ID | GitHub                                                             |
 | ----------------- | ---------- | ------------------------------------------------------------------ |
-| Jaiden Lo         | 93978203   | [@JaidenLo](https://github.com/JaidenLo)                           |
+| Jaiden Lo         | 93978203   | [@JaidenLo](https://github.com/JaidenLo)                           |https://www.youtube.com/watch?v=YXy_0Tv4YdMvideo
 | Takumi Choi       | 37325289   | [@TakersJP](https://github.com/TakersJP)                           |
 | Anilov Laxina     | 36694933   | [@AnLaxina](https://github.com/AnLaxina)                           |
 | Kussh Satija      | 80384878   | [@kusshsatija](https://github.com/kusshsatija)                     |
@@ -162,6 +162,7 @@ docker compose down
 ### 📚 Core Documentation
 
 - [📘 CLI Documentation](docs/design/CLI%20Documentation.md) - Complete command reference and usage guide
+- [📘 Endpoint Documentation](docs/design/Endpoints%20Documentation.md) - Endpoint Documentation for Milestone #2
 - [🤝 Contributing Guidelines](.github/CONTRIBUTING.md) - How to contribute to the project
 - [📜 Team Contract](docs/contract/CapstoneTeamContract.pdf) - Team agreements and responsibilities
 - [📊 Work Breakdown Structure (WBS)](docs/design/WBS.md) - Project planning and task breakdown
@@ -172,6 +173,7 @@ docker compose down
 - [💡 Project Proposal](docs/plan/COSC%20499-Team-4-Project-Proposal.md) - Initial project scope and vision
 - [🚩 Milestones](docs/plan/milestone.md) - Project milestone checklist
 - [🎬 Video Walkthrough](https://drive.google.com/file/d/1TPrGsPx4YZjotcAfZ3IeY_N2DZDhcE03/view?usp=sharing) - Video walkthrough of features (milestone 1 only)
+- [🎬 Video Walkthrough 2](https://www.youtube.com/watch?v=YXy_0Tv4YdM)- Video walkthrough for milestone 2
 - [📝 Individual Logs](docs/logs/) - Weekly individual progress logs
 - [👥 Team Logs](docs/logs/Team/) - Weekly team progress logs
 
