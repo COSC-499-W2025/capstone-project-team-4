@@ -107,16 +107,7 @@ async def analyze_upload(
         raise
     except Exception as e:
         logger.exception("Analysis failed with unexpected error")
-        raise AnalysisError(str(e))
-    finally:
-        if tmp_path is not None:
-            try:
-                if tmp_path.exists():
-                    tmp_path.unlink()
-                    logger.info("Deleted uploaded ZIP after analysis: %s", tmp_path)
-            except Exception as e:
-                logger.warning("Failed to delete uploaded ZIP %s: %s", tmp_path, e)
-
+        raise AnalysisError(str(e)) # fixes snapshot  
 
 @router.post("/{project_id}/analyze-libraries-tools", status_code=200)
 def analyze_project_libraries_tools(

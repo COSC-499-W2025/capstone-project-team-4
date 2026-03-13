@@ -103,7 +103,7 @@ export default function PortfolioPage() {
 
             <div style={{ maxWidth: 960, margin: "0 auto", position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 48, flexWrap: "wrap" }}>
               {/* Left: text */}
-              <div style={{ flex: 1, minWidth: 260 }}>
+              <div style={{ flex: 1, minWidth: 260, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
                 <p style={{ color: "#0d9488", fontSize: 13, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>
                   Portfolio
                 </p>
@@ -111,7 +111,7 @@ export default function PortfolioPage() {
                   {portfolio.title || "My Portfolio"}
                 </h1>
                 {portfolio.summary && (
-                  <p style={{ color: "#475569", fontSize: 15, lineHeight: 1.75, maxWidth: 460, margin: "0 0 32px" }}>
+                  <p style={{ color: "#475569", fontSize: 15, lineHeight: 1.75, maxWidth: 460, margin: "0 0 32px", textAlign: "center" }}>
                     {portfolio.summary}
                   </p>
                 )}
