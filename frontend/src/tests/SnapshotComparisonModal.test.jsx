@@ -91,19 +91,19 @@ describe('SnapshotComparisonModal', () => {
   it('shows the load comparison prompt on idle', () => {
     open();
     expect(screen.getByRole('button', { name: /load comparison/i })).toBeInTheDocument();
-    expect(screen.getByText(/generate a snapshot comparison/i)).toBeInTheDocument();
+    expect(screen.getByText(/choose a point in the commit history/i)).toBeInTheDocument();
   });
 
   // ── API calls ────────────────────────────────────────────────────────────────
 
-  it('POSTs to /api/snapshots/{id}/create when load is clicked', async () => {
+  it('POSTs to /api/snapshots/{id}/create?percentage=50 by default', async () => {
     axios.post.mockResolvedValueOnce({ data: {} });
     axios.get.mockResolvedValueOnce({ data: COMPARISON });
     open();
     fireEvent.click(screen.getByRole('button', { name: /load comparison/i }));
     await waitFor(() => {
       expect(axios.post).toHaveBeenCalledWith(
-        '/api/snapshots/17/create',
+        '/api/snapshots/17/create?percentage=50',
         {},
         expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer test-token' }) })
       );
@@ -356,6 +356,59 @@ describe('SnapshotComparisonModal', () => {
     await waitFor(() =>
       expect(axios.post).toHaveBeenCalledTimes(2)
     );
+  });
+
+  // ── Percentage / Slider ───────────────────────────────────────────────────────
+
+  it('shows 50% as the default comparison point label', () => {
+    open();
+    expect(screen.getByText('50%')).toBeInTheDocument();
+  });
+
+  it('shows a slider in the idle state', () => {
+    open();
+    expect(document.querySelector('[role="slider"]')).toBeInTheDocument();
+  });
+
+  it('commit range label shows selected percentage after load', async () => {
+    open();
+    await loadComparison();
+    // Default percentage is 50; commit range header should read "50%: <hash>"
+    expect(screen.getByText(/50%:/i)).toBeInTheDocument();
+  });
+
+  it('shows a slider in the results state for re-running', async () => {
+    open();
+    await loadComparison();
+    // There should still be a slider visible in the done state
+    expect(document.querySelector('[role="slider"]')).toBeInTheDocument();
+  });
+
+  it('POSTs with custom percentage when slider value changes', async () => {
+    axios.post.mockResolvedValueOnce({ data: {} });
+    axios.get.mockResolvedValueOnce({ data: COMPARISON });
+    open();
+
+    // Simulate Radix slider updating the percentage to 75 via onValueChange
+    const slider = document.querySelector('[role="slider"]');
+    // Fire keydown ArrowRight to increment (Radix Slider responds to keyboard)
+    // Instead, directly fire a pointer/keyboard event that Radix interprets
+    // We test via the displayed label changing — trigger via the thumb
+    fireEvent.keyDown(slider, { key: 'End' }); // jumps to max (99)
+    // Now the displayed percentage should be 99
+    await waitFor(() => expect(screen.getByText('99%')).toBeInTheDocument());
+
+    axios.post.mockResolvedValueOnce({ data: {} });
+    axios.get.mockResolvedValueOnce({ data: COMPARISON });
+    fireEvent.click(screen.getByRole('button', { name: /load comparison/i }));
+
+    await waitFor(() => {
+      expect(axios.post).toHaveBeenLastCalledWith(
+        '/api/snapshots/17/create?percentage=99',
+        {},
+        expect.anything()
+      );
+    });
   });
 
   // ── onClose ───────────────────────────────────────────────────────────────────

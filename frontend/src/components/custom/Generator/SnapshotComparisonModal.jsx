@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 import {
   GitCompare,
   Loader2,
@@ -100,6 +101,7 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
   const [step, setStep] = useState('idle'); // idle | creating | comparing | done | error
   const [comparison, setComparison] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [percentage, setPercentage] = useState(50);
 
   const handleLoad = async () => {
     if (!project?.projectId) return;
@@ -109,7 +111,7 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
 
     try {
       await axios.post(
-        `/api/snapshots/${project.projectId}/create`,
+        `/api/snapshots/${project.projectId}/create?percentage=${percentage}`,
         {},
         { headers: getAuthHeaders() }
       );
@@ -144,6 +146,7 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
         setStep('idle');
         setComparison(null);
         setErrorMsg(null);
+        setPercentage(50);
       }, 300);
     }
   };
@@ -175,19 +178,35 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
             Project Progress — {project?.name}
           </DialogTitle>
           <DialogDescription>
-            Compare the midpoint state of the project to its current state
+            Compare a chosen point in the commit history to the current state
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto mt-4 space-y-5">
           {/* Idle — prompt to load */}
           {step === 'idle' && (
-            <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <div className="flex flex-col items-center justify-center py-10 gap-5">
               <GitCompare className="h-12 w-12 text-indigo-300" />
               <p className="text-gray-500 text-sm text-center max-w-xs">
-                Generate a snapshot comparison to see how this project evolved from its midpoint to
-                the current state.
+                Choose a point in the commit history to compare against the current state.
               </p>
+              <div className="w-full max-w-xs space-y-2">
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>Comparison point</span>
+                  <span className="font-semibold text-indigo-600">{percentage}%</span>
+                </div>
+                <Slider
+                  min={1}
+                  max={99}
+                  step={1}
+                  value={[percentage]}
+                  onValueChange={([val]) => setPercentage(val)}
+                />
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>Start</span>
+                  <span>End</span>
+                </div>
+              </div>
               <Button onClick={handleLoad} className="bg-indigo-600 hover:bg-indigo-700 text-white">
                 Load Comparison
               </Button>
@@ -218,7 +237,7 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
             <>
               {/* Commit range */}
               <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-500 font-mono flex items-center justify-between gap-2 flex-wrap">
-                <span>Midpoint: {comparison.midpoint_commit_hash.slice(0, 8)}</span>
+                <span>{percentage}%: {comparison.midpoint_commit_hash.slice(0, 8)}</span>
                 <span className="text-gray-300">→</span>
                 <span>Current: {comparison.current_commit_hash.slice(0, 8)}</span>
               </div>
@@ -313,11 +332,24 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
                 </p>
               )}
 
-              {/* Refresh button */}
-              <div className="flex justify-end pt-1">
-                <Button variant="outline" size="sm" onClick={handleLoad}>
-                  Refresh
-                </Button>
+              {/* Re-run with different percentage */}
+              <div className="pt-2 border-t space-y-2">
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>Comparison point</span>
+                  <span className="font-semibold text-indigo-600">{percentage}%</span>
+                </div>
+                <Slider
+                  min={1}
+                  max={99}
+                  step={1}
+                  value={[percentage]}
+                  onValueChange={([val]) => setPercentage(val)}
+                />
+                <div className="flex justify-end pt-1">
+                  <Button variant="outline" size="sm" onClick={handleLoad}>
+                    Refresh
+                  </Button>
+                </div>
               </div>
             </>
           )}
