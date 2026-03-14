@@ -201,7 +201,7 @@ class SnapshotService:
             },
         }
 
-    def create_current_and_midpoint_snapshots(self, project_id: int) -> dict:
+    def create_current_and_midpoint_snapshots(self, project_id: int, percentage: int = 50) -> dict:
         """Create both current and midpoint snapshots in one request."""
         project = self.project_repo.get(project_id)
         if not project:
@@ -217,7 +217,7 @@ class SnapshotService:
             )
             current_saved = self._persist_snapshot(project_id, current_snapshot)
 
-            midpoint_commit = self._resolve_commit_point(repo_root, snapshot_type="midpoint")
+            midpoint_commit = self._resolve_commit_point(repo_root, snapshot_type="midpoint", percentage=percentage)
             self._git(repo_root, "checkout", "--force", "--detach", midpoint_commit.hash)
             self._git(repo_root, "clean", "-fd")
             midpoint_snapshot = self._build_snapshot(
@@ -293,12 +293,12 @@ class SnapshotService:
         )
         return result.returncode == 0
 
-    def _get_midpoint_commit(self, repo_root: Path) -> MidpointCommit:
+    def _get_midpoint_commit(self, repo_root: Path, percentage: int = 50) -> MidpointCommit:
         output = self._git(repo_root, "rev-list", "--reverse", "HEAD")
         commits = [line.strip() for line in output.splitlines() if line.strip()]
         if not commits:
             raise HTTPException(status_code=400, detail="No commits found in repository history.")
-        midpoint_index = (len(commits) - 1) // 2
+        midpoint_index = round((len(commits) - 1) * percentage / 100)
         return MidpointCommit(hash=commits[midpoint_index], index=midpoint_index, total_commits=len(commits))
 
     def _get_current_commit(self, repo_root: Path) -> CommitPoint:
@@ -309,9 +309,9 @@ class SnapshotService:
         current_index = len(commits) - 1
         return CommitPoint(hash=commits[current_index], index=current_index, total_commits=len(commits))
 
-    def _resolve_commit_point(self, repo_root: Path, snapshot_type: str) -> CommitPoint:
+    def _resolve_commit_point(self, repo_root: Path, snapshot_type: str, percentage: int = 50) -> CommitPoint:
         if snapshot_type == "midpoint":
-            midpoint = self._get_midpoint_commit(repo_root)
+            midpoint = self._get_midpoint_commit(repo_root, percentage=percentage)
             return CommitPoint(hash=midpoint.hash, index=midpoint.index, total_commits=midpoint.total_commits)
         if snapshot_type == "current":
             return self._get_current_commit(repo_root)

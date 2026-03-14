@@ -1,6 +1,6 @@
 """Snapshots API routes."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from src.models.database import get_db
@@ -16,11 +16,12 @@ router = APIRouter(prefix="/snapshots", tags=["snapshots"])
 @router.post("/{project_id}/create", response_model=SnapshotPairResponse, status_code=201)
 async def create_current_and_midpoint_snapshots(
     project_id: int,
+    percentage: int = Query(50, ge=1, le=99, description="Percentage through commit history for the comparison snapshot (1–99)"),
     db: Session = Depends(get_db),
 ):
-    """Create current and midpoint snapshots in one call."""
+    """Create current and a user-chosen percentage-point snapshot in one call."""
     service = SnapshotService(db)
-    return service.create_current_and_midpoint_snapshots(project_id)
+    return service.create_current_and_midpoint_snapshots(project_id, percentage=percentage)
 
 
 @router.delete("/{project_id}/{snapshot_id}", status_code=200)
