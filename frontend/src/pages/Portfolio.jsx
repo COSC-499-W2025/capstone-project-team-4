@@ -1,14 +1,14 @@
-import axios from "axios";
-import { useEffect, useMemo, useState } from "react";
-import { Loader2, AlertCircle } from "lucide-react";
-import { getAccessToken } from "@/lib/auth";
 import Navigation from "@/components/Navigation";
+import { getAccessToken } from "@/lib/auth";
+import axios from "axios";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
-import SkillTimeline from "@/components/custom/Portfolio/SkillTimeline";
 import ActivityHeatmap from "@/components/custom/Portfolio/ActivityHeatmap";
-import TopProjects from "@/components/custom/Portfolio/TopProjects";
 import PrivateModeEditor from "@/components/custom/Portfolio/PrivateModeEditor";
 import PublicModeView from "@/components/custom/Portfolio/PublicModeView";
+import SkillTimeline from "@/components/custom/Portfolio/SkillTimeline";
+import TopProjects from "@/components/custom/Portfolio/TopProjects";
 
 
 export default function PortfolioPage() {
