@@ -40,7 +40,7 @@ class UserResponse(UserBase):
 class PasswordChangeRequest(BaseModel):
     old_password: str
     new_password: str = Field(
-        ..., min_length=6, description="Password must be at least 6 characters"
+        ..., min_length=8, description="Password must be at least 8 characters"
     )
 
 

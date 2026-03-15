@@ -77,7 +77,7 @@ async def change_password(
     Change the current user's password.
 
     - Requires old password to verify identity
-    - Requires a new password (min 6 characters)
+    - Requires a new password (min 8 characters)
     """
     service = AuthService(db)
     _, error = service.change_password(current_user, payload)

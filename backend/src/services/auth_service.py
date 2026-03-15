@@ -3,6 +3,7 @@
 import logging
 from typing import Optional, Tuple
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src.core.security import create_access_token, hash_password, verify_password
@@ -198,21 +199,26 @@ class AuthService:
         """
         Verifies the old password and updates the user's password to the new one.
         """
-        # 1. Verify the old password is correct
-        # (Check what your actual hashed password column is named in the User ORM. Usually 'hashed_password')
+        # Verify the old password is correct
+        # (Check what your actual hashed password column in Beekeeper or DBeaver is named in the User ORM. Usually 'hashed_password')
         if not verify_password(payload.old_password, user.password_hash):
             return False, "Incorrect current password."
 
-        # 2. Prevent changing to the exact same password
+        # Prevent changing to the exact same password
         if payload.old_password == payload.new_password:
             return False, "New password cannot be the same as the old password."
 
-        # 3. Hash the new password and update the user object
-        user.password_hash = hash_password(payload.new_password)
+        try:
+            # Hash the new password and update the user object
+            user.password_hash = hash_password(payload.new_password)
 
-        # 4. Save the changes to the database
-        self.db.add(user)
-        self.db.commit()
-        self.db.refresh(user)
+            # Save the changes to the database
+            self.db.add(user)
+            self.db.commit()
+            self.db.refresh(user)
 
-        return True, None
+            return True, None
+        except SQLAlchemyError:
+            self.db.rollback()
+            return False, "Failed to change password."
+

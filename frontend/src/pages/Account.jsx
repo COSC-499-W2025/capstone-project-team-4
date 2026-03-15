@@ -156,7 +156,7 @@ export default function AccountPage() {
     if (passwordForm.new_password.length < 6) {
       setPasswordStatus({
         loading: false,
-        error: "Password must be at least 6 characters.",
+        error: "Password must be at least 8 characters.",
         success: "",
       });
       return;
