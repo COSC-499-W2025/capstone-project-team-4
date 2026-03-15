@@ -162,7 +162,7 @@ const ContributorInsightsDialog = ({ open, onOpenChange, project }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] xl:max-w-7xl overflow-hidden p-0 h-[88vh]">
-        <div className="flex h-full flex-col">
+        <div className="absolute inset-0 flex flex-col">
           <DialogHeader className="border-b px-6 py-4">
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-blue-500" />
@@ -174,8 +174,8 @@ const ContributorInsightsDialog = ({ open, onOpenChange, project }) => {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid min-h-0 flex-1 overflow-hidden md:grid-cols-[300px_minmax(0,1fr)]">
-            <div className="flex flex-col border-b p-4 md:border-b-0 md:border-r overflow-y-auto">
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <div className="w-[300px] flex-none overflow-y-auto border-r p-4">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900">
                   Contributors
@@ -246,7 +246,7 @@ const ContributorInsightsDialog = ({ open, onOpenChange, project }) => {
               </div>
             </div>
 
-            <div className="min-h-0 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-6">
               {!selectedContributor &&
                 !contributorsLoading &&
                 !contributorsError &&
