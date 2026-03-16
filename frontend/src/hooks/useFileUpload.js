@@ -150,7 +150,6 @@ export const useFileUpload = () => {
           }
 
           results.push({
-          
             name: data.project_name,
             contributions: data.file_count || 0,
             date: data.zip_uploaded_at || new Date().toISOString(),
