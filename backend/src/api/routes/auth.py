@@ -2,16 +2,22 @@
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from src.models.database import get_db
-from src.models.schemas.user import UserCreate, UserResponse, UserLogin, LoginResponse
-from src.models.orm.user import User
-from src.services.auth_service import AuthService
-from src.api.exceptions import EmailAlreadyRegisteredError, InvalidCredentialsError
 from src.api.dependencies import get_current_user
+from src.api.exceptions import EmailAlreadyRegisteredError, InvalidCredentialsError
+from src.models.database import get_db
+from src.models.orm.user import User
+from src.models.schemas.user import (
+    LoginResponse,
+    PasswordChangeRequest,
+    UserCreate,
+    UserLogin,
+    UserResponse,
+)
+from src.services.auth_service import AuthService
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +65,27 @@ async def login(
         raise InvalidCredentialsError(error)
 
     return response
+
+
+@router.patch("/change-password", status_code=200, summary="User Password Change")
+async def change_password(
+    payload: PasswordChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Change the current user's password.
+
+    - Requires old password to verify identity
+    - Requires a new password (min 8 characters)
+    """
+    service = AuthService(db)
+    _, error = service.change_password(current_user, payload)
+
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+
+    return {"message": "Password updated successfully"}
 
 
 # This is for testing `get_current_user` or that retrieval of the access token works
