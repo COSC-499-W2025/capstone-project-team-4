@@ -140,7 +140,7 @@ export default function SkillTimelineDateRow({ skills }) {
                     ref={measureContainerRef}
                     aria-hidden="true"
                     className="pointer-events-none absolute left-0 top-0 -z-10 invisible flex w-full flex-wrap gap-2"
-                    style={{ maxHeight: CHIP_AREA_MAX_HEIGHT, height: 0 }}
+                    style={{ maxHeight: CHIP_AREA_MAX_HEIGHT }}
                 >
                     {measuredSkills.map((skillEntry) => (
                         <span

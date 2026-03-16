@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import SkillTimelineDateRow from "./SkillTimelineDateRow";
 import { buildSkillSnapshots } from "./utils/skillTimeline";
 
+const SCROLL_MAX_HEIGHT = 420;
+
 function SkillTimelineSkeleton() {
     return (
         <div className="space-y-5">
@@ -168,7 +170,7 @@ export default function SkillTimeline() {
 
         const updateScrollable = () => {
             const visibleHeight = content.getBoundingClientRect().height;
-            setIsScrollable(visibleHeight > 420);
+            setIsScrollable(visibleHeight > SCROLL_MAX_HEIGHT);
         };
 
         updateScrollable();
@@ -201,7 +203,9 @@ export default function SkillTimeline() {
                     </p>
                 </div>
 
-                <div className={isScrollable ? "max-h-[420px] overflow-y-auto pr-1" : "pr-1"}>
+                <div
+                    className={isScrollable ? "max-h-[420px] overflow-y-auto pr-1" : "pr-1"}
+                >
                     <div ref={scrollContentRef} className="space-y-4">
                         {isLoading ? (
                             <SkillTimelineSkeleton />
