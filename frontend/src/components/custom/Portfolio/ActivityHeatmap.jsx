@@ -1,5 +1,6 @@
 import { Activity } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityCalendar } from "react-activity-calendar";
 
 export default function ActivityHeatmap({ projectId, refreshKey }) {
   const [heatmapData, setHeatmapData] = useState([]);
@@ -40,6 +41,38 @@ export default function ActivityHeatmap({ projectId, refreshKey }) {
 
     fetchHeatmap();
   }, [projectId, refreshKey]);
+
+  const calendarData = useMemo(() => {
+    const dateMap = new Map(heatmapData.map((day) => [day.date, day.count]));
+
+    const year = new Date().getFullYear();
+    const start = new Date(year, 0, 1);
+    const end = new Date(year, 11, 31);
+
+    const filledData = [];
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split("T")[0];
+      const count = dateMap.get(dateStr) ?? 0;
+
+      filledData.push({
+        date: dateStr,
+        count,
+        level:
+          count === 0
+            ? 0
+            : count === 1
+              ? 1
+              : count <= 3
+                ? 2
+                : count <= 5
+                  ? 3
+                  : 4,
+      });
+    }
+
+    return filledData;
+  }, [heatmapData]);
 
   let content;
 
@@ -98,33 +131,22 @@ export default function ActivityHeatmap({ projectId, refreshKey }) {
         </p>
 
         <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            justifyContent: "center",
-            gap: 8,
-            marginTop: 12,
-          }}
+          style={{ display: "flex", justifyContent: "center", marginTop: 12 }}
         >
-          {heatmapData.map((day) => (
-            <div
-              key={day.date}
-              title={`${day.date}: ${day.count} snapshot${day.count === 1 ? "" : "s"}`}
-              style={{
-                width: 20,
-                height: 20,
-                borderRadius: 4,
-                background:
-                  day.count === 0
-                    ? "#e5e7eb"
-                    : day.count === 1
-                      ? "#bfdbfe"
-                      : day.count <= 3
-                        ? "#60a5fa"
-                        : "#2563eb",
-              }}
-            />
-          ))}
+          <ActivityCalendar
+            data={calendarData}
+            maxLevel={4}
+            blockSize={16}
+            blockMargin={6}
+            fontSize={12}
+            theme={{
+              light: ["#e5e7eb", "#bfdbfe", "#93c5fd", "#60a5fa", "#2563eb"],
+              dark: ["#e5e7eb", "#bfdbfe", "#93c5fd", "#60a5fa", "#2563eb"],
+            }}
+            labels={{
+              totalCount: "{{count}} activities in {{year}}",
+            }}
+          />
         </div>
       </>
     );
