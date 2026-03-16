@@ -339,3 +339,116 @@ def test_delete_snapshot_happy_path():
 def json_dumps(obj: dict) -> str:
     import json
     return json.dumps(obj)
+
+def test_get_snapshot_activity_heatmap_raises_when_project_missing():
+    service = SnapshotService(db=None)
+    service.project_repo = SimpleNamespace(get=lambda _project_id: None)
+
+    with pytest.raises(HTTPException) as exc:
+        service.get_snapshot_activity_heatmap(project_id=999)
+
+    assert exc.value.status_code == 404
+
+
+def test_get_snapshot_activity_heatmap_returns_empty_data_when_no_snapshots():
+    service = SnapshotService(db=None)
+    service.project_repo = SimpleNamespace(
+        get=lambda _project_id: SimpleNamespace(id=7)
+    )
+    service.snapshot_repo = SimpleNamespace(
+        get_all_for_project=lambda _project_id: []
+    )
+
+    result = service.get_snapshot_activity_heatmap(project_id=7)
+
+    assert result == {
+        "project_id": 7,
+        "metric": "snapshots_per_day",
+        "data": [],
+    }
+
+
+def test_get_snapshot_activity_heatmap_aggregates_multiple_snapshots_on_same_day():
+    service = SnapshotService(db=None)
+    service.project_repo = SimpleNamespace(
+        get=lambda _project_id: SimpleNamespace(id=13)
+    )
+    service.snapshot_repo = SimpleNamespace(
+        get_all_for_project=lambda _project_id: [
+            SimpleNamespace(
+                created_at=datetime(2026, 3, 16, 9, 0, tzinfo=timezone.utc)
+            ),
+            SimpleNamespace(
+                created_at=datetime(2026, 3, 16, 18, 30, tzinfo=timezone.utc)
+            ),
+        ]
+    )
+
+    result = service.get_snapshot_activity_heatmap(project_id=13)
+
+    assert result == {
+        "project_id": 13,
+        "metric": "snapshots_per_day",
+        "data": [
+            {"date": "2026-03-16", "count": 2},
+        ],
+    }
+
+
+def test_get_snapshot_activity_heatmap_fills_missing_days_with_zero():
+    service = SnapshotService(db=None)
+    service.project_repo = SimpleNamespace(
+        get=lambda _project_id: SimpleNamespace(id=23)
+    )
+    service.snapshot_repo = SimpleNamespace(
+        get_all_for_project=lambda _project_id: [
+            SimpleNamespace(
+                created_at=datetime(2026, 3, 16, 10, 0, tzinfo=timezone.utc)
+            ),
+            SimpleNamespace(
+                created_at=datetime(2026, 3, 17, 11, 0, tzinfo=timezone.utc)
+            ),
+            SimpleNamespace(
+                created_at=datetime(2026, 3, 19, 15, 0, tzinfo=timezone.utc)
+            ),
+        ]
+    )
+
+    result = service.get_snapshot_activity_heatmap(project_id=23)
+
+    assert result == {
+        "project_id": 23,
+        "metric": "snapshots_per_day",
+        "data": [
+            {"date": "2026-03-16", "count": 1},
+            {"date": "2026-03-17", "count": 1},
+            {"date": "2026-03-18", "count": 0},
+            {"date": "2026-03-19", "count": 1},
+        ],
+    }
+
+
+def test_get_snapshot_activity_heatmap_ignores_null_created_at():
+    service = SnapshotService(db=None)
+    service.project_repo = SimpleNamespace(
+        get=lambda _project_id: SimpleNamespace(id=31)
+    )
+    service.snapshot_repo = SimpleNamespace(
+        get_all_for_project=lambda _project_id: [
+            SimpleNamespace(created_at=None),
+            SimpleNamespace(
+                created_at=datetime(2026, 4, 1, 8, 0, tzinfo=timezone.utc)
+            ),
+            SimpleNamespace(created_at=None),
+        ]
+    )
+
+    result = service.get_snapshot_activity_heatmap(project_id=31)
+
+    assert result == {
+        "project_id": 31,
+        "metric": "snapshots_per_day",
+        "data": [
+            {"date": "2026-04-01", "count": 1},
+        ],
+    }
