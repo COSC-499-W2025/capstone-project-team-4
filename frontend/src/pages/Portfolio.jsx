@@ -353,7 +353,7 @@ export default function PortfolioPage() {
                 portfolio={portfolio}
                 selectedProjectId={selectedProjectId}
                 onSelectProject={setSelectedProjectId}
-                onSnapshotCreate={(projectId) => {
+                onSnapshotCreated={(projectId) => {
                   setSelectedProjectId(projectId);
                   setHeatmapRefreshKey((prev) => prev + 1);
                 }}

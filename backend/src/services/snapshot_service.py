@@ -610,8 +610,6 @@ class SnapshotService:
             )
         return proc.stdout
     
-    from datetime import timedelta
-
     def get_snapshot_activity_heatmap(self, project_id: int) -> dict:
         """Return heatmap-friendly snapshot counts grouped by day."""
         project = self.project_repo.get(project_id)
