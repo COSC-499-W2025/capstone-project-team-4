@@ -5,7 +5,13 @@ This week I focused on implementing the Portfolio page frontend skeleton and fix
 The backend fixes addressed duplicate `files_analyzed` counts on re-upload and projects being stored with a `NULL` `user_id`.
 
 ## Coding Tasks
-
+(image is glitched so I can't upload it) 
+- [x] Assigning people to tasks
+- [x] Coding
+- [x] Reviewing teammate's code
+- [x] Testing for your code
+- [x] Testing teammate's code
+- [x] Team meetings
 
 ## PR Links
 https://github.com/COSC-499-W2025/capstone-project-team-4/pull/260
