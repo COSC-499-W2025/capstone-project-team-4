@@ -1,6 +1,6 @@
 import { getAccessToken } from "@/lib/auth";
 import axios from "axios";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import SkillTimelineDateRow from "./SkillTimelineDateRow";
 import { buildSkillSnapshots } from "./utils/skillTimeline";
@@ -53,6 +53,9 @@ export default function SkillTimeline() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState("");
     const [partialError, setPartialError] = useState(false);
+    const [isScrollable, setIsScrollable] = useState(false);
+
+    const scrollContentRef = useRef(null);
 
     const authHeader = useMemo(() => {
         const token = getAccessToken();
@@ -159,41 +162,74 @@ export default function SkillTimeline() {
         };
     }, [authHeader]);
 
+    useEffect(() => {
+        const content = scrollContentRef.current;
+        if (!content) return;
+
+        const updateScrollable = () => {
+            const visibleHeight = content.getBoundingClientRect().height;
+            setIsScrollable(visibleHeight > 420);
+        };
+
+        updateScrollable();
+
+        const resizeObserver = new ResizeObserver(() => {
+            updateScrollable();
+        });
+
+        resizeObserver.observe(content);
+        window.addEventListener("resize", updateScrollable);
+
+        return () => {
+            resizeObserver.disconnect();
+            window.removeEventListener("resize", updateScrollable);
+        };
+    }, [isLoading, error, partialError, projectSnapshots]);
+
     return (
-        <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <div className="mb-4">
-                <h2 className="text-lg font-semibold">Skill Snapshot</h2>
-                <p className="text-sm text-muted-foreground">
-                    Skills demonstrated across top 3 projects
-                </p>
-            </div>
+        <section>
+            <h2 className="pf-section-title">Skills</h2>
+            <div className="pf-divider" />
 
-            <div className="max-h-[420px] space-y-4 overflow-y-auto pr-1">
-                {isLoading ? (
-                    <SkillTimelineSkeleton />
-                ) : error ? (
-                    <p className="text-sm text-destructive">{error}</p>
-                ) : projectSnapshots.length === 0 ? (
+            <section
+                className="rounded-2xl border border-border bg-card p-5 shadow-sm"
+                style={{ marginTop: 36 }}
+            >
+                <div className="mb-4">
                     <p className="text-sm text-muted-foreground">
-                        No skill snapshot data available for the selected projects.
+                        Skills demonstrated across top 3 projects
                     </p>
-                ) : (
-                    <>
-                        {partialError && (
-                            <p className="text-sm text-muted-foreground">
-                                Some project snapshot data could not be loaded.
-                            </p>
-                        )}
+                </div>
 
-                        {projectSnapshots.map((projectGroup) => (
-                            <ProjectSnapshotCard
-                                key={projectGroup.projectId}
-                                projectGroup={projectGroup}
-                            />
-                        ))}
-                    </>
-                )}
-            </div>
+                <div className={isScrollable ? "max-h-[420px] overflow-y-auto pr-1" : "pr-1"}>
+                    <div ref={scrollContentRef} className="space-y-4">
+                        {isLoading ? (
+                            <SkillTimelineSkeleton />
+                        ) : error ? (
+                            <p className="text-sm text-destructive">{error}</p>
+                        ) : projectSnapshots.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                                No skill snapshot data available for the selected projects.
+                            </p>
+                        ) : (
+                            <>
+                                {partialError && (
+                                    <p className="text-sm text-muted-foreground">
+                                        Some project snapshot data could not be loaded.
+                                    </p>
+                                )}
+
+                                {projectSnapshots.map((projectGroup) => (
+                                    <ProjectSnapshotCard
+                                        key={projectGroup.projectId}
+                                        projectGroup={projectGroup}
+                                    />
+                                ))}
+                            </>
+                        )}
+                    </div>
+                </div>
+            </section>
         </section>
     );
 }
