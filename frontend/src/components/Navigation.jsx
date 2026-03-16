@@ -1,7 +1,8 @@
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { FileText, Home, Sparkles, User, LayoutDashboard } from "lucide-react";
+
+import { FileText, Home, Sparkles, User, LayoutDashboard, UserPlus } from "lucide-react";
 import { clearAccessToken, isAuthenticated } from "@/lib/auth";
 
 const Navigation = () => {
@@ -108,16 +109,30 @@ const Navigation = () => {
                   Logout
                 </Button>
               ) : (
-                <Link to="/login">
-                  <Button
-                    variant={
-                      location.pathname === "/login" ? "default" : "ghost"
-                    }
-                    className="flex items-center space-x-2"
-                  >
-                    <span>Login</span>
-                  </Button>
-                </Link>
+                <>
+                  <Link to="/signup">
+                    <Button
+                      variant={
+                        location.pathname === "/signup" ? "default" : "ghost"
+                      }
+                      className="flex items-center space-x-2"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      <span>Register</span>
+                    </Button>
+                  </Link>
+
+                  <Link to="/login">
+                    <Button
+                      variant={
+                        location.pathname === "/login" ? "default" : "ghost"
+                      }
+                      className="flex items-center space-x-2"
+                    >
+                      <span>Login</span>
+                    </Button>
+                  </Link>
+                </>
               )}
             </div>
           </div>

@@ -25,6 +25,7 @@ export default function SignupForm() {
     const [confirm, setConfirm] = useState("");
 
     const [agree, setAgree] = useState(false);
+    const [agreeTouched, setAgreeTouched] = useState(false);
     const [banner, setBanner] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -62,6 +63,7 @@ export default function SignupForm() {
     async function onSubmit(e) {
         e.preventDefault();
         setBanner("");
+        setAgreeTouched(true);
 
         if (!canSubmit) {
         setTouched({ name: true, email: true, password: true, confirm: true });
@@ -220,15 +222,28 @@ export default function SignupForm() {
             </div>
             </div>
 
-            <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
-            <Checkbox checked={agree} onCheckedChange={(v) => setAgree(Boolean(v))} />
-            <div className="text-xs leading-relaxed text-slate-600">
+            <div className="flex items-start gap-3 rounded-xl border border-gray-300 bg-gray-50 p-3">
+            <Checkbox
+                checked={agree}
+                onCheckedChange={(v) => {
+                setAgree(Boolean(v));
+                setAgreeTouched(true);
+                }}
+                className="mt-0.5 size-5 border-2 border-gray-500 data-[state=checked]:border-gray-700 data-[state=checked]:bg-gray-700 data-[state=checked]:text-white focus-visible:ring-gray-500/60"
+            />
+            <div className="text-sm font-medium leading-relaxed text-slate-700">
                 I agree to the <span className="text-slate-900">Terms</span> and{" "}
                 <span className="text-slate-900">Privacy Policy</span>.
             </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
+            {agreeTouched && !agree ? (
+            <p className="text-xs text-red-400">
+                Please agree to the Terms and Privacy Policy.
+            </p>
+            ) : null}
+
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? "Creating account..." : "Create account"}
             </Button>
 
