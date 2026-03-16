@@ -213,7 +213,7 @@ export const useFileUpload = () => {
         });
       }
     } catch {
-
+      // privacy settings update is non-critical, ignore failure
     }
     processFiles();
   };

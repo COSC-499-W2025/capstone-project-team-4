@@ -1,6 +1,6 @@
 import { Pencil } from "lucide-react";
 
-export default function PrivateModeEditor({ portfolio, onUpdate }) {
+export default function ActivityHeatmap() {
   return (
     <section>
       <h2 className="pf-section-title">Customize</h2>

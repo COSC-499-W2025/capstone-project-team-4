@@ -155,9 +155,9 @@ export default function PortfolioPage() {
           {mode === "private" ? (
             <div style={{ maxWidth: 1000, margin: "0 auto", padding: "64px 24px", display: "flex", flexDirection: "column", gap: 72 }}>
               <TopProjects portfolio={portfolio} />
-              <SkillTimeline portfolio={portfolio} />
-              <ActivityHeatmap portfolio={portfolio} />
-              <PrivateModeEditor portfolio={portfolio} onUpdate={setPortfolio} />
+              <SkillTimeline />
+              <ActivityHeatmap />
+              <PrivateModeEditor />
             </div>
           ) : (
             <div style={{ maxWidth: 1000, margin: "0 auto", padding: "64px 24px" }}>
