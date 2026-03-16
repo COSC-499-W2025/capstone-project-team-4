@@ -94,7 +94,7 @@ export default function SkillTimeline() {
                                 : [];
 
                 const topThreeProjects = [...allProjects]
-                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                    .sort((a, b) => (b.total_lines_of_code || 0) - (a.total_lines_of_code || 0))
                     .slice(0, 3);
 
                 if (topThreeProjects.length === 0) {
