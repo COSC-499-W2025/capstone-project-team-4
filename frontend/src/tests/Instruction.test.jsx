@@ -49,6 +49,18 @@ vi.mock('@/components/custom/Instruction/StepsGrid', () => ({
   ),
 }));
 
+// jsdom 27 has incomplete localStorage — stub it like useFileUpload.test.js does
+const localStorageMock = (() => {
+  let store = {};
+  return {
+    getItem: (key) => store[key] ?? null,
+    setItem: (key, val) => { store[key] = String(val); },
+    removeItem: (key) => { delete store[key]; },
+    clear: () => { store = {}; },
+  };
+})();
+vi.stubGlobal('localStorage', localStorageMock);
+
 // Helper to render with router
 const renderWithRouter = (component) => {
   return render(
