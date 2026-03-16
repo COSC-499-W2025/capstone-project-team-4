@@ -212,8 +212,8 @@ export const useFileUpload = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
       }
-    } catch (error) {
-      console.error("Failed to load privacy settings:", error);
+    } catch (err) {
+    console.error("Failed to load privacy settings:", err);
     }
     processFiles();
   };

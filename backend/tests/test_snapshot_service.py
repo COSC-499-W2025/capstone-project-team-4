@@ -177,7 +177,7 @@ def test_create_current_and_midpoint_snapshots_happy_path(monkeypatch):
 
     monkeypatch.setattr(service, "_materialize_repo", lambda *_args, **_kwargs: Path("/tmp/repo"))
 
-    def fake_resolve(_repo_root, snapshot_type: str):
+    def fake_resolve(_repo_root, snapshot_type: str, **kwargs):
         if snapshot_type == "current":
             return CommitPoint(hash="curhash", index=4, total_commits=5)
         if snapshot_type == "midpoint":
@@ -207,6 +207,111 @@ def test_create_current_and_midpoint_snapshots_happy_path(monkeypatch):
     assert result["current_snapshot"]["commit_hash"] == "curhash"
     assert result["midpoint_snapshot"]["snapshot_type"] == "midpoint"
     assert result["midpoint_snapshot"]["commit_hash"] == "midhash"
+
+
+def test_create_current_and_midpoint_snapshots_with_custom_end_percentage(monkeypatch):
+    """When end_percentage < 100, both commits are resolved before checkout and
+    the end snapshot is checked out to the custom percentage commit."""
+    now = datetime.now(timezone.utc)
+    service = SnapshotService(db=None)
+    service.project_repo = SimpleNamespace(
+        get=lambda _project_id: SimpleNamespace(root_path="/tmp/root", source_url="/tmp/u.zip")
+    )
+    saved_rows = [
+        SimpleNamespace(id=200, created_at=now),
+        SimpleNamespace(id=201, created_at=now),
+    ]
+    service.snapshot_repo = SimpleNamespace(create=lambda _obj: saved_rows.pop(0))
+
+    monkeypatch.setattr(service, "_materialize_repo", lambda *_args, **_kwargs: Path("/tmp/repo"))
+
+    git_calls = []
+
+    def fake_git(_repo_root, *args):
+        git_calls.append(args)
+        return ""
+
+    monkeypatch.setattr(service, "_git", fake_git)
+
+    # _get_midpoint_commit is called for end_percentage (75)
+    def fake_get_midpoint(_repo_root, percentage=50):
+        if percentage == 75:
+            return MidpointCommit(hash="endhash", index=3, total_commits=5)
+        return MidpointCommit(hash="starthash", index=1, total_commits=5)
+
+    monkeypatch.setattr(service, "_get_midpoint_commit", fake_get_midpoint)
+
+    def fake_resolve(_repo_root, snapshot_type: str, **kwargs):
+        if snapshot_type == "midpoint":
+            return CommitPoint(hash="starthash", index=1, total_commits=5)
+        raise AssertionError("current should not use _resolve_commit_point when end_percentage < 100")
+
+    monkeypatch.setattr(service, "_resolve_commit_point", fake_resolve)
+
+    def fake_build(project_id, _repo_root, commit_point, snapshot_type):
+        return {
+            "snapshot_type": snapshot_type,
+            "commit": {"hash": commit_point.hash, "index": commit_point.index, "total_commits": commit_point.total_commits},
+            "summary": {"total_files": 1, "total_lines": 2, "file_type_distribution": []},
+        }
+
+    monkeypatch.setattr(service, "_build_snapshot", fake_build)
+
+    result = service.create_current_and_midpoint_snapshots(project_id=55, percentage=25, end_percentage=75)
+
+    assert result["project_id"] == 55
+    assert result["current_snapshot"]["commit_hash"] == "endhash"
+    assert result["midpoint_snapshot"]["commit_hash"] == "starthash"
+    # Both snapshots should have triggered a git checkout
+    # git call args: ("checkout", "--force", "--detach", hash) → hash is at index 3
+    checkout_hashes = [args[3] for args in git_calls if args[0] == "checkout"]
+    assert "endhash" in checkout_hashes
+    assert "starthash" in checkout_hashes
+
+
+def test_compare_current_and_midpoint_includes_commit_dates():
+    service = SnapshotService(db=None)
+    current_payload = {
+        "commit": {"committed_at": "2025-03-15T10:00:00+00:00"},
+        "summary": {
+            "total_files": 5,
+            "total_lines": 100,
+            "analysis_metrics": {
+                "languages": [], "skills": [], "libraries": [],
+                "frameworks": [], "tools_and_technologies": [],
+                "complexity_summary": {"total_functions": 0, "avg_complexity": 0.0, "max_complexity": 0, "high_complexity_count": 0},
+                "counts": {"language_count": 0, "skill_count": 0, "library_count": 0, "framework_count": 0, "tool_count": 0},
+            },
+        },
+    }
+    midpoint_payload = {
+        "commit": {"committed_at": "2024-06-01T10:00:00+00:00"},
+        "summary": {
+            "total_files": 3,
+            "total_lines": 60,
+            "analysis_metrics": {
+                "languages": [], "skills": [], "libraries": [],
+                "frameworks": [], "tools_and_technologies": [],
+                "complexity_summary": {"total_functions": 0, "avg_complexity": 0.0, "max_complexity": 0, "high_complexity_count": 0},
+                "counts": {"language_count": 0, "skill_count": 0, "library_count": 0, "framework_count": 0, "tool_count": 0},
+            },
+        },
+    }
+    service.snapshot_repo = SimpleNamespace(
+        get_latest_for_project=lambda project_id, snapshot_type: {
+            "current": SimpleNamespace(id=1, project_id=project_id, commit_hash="curhash", payload_json=json_dumps(current_payload)),
+            "midpoint": SimpleNamespace(id=2, project_id=project_id, commit_hash="midhash", payload_json=json_dumps(midpoint_payload)),
+        }[snapshot_type]
+    )
+    service.comparison_repo = SimpleNamespace(
+        get_by_snapshot_ids=lambda _cur_id, _mid_id: None,
+        create=lambda _row: None,
+    )
+
+    result = service.compare_current_and_midpoint(project_id=1)
+
+    assert result["current_commit_date"] == "2025-03-15T10:00:00+00:00"
+    assert result["midpoint_commit_date"] == "2024-06-01T10:00:00+00:00"
 
 
 def test_compare_current_and_midpoint_happy_path():

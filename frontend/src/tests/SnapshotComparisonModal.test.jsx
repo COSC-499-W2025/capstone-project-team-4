@@ -17,12 +17,20 @@ import SnapshotComparisonModal from '@/components/custom/Generator/SnapshotCompa
 
 const PROJECT = { projectId: 17, name: 'My Project' };
 
+const TIMELINE = [
+  { index: 0, hash: 'aaa', committed_at: '2024-01-01T00:00:00+00:00', percentage: 1 },
+  { index: 5, hash: 'bbb', committed_at: '2024-06-01T00:00:00+00:00', percentage: 50 },
+  { index: 10, hash: 'ccc', committed_at: '2025-03-15T00:00:00+00:00', percentage: 100 },
+];
+
 const COMPARISON = {
   project_id: 17,
   current_snapshot_id: 2,
   midpoint_snapshot_id: 1,
   current_commit_hash: 'abcdef1234567890',
   midpoint_commit_hash: 'fedcba0987654321',
+  current_commit_date: '2025-03-15T10:00:00+00:00',
+  midpoint_commit_date: '2024-06-01T10:00:00+00:00',
   totals: {
     total_files: { current: 50, midpoint: 30, delta: 20 },
     total_lines: { current: 5000, midpoint: 3000, delta: 2000 },
@@ -59,7 +67,10 @@ const open = (props = {}) =>
 
 const loadComparison = async () => {
   axios.post.mockResolvedValueOnce({ data: {} });
-  axios.get.mockResolvedValueOnce({ data: COMPARISON });
+  axios.get.mockImplementation((url) => {
+    if (url.includes('commit-timeline')) return Promise.resolve({ data: TIMELINE });
+    return Promise.resolve({ data: COMPARISON });
+  });
   fireEvent.click(screen.getByRole('button', { name: /load comparison/i }));
   await waitFor(() => expect(screen.queryByText(/loading|creating|comparing/i)).toBeNull());
 };
@@ -67,6 +78,11 @@ const loadComparison = async () => {
 describe('SnapshotComparisonModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Route GET calls by URL so timeline and compare don't interfere
+    axios.get.mockImplementation((url) => {
+      if (url.includes('commit-timeline')) return Promise.resolve({ data: TIMELINE });
+      return Promise.resolve({ data: COMPARISON });
+    });
   });
 
   // ── Visibility ──────────────────────────────────────────────────────────────
@@ -91,19 +107,18 @@ describe('SnapshotComparisonModal', () => {
   it('shows the load comparison prompt on idle', () => {
     open();
     expect(screen.getByRole('button', { name: /load comparison/i })).toBeInTheDocument();
-    expect(screen.getByText(/generate a snapshot comparison/i)).toBeInTheDocument();
+    expect(screen.getByText(/choose a start and end point/i)).toBeInTheDocument();
   });
 
   // ── API calls ────────────────────────────────────────────────────────────────
 
-  it('POSTs to /api/snapshots/{id}/create when load is clicked', async () => {
+  it('POSTs to /api/snapshots/{id}/create with default percentage=50&end_percentage=100', async () => {
     axios.post.mockResolvedValueOnce({ data: {} });
-    axios.get.mockResolvedValueOnce({ data: COMPARISON });
     open();
     fireEvent.click(screen.getByRole('button', { name: /load comparison/i }));
     await waitFor(() => {
       expect(axios.post).toHaveBeenCalledWith(
-        '/api/snapshots/17/create',
+        '/api/snapshots/17/create?percentage=50&end_percentage=100',
         {},
         expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer test-token' }) })
       );
@@ -112,7 +127,6 @@ describe('SnapshotComparisonModal', () => {
 
   it('GETs /api/snapshots/{id}/compare after create succeeds', async () => {
     axios.post.mockResolvedValueOnce({ data: {} });
-    axios.get.mockResolvedValueOnce({ data: COMPARISON });
     open();
     fireEvent.click(screen.getByRole('button', { name: /load comparison/i }));
     await waitFor(() => {
@@ -128,13 +142,15 @@ describe('SnapshotComparisonModal', () => {
     open();
     fireEvent.click(screen.getByRole('button', { name: /load comparison/i }));
     await waitFor(() => screen.getByRole('button', { name: /retry/i }));
-    expect(axios.get).not.toHaveBeenCalled();
+    expect(axios.get).not.toHaveBeenCalledWith(
+      '/api/snapshots/17/compare',
+      expect.anything()
+    );
   });
 
   // ── Loading states ───────────────────────────────────────────────────────────
 
   it('shows "Creating snapshots..." while POST is in-flight', async () => {
-    // Never-resolving promise keeps component in the 'creating' state
     axios.post.mockReturnValueOnce(new Promise(() => {}));
     open();
     fireEvent.click(screen.getByRole('button', { name: /load comparison/i }));
@@ -143,14 +159,16 @@ describe('SnapshotComparisonModal', () => {
 
   it('shows "Comparing snapshots..." while GET is in-flight', async () => {
     axios.post.mockResolvedValueOnce({ data: {} });
-    // Never-resolving GET keeps component in 'comparing' state
-    axios.get.mockReturnValueOnce(new Promise(() => {}));
+    axios.get.mockImplementation((url) => {
+      if (url.includes('commit-timeline')) return Promise.resolve({ data: TIMELINE });
+      return new Promise(() => {}); // compare never resolves
+    });
     open();
     fireEvent.click(screen.getByRole('button', { name: /load comparison/i }));
     expect(await screen.findByText(/comparing snapshots/i)).toBeInTheDocument();
   });
 
-  // ── Success: overview metrics ─────────────────────────────────────────────────
+  // ── Success: commit range ─────────────────────────────────────────────────────
 
   it('displays the truncated commit hashes after success', async () => {
     open();
@@ -159,11 +177,27 @@ describe('SnapshotComparisonModal', () => {
     expect(screen.getByText(/fedcba09/i)).toBeInTheDocument();
   });
 
+  it('displays formatted commit dates from response', async () => {
+    open();
+    await loadComparison();
+    expect(screen.getAllByText(/Mar 15, 2025/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Jun 1, 2024/i).length).toBeGreaterThan(0);
+  });
+
+  it('shows From / To labels in the commit range header', async () => {
+    open();
+    await loadComparison();
+    expect(screen.getByText('From')).toBeInTheDocument();
+    expect(screen.getByText('To')).toBeInTheDocument();
+  });
+
+  // ── Success: overview metrics ─────────────────────────────────────────────────
+
   it('shows total files midpoint and current counts', async () => {
     open();
     await loadComparison();
-    expect(screen.getByText('30')).toBeInTheDocument(); // midpoint
-    expect(screen.getByText('50')).toBeInTheDocument(); // current
+    expect(screen.getByText('30')).toBeInTheDocument();
+    expect(screen.getByText('50')).toBeInTheDocument();
   });
 
   it('shows total lines midpoint and current counts', async () => {
@@ -181,85 +215,57 @@ describe('SnapshotComparisonModal', () => {
     expect(screen.getByText('Complexity')).toBeInTheDocument();
   });
 
-  // ── Success: count deltas ─────────────────────────────────────────────────────
+  // ── Success: count rows ───────────────────────────────────────────────────────
 
-  it('shows language count row', async () => {
+  it('shows Languages count row', async () => {
     open();
     await loadComparison();
-    // "Languages" appears in both Counts and Changes sections
-    expect(screen.getAllByText('Languages').length).toBeGreaterThan(0);
+    expect(screen.getByText('Languages')).toBeInTheDocument();
   });
 
-  it('shows framework count row', async () => {
+  it('shows Frameworks count row', async () => {
     open();
     await loadComparison();
     expect(screen.getByText('Frameworks')).toBeInTheDocument();
   });
 
-  it('shows skills count row', async () => {
+  it('shows Skills count row', async () => {
     open();
     await loadComparison();
-    // "Skills" appears in both Counts and Changes sections
-    expect(screen.getAllByText('Skills').length).toBeGreaterThan(0);
+    expect(screen.getByText('Skills')).toBeInTheDocument();
   });
 
-  // ── Success: complexity metrics ───────────────────────────────────────────────
+  // ── Success: collapsible changes ──────────────────────────────────────────────
 
-  it('shows total functions metric', async () => {
+  it('reveals added language badge when Languages row is expanded', async () => {
     open();
     await loadComparison();
-    expect(screen.getByText('Total Functions')).toBeInTheDocument();
-    expect(screen.getByText('70')).toBeInTheDocument();  // midpoint
-    expect(screen.getByText('100')).toBeInTheDocument(); // current
+    fireEvent.click(screen.getByText('Languages'));
+    expect(await screen.findByText('TypeScript')).toBeInTheDocument();
   });
 
-  it('shows avg complexity with decimal formatting', async () => {
+  it('reveals removed library badge when Libraries row is expanded', async () => {
     open();
     await loadComparison();
-    expect(screen.getByText('Avg Complexity')).toBeInTheDocument();
-    expect(screen.getByText('2.10')).toBeInTheDocument(); // midpoint
-    expect(screen.getByText('2.50')).toBeInTheDocument(); // current
+    fireEvent.click(screen.getByText('Libraries'));
+    expect(await screen.findByText('lodash')).toBeInTheDocument();
   });
 
-  it('shows max complexity metric', async () => {
+  it('reveals added tool badge when Tools row is expanded', async () => {
     open();
     await loadComparison();
-    expect(screen.getByText('Max Complexity')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Tools & Technologies'));
+    expect(await screen.findByText('Docker')).toBeInTheDocument();
   });
 
-  // ── Success: changes section ──────────────────────────────────────────────────
-
-  it('shows the Changes heading when items were added or removed', async () => {
+  it('reveals added skill badge when Skills row is expanded', async () => {
     open();
     await loadComparison();
-    expect(screen.getByText('Changes')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Skills'));
+    expect(await screen.findByText('Testing')).toBeInTheDocument();
   });
 
-  it('renders added language badges', async () => {
-    open();
-    await loadComparison();
-    expect(screen.getByText('TypeScript')).toBeInTheDocument();
-  });
-
-  it('renders removed library badges', async () => {
-    open();
-    await loadComparison();
-    expect(screen.getByText('lodash')).toBeInTheDocument();
-  });
-
-  it('renders added tool badges', async () => {
-    open();
-    await loadComparison();
-    expect(screen.getByText('Docker')).toBeInTheDocument();
-  });
-
-  it('renders added skill badges', async () => {
-    open();
-    await loadComparison();
-    expect(screen.getByText('Testing')).toBeInTheDocument();
-  });
-
-  it('shows "no changes" message when all added/removed sets are empty', async () => {
+  it('shows "no added or removed items" message when all change sets are empty', async () => {
     const noChanges = {
       ...COMPARISON,
       languages: { added: [], removed: [] },
@@ -269,12 +275,39 @@ describe('SnapshotComparisonModal', () => {
       tools_and_technologies: { added: [], removed: [] },
     };
     axios.post.mockResolvedValueOnce({ data: {} });
-    axios.get.mockResolvedValueOnce({ data: noChanges });
+    axios.get.mockImplementation((url) => {
+      if (url.includes('commit-timeline')) return Promise.resolve({ data: TIMELINE });
+      return Promise.resolve({ data: noChanges });
+    });
     open();
     fireEvent.click(screen.getByRole('button', { name: /load comparison/i }));
     await waitFor(() =>
       expect(screen.getByText(/no added or removed items/i)).toBeInTheDocument()
     );
+  });
+
+  // ── Success: complexity metrics ───────────────────────────────────────────────
+
+  it('shows total functions metric', async () => {
+    open();
+    await loadComparison();
+    expect(screen.getByText('Total Functions')).toBeInTheDocument();
+    expect(screen.getByText('70')).toBeInTheDocument();
+    expect(screen.getByText('100')).toBeInTheDocument();
+  });
+
+  it('shows avg complexity with decimal formatting', async () => {
+    open();
+    await loadComparison();
+    expect(screen.getByText('Avg Complexity')).toBeInTheDocument();
+    expect(screen.getByText('2.10')).toBeInTheDocument();
+    expect(screen.getByText('2.50')).toBeInTheDocument();
+  });
+
+  it('shows max complexity metric', async () => {
+    open();
+    await loadComparison();
+    expect(screen.getByText('Max Complexity')).toBeInTheDocument();
   });
 
   // ── Success: refresh ──────────────────────────────────────────────────────────
@@ -290,12 +323,11 @@ describe('SnapshotComparisonModal', () => {
     await loadComparison();
 
     axios.post.mockResolvedValueOnce({ data: {} });
-    axios.get.mockResolvedValueOnce({ data: COMPARISON });
     fireEvent.click(screen.getByRole('button', { name: /refresh/i }));
 
     await waitFor(() => {
       expect(axios.post).toHaveBeenCalledTimes(2);
-      expect(axios.get).toHaveBeenCalledTimes(2);
+      expect(axios.get).toHaveBeenCalledWith('/api/snapshots/17/compare', expect.anything());
     });
   });
 
@@ -350,12 +382,93 @@ describe('SnapshotComparisonModal', () => {
     await waitFor(() => screen.getByRole('button', { name: /retry/i }));
 
     axios.post.mockResolvedValueOnce({ data: {} });
-    axios.get.mockResolvedValueOnce({ data: COMPARISON });
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
 
     await waitFor(() =>
       expect(axios.post).toHaveBeenCalledTimes(2)
     );
+  });
+
+  // ── Range slider ──────────────────────────────────────────────────────────────
+
+  it('shows two slider thumbs in the idle state (range slider)', () => {
+    open();
+    expect(document.querySelectorAll('[role="slider"]').length).toBe(2);
+  });
+
+  it('shows from-slider label containing "50%"', async () => {
+    open();
+    // While timeline loads: "50% (Loading…)"; after: "Jun 1, 2024 (50%)"
+    expect(await screen.findByText(/50%/)).toBeInTheDocument();
+  });
+
+  it('shows to-slider label containing "Current"', async () => {
+    open();
+    // While timeline loads: "Current HEAD (Loading…)"; after: "Mar 15, 2025 (Current)"
+    expect(await screen.findByText(/Current/)).toBeInTheDocument();
+  });
+
+  it('shows two slider thumbs in the results state for re-running', async () => {
+    open();
+    await loadComparison();
+    expect(document.querySelectorAll('[role="slider"]').length).toBe(2);
+  });
+
+  it('shows formatted dates on the slider labels after load', async () => {
+    open();
+    await loadComparison();
+    expect(screen.getAllByText(/Jun 1, 2024/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Mar 15, 2025/i).length).toBeGreaterThan(0);
+  });
+
+  it('range slider thumbs have correct initial aria-valuenow attributes', () => {
+    open();
+    const [fromThumb, toThumb] = document.querySelectorAll('[role="slider"]');
+    expect(fromThumb).toHaveAttribute('aria-valuenow', '50');
+    expect(toThumb).toHaveAttribute('aria-valuenow', '100');
+  });
+
+  // ── Commit timeline (live slider dates) ──────────────────────────────────────
+
+  it('fetches commit-timeline on open', async () => {
+    open();
+    await waitFor(() =>
+      expect(axios.get).toHaveBeenCalledWith(
+        '/api/snapshots/17/commit-timeline',
+        expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer test-token' }) })
+      )
+    );
+  });
+
+  it('shows date from timeline on the from-slider label at 50%', async () => {
+    open();
+    // TIMELINE entry at percentage=50 has committed_at 2024-06-01
+    expect(await screen.findByText(/Jun 1, 2024/i)).toBeInTheDocument();
+  });
+
+  it('shows date from timeline on the to-slider label at 100%', async () => {
+    open();
+    // TIMELINE entry at percentage=100 has committed_at 2025-03-15
+    expect(await screen.findByText(/Mar 15, 2025/i)).toBeInTheDocument();
+  });
+
+  it('shows "Loading…" on slider labels while timeline is in-flight', async () => {
+    axios.get.mockImplementation((url) => {
+      if (url.includes('commit-timeline')) return new Promise(() => {}); // never resolves
+      return Promise.resolve({ data: COMPARISON });
+    });
+    open();
+    const loadingLabels = await screen.findAllByText(/Loading/);
+    expect(loadingLabels.length).toBeGreaterThan(0);
+  });
+
+  it('falls back to percentage labels when timeline fetch fails', async () => {
+    axios.get.mockImplementation((url) => {
+      if (url.includes('commit-timeline')) return Promise.reject(new Error('network'));
+      return Promise.resolve({ data: COMPARISON });
+    });
+    open();
+    await waitFor(() => expect(screen.getByText('50%')).toBeInTheDocument());
   });
 
   // ── onClose ───────────────────────────────────────────────────────────────────
