@@ -15,6 +15,20 @@ vi.mock('@/components/custom/Generator/EditProjectModal', () => ({
     ) : null,
 }));
 
+vi.mock('@/components/custom/Generator/SnapshotComparisonModal', () => ({
+  default: ({ isOpen, onClose, project }) =>
+    isOpen ? (
+      <div data-testid="snapshot-modal">
+        <span data-testid="snapshot-project-name">{project?.name}</span>
+        <button onClick={onClose}>Close Snapshot</button>
+      </div>
+    ) : null,
+}));
+
+vi.mock('@/lib/auth', () => ({
+  getAccessToken: vi.fn(() => 'test-token'),
+}));
+
 import axios from 'axios';
 import ProjectSummary from '@/components/custom/Generator/ProjectSummary';
 
@@ -181,15 +195,18 @@ describe('ProjectSummary', () => {
 
   it('opens edit modal when edit button is clicked', () => {
     render(<ProjectSummary projects={[makeProject()]} />);
-    const editButtons = screen.getAllByRole('button').filter(b => b.querySelector('svg'));
-    fireEvent.click(editButtons[0]);
+    // Edit button has no title; GitCompare button has title="View project progress"
+    const editButton = screen.getAllByRole('button')
+      .filter(b => b.querySelector('svg') && !b.title)[0];
+    fireEvent.click(editButton);
     expect(screen.getByTestId('edit-modal')).toBeInTheDocument();
   });
 
   it('closes edit modal when onClose is called', () => {
     render(<ProjectSummary projects={[makeProject()]} />);
-    const editButtons = screen.getAllByRole('button').filter(b => b.querySelector('svg'));
-    fireEvent.click(editButtons[0]);
+    const editButton = screen.getAllByRole('button')
+      .filter(b => b.querySelector('svg') && !b.title)[0];
+    fireEvent.click(editButton);
     expect(screen.getByTestId('edit-modal')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Close'));
     expect(screen.queryByTestId('edit-modal')).not.toBeInTheDocument();
@@ -198,8 +215,9 @@ describe('ProjectSummary', () => {
   it('calls onUpdateProject with updated data when saving', () => {
     const onUpdateProject = vi.fn();
     render(<ProjectSummary projects={[makeProject()]} onUpdateProject={onUpdateProject} />);
-    const editButtons = screen.getAllByRole('button').filter(b => b.querySelector('svg'));
-    fireEvent.click(editButtons[0]);
+    const editButton = screen.getAllByRole('button')
+      .filter(b => b.querySelector('svg') && !b.title)[0];
+    fireEvent.click(editButton);
     fireEvent.click(screen.getByText('Save'));
     expect(onUpdateProject).toHaveBeenCalledWith(0, expect.objectContaining({ name: 'Edited Name' }));
   });
@@ -252,5 +270,58 @@ describe('ProjectSummary', () => {
     await waitFor(() => {
       expect(screen.getByText('Failed to load contributors')).toBeInTheDocument();
     });
+  });
+
+  // ── Snapshot comparison button ───────────────────────────────────────────────
+
+  it('shows the GitCompare button for projects with a projectId', () => {
+    render(<ProjectSummary projects={[makeProject({ projectId: 42 })]} />);
+    expect(screen.getByTitle('View project progress')).toBeInTheDocument();
+  });
+
+  it('does not show the GitCompare button when projectId is missing', () => {
+    render(<ProjectSummary projects={[makeProject({ projectId: undefined })]} />);
+    expect(screen.queryByTitle('View project progress')).not.toBeInTheDocument();
+  });
+
+  it('opens the snapshot comparison modal when GitCompare is clicked', () => {
+    render(<ProjectSummary projects={[makeProject({ projectId: 7, name: 'Snap Project' })]} />);
+    fireEvent.click(screen.getByTitle('View project progress'));
+    expect(screen.getByTestId('snapshot-modal')).toBeInTheDocument();
+  });
+
+  it('passes the correct project to the snapshot modal', () => {
+    render(<ProjectSummary projects={[makeProject({ projectId: 7, name: 'Snap Project' })]} />);
+    fireEvent.click(screen.getByTitle('View project progress'));
+    expect(screen.getByTestId('snapshot-project-name').textContent).toBe('Snap Project');
+  });
+
+  it('closes the snapshot modal when onClose is called', () => {
+    render(<ProjectSummary projects={[makeProject({ projectId: 7 })]} />);
+    fireEvent.click(screen.getByTitle('View project progress'));
+    expect(screen.getByTestId('snapshot-modal')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Close Snapshot'));
+    expect(screen.queryByTestId('snapshot-modal')).not.toBeInTheDocument();
+  });
+
+  it('shows GitCompare button for each project that has a projectId', () => {
+    const projects = [
+      makeProject({ projectId: 1, name: 'Alpha' }),
+      makeProject({ projectId: 2, name: 'Beta' }),
+    ];
+    render(<ProjectSummary projects={projects} />);
+    expect(screen.getAllByTitle('View project progress')).toHaveLength(2);
+  });
+
+  it('snapshot modal only opens for the clicked project, not all projects', () => {
+    const projects = [
+      makeProject({ projectId: 1, name: 'Alpha' }),
+      makeProject({ projectId: 2, name: 'Beta' }),
+    ];
+    render(<ProjectSummary projects={projects} />);
+    const buttons = screen.getAllByTitle('View project progress');
+    fireEvent.click(buttons[0]);
+    // Only one modal should be open
+    expect(screen.getAllByTestId('snapshot-modal')).toHaveLength(1);
   });
 });

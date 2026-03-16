@@ -18,20 +18,22 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { 
-  Pencil, 
-  Users, 
-  Calendar, 
-  Code, 
-  FileText, 
+  Pencil,
+  Users,
+  Calendar,
+  Code,
+  FileText,
   ChevronRight,
   Plus,
   Minus,
   Loader2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  GitCompare
 } from 'lucide-react';
 import EditProjectModal from '@/components/custom/Generator/EditProjectModal';
 import ContributorInsightsDialog from '@/components/custom/Generator/ContributorInsightsDialog';
+import SnapshotComparisonModal from '@/components/custom/Generator/SnapshotComparisonModal';
 
 const ProjectSummary = ({ projects, onUpdateProject }) => {
   const [sortBy, setSortBy] = useState('date');
@@ -45,6 +47,9 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
   const [contributorData, setContributorData] = useState(null);
   const [contributorLoading, setContributorLoading] = useState(false);
   const [contributorError, setContributorError] = useState(null);
+
+  // Snapshot comparison modal state
+  const [snapshotProject, setSnapshotProject] = useState(null);
 
   // Expanded sections state - track which project indices have expanded sections
   const [expandedSections, setExpandedSections] = useState({});
@@ -227,15 +232,28 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
       <div className="grid gap-4 md:grid-cols-2">
         {sortedProjects.map((project, index) => (
           <Card key={project.projectId || index} className="hover:shadow-lg transition-shadow relative">
-            {/* Edit Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleEdit(project, index)}
-              className="absolute top-2 right-2 h-8 w-8 p-0 hover:bg-blue-50"
-            >
-              <Pencil className="h-4 w-4 text-gray-500 hover:text-blue-600" />
-            </Button>
+            {/* Action Buttons */}
+            <div className="absolute top-2 right-2 flex items-center gap-1">
+              {project.projectId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSnapshotProject(project)}
+                  className="h-8 w-8 p-0 hover:bg-indigo-50"
+                  title="View project progress"
+                >
+                  <GitCompare className="h-4 w-4 text-gray-500 hover:text-indigo-600" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleEdit(project, index)}
+                className="h-8 w-8 p-0 hover:bg-blue-50"
+              >
+                <Pencil className="h-4 w-4 text-gray-500 hover:text-blue-600" />
+              </Button>
+            </div>
 
             <CardHeader>
               <CardTitle className="text-lg pr-8">{project.name}</CardTitle>
@@ -454,6 +472,13 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
           onSave={handleSave}
         />
       )}
+
+      {/* Snapshot Comparison Modal */}
+      <SnapshotComparisonModal
+        isOpen={!!snapshotProject}
+        onClose={() => setSnapshotProject(null)}
+        project={snapshotProject}
+      />
 
       {/* Contributors Detail Modal */}
       <Dialog open={contributorModalOpen} onOpenChange={setContributorModalOpen}>

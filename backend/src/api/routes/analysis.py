@@ -66,6 +66,7 @@ async def analyze_upload(
         raise InvalidFileError("File must be a ZIP archive")
 
     tmp_path: Path | None = None
+    analysis_succeeded = False
 
     try:
         settings.uploads_dir.mkdir(parents=True, exist_ok=True)
@@ -93,11 +94,12 @@ async def analyze_upload(
             reuse_cached_analysis=reuse_cached_analysis,
             split_projects=split_projects,
             user_id=current_user.id,
-)
+        )
 
         # Always return list to match response_model=List[AnalysisResult]
         final_result = result if isinstance(result, list) else [result]
         logger.info("Analysis completed successfully, returning %s project(s)", len(final_result))
+        analysis_succeeded = True
         return final_result
 
     except (FileNotFoundError, ValueError) as e:
@@ -109,11 +111,13 @@ async def analyze_upload(
         logger.exception("Analysis failed with unexpected error")
         raise AnalysisError(str(e))
     finally:
-        if tmp_path is not None:
+        # Keep the ZIP on success so the snapshot service can materialize the repo later.
+        # Only clean up if analysis failed to avoid accumulating orphaned ZIPs.
+        if tmp_path is not None and not analysis_succeeded:
             try:
                 if tmp_path.exists():
                     tmp_path.unlink()
-                    logger.info("Deleted uploaded ZIP after analysis: %s", tmp_path)
+                    logger.info("Deleted uploaded ZIP after failed analysis: %s", tmp_path)
             except Exception as e:
                 logger.warning("Failed to delete uploaded ZIP %s: %s", tmp_path, e)
 
