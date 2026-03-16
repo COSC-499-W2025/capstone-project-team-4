@@ -21,5 +21,13 @@ class SnapshotRepository(BaseRepository[ProjectSnapshot]):
             .limit(1)
         )
         return self.db.scalar(stmt)
+    
+    def get_all_for_project(self, project_id: int) -> list[ProjectSnapshot]:
+        stmt = (
+        select(ProjectSnapshot)
+        .where(ProjectSnapshot.project_id == project_id)
+        .order_by(ProjectSnapshot.created_at)
+        )
+        return list(self.db.scalars(stmt).all())
 
 

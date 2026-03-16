@@ -54,3 +54,12 @@ async def compare_current_and_midpoint_snapshots(
     """Compare latest current and midpoint snapshots for a project."""
     service = SnapshotService(db)
     return service.compare_current_and_midpoint(project_id)
+
+@router.get("/{project_id}/activity-heatmap", status_code=200)
+async def get_snapshot_activity_heatmap(
+    project_id: int,
+    db: Session = Depends(get_db)
+):
+    """Return snapshot activity counts grouped by day for heatmap display."""
+    service = SnapshotService(db)
+    return service.get_snapshot_activity_heatmap(project_id)

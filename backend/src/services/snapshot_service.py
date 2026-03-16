@@ -9,7 +9,7 @@ import tempfile
 import zipfile
 from collections import Counter
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -673,3 +673,44 @@ class SnapshotService:
                 detail=f"Git command failed: {' '.join(args)}. {proc.stderr.strip()}",
             )
         return proc.stdout
+    
+    def get_snapshot_activity_heatmap(self, project_id: int) -> dict:
+        """Return heatmap-friendly snapshot counts grouped by day."""
+        project = self.project_repo.get(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+
+        snapshots = self.snapshot_repo.get_all_for_project(project_id)
+
+        if not snapshots:
+            return {
+                "project_id": project_id,
+                "metric": "snapshots_per_day",
+                "data": [],
+            }
+
+        counts = Counter(
+            snapshot.created_at.date().isoformat()
+            for snapshot in snapshots
+            if snapshot.created_at is not None
+        )
+
+        min_date = min(snapshot.created_at.date() for snapshot in snapshots if snapshot.created_at is not None)
+        max_date = max(snapshot.created_at.date() for snapshot in snapshots if snapshot.created_at is not None)
+
+        data = []
+        current = min_date
+        while current <= max_date:
+            date_str = current.isoformat()
+            data.append({
+                "date": date_str,
+                "count": counts.get(date_str, 0),
+            })
+            current += timedelta(days=1)
+
+        return {
+            "project_id": project_id,
+            "metric": "snapshots_per_day",
+            "data": data,
+        }
+

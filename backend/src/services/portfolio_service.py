@@ -78,6 +78,7 @@ class PortfolioService:
             highlights = latest_resume.highlights if latest_resume else []
 
             projects_data.append({
+                "id": project.id,
                 "name": project.name,
                 "languages": languages,
                 "frameworks": frameworks,
