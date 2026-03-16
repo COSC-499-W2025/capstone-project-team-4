@@ -33,4 +33,11 @@ Reviewed PRs
 
 <img width="1087" height="639" alt="Screenshot 2026-03-08 at 19 52 08" src="https://github.com/user-attachments/assets/e4c52acd-80ac-4480-ad37-f2e6cea9650c" />
 
+- [x] Coding
+- [x] Reviewing teammate's code
+- [x] Testing for your code
+- [x] Testing teammate's code
+- [x] Team meetings
+- [x] Something else: Create Google Forms
+
 Hours Worked: ~8 hours
