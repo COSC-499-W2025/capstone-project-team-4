@@ -188,7 +188,7 @@ export default function LoginForm() {
           New here?{" "}
           <Link
             to="/signup"
-            className="font-medium text-slate-900 underline underline-offset-4"
+            className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1.5 font-semibold text-emerald-900 shadow-sm transition-colors hover:bg-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
           >
             Create an account
           </Link>
