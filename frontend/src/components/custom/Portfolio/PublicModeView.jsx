@@ -1,6 +1,6 @@
 import { Globe, Search } from "lucide-react";
 
-export default function PublicModeView({ portfolio }) {
+export default function ActivityHeatmap() {
   return (
     <section>
       <h2 className="pf-section-title">Public View</h2>

@@ -1,6 +1,6 @@
 import { Activity } from "lucide-react";
 
-export default function ActivityHeatmap({ portfolio }) {
+export default function ActivityHeatmap() {
   return (
     <section>
       <h2 className="pf-section-title">Activity</h2>
