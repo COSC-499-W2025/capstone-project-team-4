@@ -437,7 +437,7 @@ class AnalysisService:
                     zip_upload_time=datetime.utcnow(),
                     earliest_file_date_in_zip=earliest_file_date,
                     use_cache=use_cache,
-                    user_id=user_id,
+                    user_id=user_id
                 )
                 results.append(result)
 
@@ -778,7 +778,7 @@ class AnalysisService:
                 if cached_project
                 else (incremental_base.id if incremental_base else None)
             ),
-            user_id=user_id,
+            user_id=user_id
         )
         project_id = project.id
         logger.info(f"Step 2 complete: Project ID {project_id}")

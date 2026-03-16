@@ -29,6 +29,8 @@ from src.repositories.contributor_repository import ContributorRepository
 from src.repositories.project_repository import ProjectRepository
 from src.repositories.complexity_repository import ComplexityRepository
 from src.api.exceptions import ProjectNotFoundError
+from src.api.dependencies import get_current_user
+from src.models.orm.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -248,9 +250,10 @@ async def list_projects(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user), 
 ):
     service = ProjectService(db)
-    result = service.list_projects(page=page, page_size=page_size)
+    result = service.list_projects(page=page, page_size=page_size, user_id=current_user.id)
 
     for item in result.items:
         if item.has_thumbnail:

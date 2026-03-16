@@ -157,10 +157,10 @@ class ProjectRepository(BaseRepository[Project]):
             "library_count": library_count,
         }
 
-    def get_all_summaries(self, skip: int = 0, limit: int = 100) -> List[dict]:
+    def get_all_summaries(self, skip: int = 0, limit: int = 100, user_id: int = None) -> List[dict]:
         """Get all project summaries (bulk). Avoid N+1 count queries."""
         # Fetch the base projects first
-        projects = self.get_all(skip=skip, limit=limit)
+        projects = self.get_all(skip=skip, limit=limit, user_id=user_id)
         if not projects:
             return []
 
@@ -355,3 +355,17 @@ class ProjectRepository(BaseRepository[Project]):
             select(func.sum(File.lines_of_code)).where(File.project_id == project_id)
         )
         return result or 0
+
+    def get_all(self, skip: int = 0, limit: int = 100, user_id: int = None) -> List[Project]:
+        stmt = select(Project)
+        if user_id is not None:
+            stmt = stmt.where(Project.user_id == user_id)
+        stmt = stmt.offset(skip).limit(limit)
+        return list(self.db.scalars(stmt).all())
+
+    def count(self, user_id: int = None) -> int:
+        from sqlalchemy import func
+        stmt = select(func.count()).select_from(Project)
+        if user_id is not None:
+            stmt = stmt.where(Project.user_id == user_id)
+        return self.db.scalar(stmt) or 0
