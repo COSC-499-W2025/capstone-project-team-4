@@ -143,6 +143,8 @@ class SnapshotCurrentMidpointComparisonResponse(BaseModel):
     midpoint_snapshot_id: int
     current_commit_hash: str
     midpoint_commit_hash: str
+    current_commit_date: Optional[str] = None
+    midpoint_commit_date: Optional[str] = None
     totals: dict
     counts: dict
     languages: SnapshotSetDelta

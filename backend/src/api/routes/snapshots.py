@@ -16,12 +16,13 @@ router = APIRouter(prefix="/snapshots", tags=["snapshots"])
 @router.post("/{project_id}/create", response_model=SnapshotPairResponse, status_code=201)
 async def create_current_and_midpoint_snapshots(
     project_id: int,
-    percentage: int = Query(50, ge=1, le=99, description="Percentage through commit history for the comparison snapshot (1–99)"),
+    percentage: int = Query(50, ge=1, le=99, description="Start point: percentage through commit history (1–99)"),
+    end_percentage: int = Query(100, ge=2, le=100, description="End point: percentage through commit history (2–100, where 100 = current HEAD)"),
     db: Session = Depends(get_db),
 ):
-    """Create current and a user-chosen percentage-point snapshot in one call."""
+    """Create snapshots at two user-chosen points in commit history and compare them."""
     service = SnapshotService(db)
-    return service.create_current_and_midpoint_snapshots(project_id, percentage=percentage)
+    return service.create_current_and_midpoint_snapshots(project_id, percentage=percentage, end_percentage=end_percentage)
 
 
 @router.delete("/{project_id}/{snapshot_id}", status_code=200)

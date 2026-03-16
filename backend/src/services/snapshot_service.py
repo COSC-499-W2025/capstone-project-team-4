@@ -159,6 +159,8 @@ class SnapshotService:
             "midpoint_snapshot_id": midpoint_snap.id,
             "current_commit_hash": current_snap.commit_hash,
             "midpoint_commit_hash": midpoint_snap.commit_hash,
+            "current_commit_date": current_payload.get("commit", {}).get("committed_at"),
+            "midpoint_commit_date": midpoint_payload.get("commit", {}).get("committed_at"),
             "totals": {
                 "total_files": count_delta(
                     cur_summary.get("total_files", 0), mid_summary.get("total_files", 0)
@@ -201,8 +203,13 @@ class SnapshotService:
             },
         }
 
-    def create_current_and_midpoint_snapshots(self, project_id: int, percentage: int = 50) -> dict:
-        """Create both current and midpoint snapshots in one request."""
+    def create_current_and_midpoint_snapshots(self, project_id: int, percentage: int = 50, end_percentage: int = 100) -> dict:
+        """Create both current and midpoint snapshots in one request.
+
+        ``percentage`` selects the start/from commit (1–99% through history).
+        ``end_percentage`` selects the end/to commit (2–100%, where 100 = current HEAD).
+        Both commit points are resolved before any checkout to avoid HEAD drift.
+        """
         project = self.project_repo.get(project_id)
         if not project:
             raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
@@ -211,13 +218,29 @@ class SnapshotService:
             workspace = Path(tmp_dir)
             repo_root = self._materialize_repo(project.root_path, project.source_url, workspace)
 
-            current_commit = self._resolve_commit_point(repo_root, snapshot_type="current")
+            # Resolve ALL commit points before any checkout (repo is at HEAD here)
+            if end_percentage >= 100:
+                current_commit = self._resolve_commit_point(repo_root, snapshot_type="current")
+                need_checkout_for_current = False
+            else:
+                end_pt = self._get_midpoint_commit(repo_root, percentage=end_percentage)
+                current_commit = CommitPoint(
+                    hash=end_pt.hash, index=end_pt.index, total_commits=end_pt.total_commits
+                )
+                need_checkout_for_current = True
+
+            midpoint_commit = self._resolve_commit_point(repo_root, snapshot_type="midpoint", percentage=percentage)
+
+            # Build current (end) snapshot
+            if need_checkout_for_current:
+                self._git(repo_root, "checkout", "--force", "--detach", current_commit.hash)
+                self._git(repo_root, "clean", "-fd")
             current_snapshot = self._build_snapshot(
                 project_id, repo_root, current_commit, snapshot_type="current"
             )
             current_saved = self._persist_snapshot(project_id, current_snapshot)
 
-            midpoint_commit = self._resolve_commit_point(repo_root, snapshot_type="midpoint", percentage=percentage)
+            # Build midpoint (start) snapshot — always requires checkout
             self._git(repo_root, "checkout", "--force", "--detach", midpoint_commit.hash)
             self._git(repo_root, "clean", "-fd")
             midpoint_snapshot = self._build_snapshot(

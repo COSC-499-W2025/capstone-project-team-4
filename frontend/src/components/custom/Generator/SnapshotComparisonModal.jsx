@@ -21,6 +21,7 @@ import {
   FileText,
   Code,
   Layers,
+  ChevronDown,
 } from 'lucide-react';
 import { getAccessToken } from '@/lib/auth';
 
@@ -28,6 +29,15 @@ function getAuthHeaders() {
   const token = getAccessToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
+
+const formatCommitDate = (isoString) => {
+  if (!isoString) return null;
+  return new Date(isoString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+};
 
 const DeltaBadge = ({ delta, formatFn }) => {
   const display = formatFn ? formatFn(delta) : delta;
@@ -52,6 +62,64 @@ const DeltaBadge = ({ delta, formatFn }) => {
   );
 };
 
+/** Count row that expands to show added/removed badges for that category. */
+const CollapsibleMetricRow = ({ label, countDelta, setDelta }) => {
+  const [expanded, setExpanded] = useState(false);
+  if (!countDelta) return null;
+
+  const hasChanges =
+    setDelta && (setDelta.added.length > 0 || setDelta.removed.length > 0);
+
+  return (
+    <div className="border-b last:border-0">
+      <div
+        className={`flex items-center justify-between py-1.5 ${hasChanges ? 'cursor-pointer hover:bg-gray-50 rounded' : ''}`}
+        onClick={() => hasChanges && setExpanded((e) => !e)}
+      >
+        <div className="flex items-center gap-1 text-sm text-gray-600">
+          {hasChanges ? (
+            <ChevronDown
+              className={`h-3 w-3 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
+            />
+          ) : (
+            <span className="inline-block w-3" />
+          )}
+          {label}
+        </div>
+        <div className="flex items-center gap-3 text-sm">
+          <span className="text-gray-400 text-xs">{countDelta.midpoint.toLocaleString()}</span>
+          <span className="text-gray-300">→</span>
+          <span className="font-medium">{countDelta.current.toLocaleString()}</span>
+          <DeltaBadge delta={countDelta.delta} />
+        </div>
+      </div>
+
+      {expanded && hasChanges && (
+        <div className="pb-2 pl-5 space-y-1.5">
+          {setDelta.added.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {setDelta.added.map((item, i) => (
+                <Badge key={i} className="text-xs bg-green-50 text-green-700 border-green-200 gap-0.5">
+                  <Plus className="h-2.5 w-2.5" />{item}
+                </Badge>
+              ))}
+            </div>
+          )}
+          {setDelta.removed.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {setDelta.removed.map((item, i) => (
+                <Badge key={i} className="text-xs bg-red-50 text-red-600 border-red-200 gap-0.5">
+                  <Minus className="h-2.5 w-2.5" />{item}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const MetricRow = ({ label, countDelta }) => {
   if (!countDelta) return null;
   return (
@@ -67,41 +135,44 @@ const MetricRow = ({ label, countDelta }) => {
   );
 };
 
-const SetDeltaSection = ({ title, setDelta }) => {
-  if (!setDelta) return null;
-  const { added, removed } = setDelta;
-  if (added.length === 0 && removed.length === 0) return null;
+/** Range slider showing two labeled date/percentage points. */
+const RangeSliderControl = ({ fromPct, toPct, onChange, fromDate, toDate }) => {
+  const fromLabel = fromDate ? `${formatCommitDate(fromDate)} (${fromPct}%)` : `${fromPct}%`;
+  const toLabel =
+    toPct >= 100
+      ? (toDate ? `${formatCommitDate(toDate)} (Current)` : 'Current HEAD')
+      : toDate
+      ? `${formatCommitDate(toDate)} (${toPct}%)`
+      : `${toPct}%`;
 
   return (
-    <div className="space-y-1.5">
-      <h4 className="text-sm font-medium text-gray-700">{title}</h4>
-      {added.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {added.map((item, i) => (
-            <Badge key={i} className="text-xs bg-green-50 text-green-700 border-green-200 gap-0.5">
-              <Plus className="h-2.5 w-2.5" />{item}
-            </Badge>
-          ))}
-        </div>
-      )}
-      {removed.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {removed.map((item, i) => (
-            <Badge key={i} className="text-xs bg-red-50 text-red-600 border-red-200 gap-0.5">
-              <Minus className="h-2.5 w-2.5" />{item}
-            </Badge>
-          ))}
-        </div>
-      )}
+    <div className="w-full max-w-sm space-y-2">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-indigo-600 font-semibold">{fromLabel}</span>
+        <span className="text-indigo-600 font-semibold">{toLabel}</span>
+      </div>
+      <Slider
+        min={1}
+        max={100}
+        step={1}
+        value={[fromPct, toPct]}
+        onValueChange={([from, to]) => onChange(from, to)}
+        minStepsBetweenThumbs={1}
+      />
+      <div className="flex justify-between text-xs text-gray-400">
+        <span>Earliest</span>
+        <span>Latest</span>
+      </div>
     </div>
   );
 };
 
 const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
-  const [step, setStep] = useState('idle'); // idle | creating | comparing | done | error
+  const [step, setStep] = useState('idle');
   const [comparison, setComparison] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
-  const [percentage, setPercentage] = useState(50);
+  const [fromPct, setFromPct] = useState(50);
+  const [toPct, setToPct] = useState(100);
 
   const handleLoad = async () => {
     if (!project?.projectId) return;
@@ -111,7 +182,7 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
 
     try {
       await axios.post(
-        `/api/snapshots/${project.projectId}/create?percentage=${percentage}`,
+        `/api/snapshots/${project.projectId}/create?percentage=${fromPct}&end_percentage=${toPct}`,
         {},
         { headers: getAuthHeaders() }
       );
@@ -141,20 +212,17 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
   const handleOpenChange = (open) => {
     if (!open) {
       onClose();
-      // Reset state when closed
       setTimeout(() => {
         setStep('idle');
         setComparison(null);
         setErrorMsg(null);
-        setPercentage(50);
+        setFromPct(50);
+        setToPct(100);
       }, 300);
     }
   };
 
   const isLoading = step === 'creating' || step === 'comparing';
-
-  const loadingMessage =
-    step === 'creating' ? 'Creating snapshots...' : 'Comparing snapshots...';
 
   const hasChanges =
     comparison &&
@@ -169,6 +237,12 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
       comparison.skills.added.length > 0 ||
       comparison.skills.removed.length > 0);
 
+  const loadingMessage =
+    step === 'creating' ? 'Creating snapshots...' : 'Comparing snapshots...';
+
+  const fromDate = comparison?.midpoint_commit_date ?? null;
+  const toDate = comparison?.current_commit_date ?? null;
+
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
@@ -178,7 +252,7 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
             Project Progress — {project?.name}
           </DialogTitle>
           <DialogDescription>
-            Compare a chosen point in the commit history to the current state
+            Drag both handles to compare any two points in the commit history
           </DialogDescription>
         </DialogHeader>
 
@@ -188,25 +262,15 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
             <div className="flex flex-col items-center justify-center py-10 gap-5">
               <GitCompare className="h-12 w-12 text-indigo-300" />
               <p className="text-gray-500 text-sm text-center max-w-xs">
-                Choose a point in the commit history to compare against the current state.
+                Choose a start and end point in the commit history to compare.
               </p>
-              <div className="w-full max-w-xs space-y-2">
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span>Comparison point</span>
-                  <span className="font-semibold text-indigo-600">{percentage}%</span>
-                </div>
-                <Slider
-                  min={1}
-                  max={99}
-                  step={1}
-                  value={[percentage]}
-                  onValueChange={([val]) => setPercentage(val)}
-                />
-                <div className="flex justify-between text-xs text-gray-400">
-                  <span>Start</span>
-                  <span>End</span>
-                </div>
-              </div>
+              <RangeSliderControl
+                fromPct={fromPct}
+                toPct={toPct}
+                onChange={(from, to) => { setFromPct(from); setToPct(to); }}
+                fromDate={fromDate}
+                toDate={toDate}
+              />
               <Button onClick={handleLoad} className="bg-indigo-600 hover:bg-indigo-700 text-white">
                 Load Comparison
               </Button>
@@ -235,11 +299,23 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
           {/* Results */}
           {step === 'done' && comparison && (
             <>
-              {/* Commit range */}
-              <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-500 font-mono flex items-center justify-between gap-2 flex-wrap">
-                <span>{percentage}%: {comparison.midpoint_commit_hash.slice(0, 8)}</span>
-                <span className="text-gray-300">→</span>
-                <span>Current: {comparison.current_commit_hash.slice(0, 8)}</span>
+              {/* Commit range — shows dates */}
+              <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-500 flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex flex-col">
+                  <span className="text-gray-400">From</span>
+                  <span className="font-medium text-gray-700">
+                    {fromDate ? formatCommitDate(fromDate) : comparison.midpoint_commit_hash.slice(0, 8)}
+                  </span>
+                  <span className="font-mono text-gray-400">{comparison.midpoint_commit_hash.slice(0, 8)}</span>
+                </div>
+                <span className="text-gray-300 text-base">→</span>
+                <div className="flex flex-col items-end">
+                  <span className="text-gray-400">To</span>
+                  <span className="font-medium text-gray-700">
+                    {toDate ? formatCommitDate(toDate) : comparison.current_commit_hash.slice(0, 8)}
+                  </span>
+                  <span className="font-mono text-gray-400">{comparison.current_commit_hash.slice(0, 8)}</span>
+                </div>
               </div>
 
               {/* Totals */}
@@ -254,19 +330,45 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
                 </div>
               </div>
 
-              {/* Count deltas */}
+              {/* Counts + Changes merged as collapsible rows */}
               <div>
                 <h3 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1.5">
                   <Layers className="h-4 w-4 text-gray-500" />
                   Counts
+                  <span className="text-xs font-normal text-gray-400 ml-1">(click rows with changes to expand)</span>
                 </h3>
                 <div className="bg-white border rounded-lg px-3 divide-y">
-                  <MetricRow label="Languages" countDelta={comparison.counts?.language_count} />
-                  <MetricRow label="Frameworks" countDelta={comparison.counts?.framework_count} />
-                  <MetricRow label="Libraries" countDelta={comparison.counts?.library_count} />
-                  <MetricRow label="Tools & Technologies" countDelta={comparison.counts?.tool_count} />
-                  <MetricRow label="Skills" countDelta={comparison.counts?.skill_count} />
+                  <CollapsibleMetricRow
+                    label="Languages"
+                    countDelta={comparison.counts?.language_count}
+                    setDelta={comparison.languages}
+                  />
+                  <CollapsibleMetricRow
+                    label="Frameworks"
+                    countDelta={comparison.counts?.framework_count}
+                    setDelta={comparison.frameworks}
+                  />
+                  <CollapsibleMetricRow
+                    label="Libraries"
+                    countDelta={comparison.counts?.library_count}
+                    setDelta={comparison.libraries}
+                  />
+                  <CollapsibleMetricRow
+                    label="Tools & Technologies"
+                    countDelta={comparison.counts?.tool_count}
+                    setDelta={comparison.tools_and_technologies}
+                  />
+                  <CollapsibleMetricRow
+                    label="Skills"
+                    countDelta={comparison.counts?.skill_count}
+                    setDelta={comparison.skills}
+                  />
                 </div>
+                {!hasChanges && (
+                  <p className="text-center text-sm text-gray-400 py-2">
+                    No added or removed items between the two points
+                  </p>
+                )}
               </div>
 
               {/* Complexity */}
@@ -311,40 +413,18 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
                 </div>
               )}
 
-              {/* Set changes */}
-              {hasChanges ? (
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-800 mb-3">Changes</h3>
-                  <div className="space-y-3">
-                    <SetDeltaSection title="Languages" setDelta={comparison.languages} />
-                    <SetDeltaSection title="Frameworks" setDelta={comparison.frameworks} />
-                    <SetDeltaSection title="Libraries" setDelta={comparison.libraries} />
-                    <SetDeltaSection
-                      title="Tools & Technologies"
-                      setDelta={comparison.tools_and_technologies}
-                    />
-                    <SetDeltaSection title="Skills" setDelta={comparison.skills} />
-                  </div>
+              {/* Re-run with different range */}
+              <div className="pt-2 border-t space-y-3">
+                <p className="text-xs text-gray-500">Adjust range and reload to compare a different period</p>
+                <div className="flex justify-center">
+                  <RangeSliderControl
+                    fromPct={fromPct}
+                    toPct={toPct}
+                    onChange={(from, to) => { setFromPct(from); setToPct(to); }}
+                    fromDate={fromDate}
+                    toDate={toDate}
+                  />
                 </div>
-              ) : (
-                <p className="text-center text-sm text-gray-400 py-2">
-                  No added or removed items between midpoint and current
-                </p>
-              )}
-
-              {/* Re-run with different percentage */}
-              <div className="pt-2 border-t space-y-2">
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span>Comparison point</span>
-                  <span className="font-semibold text-indigo-600">{percentage}%</span>
-                </div>
-                <Slider
-                  min={1}
-                  max={99}
-                  step={1}
-                  value={[percentage]}
-                  onValueChange={([val]) => setPercentage(val)}
-                />
                 <div className="flex justify-end pt-1">
                   <Button variant="outline" size="sm" onClick={handleLoad}>
                     Refresh
