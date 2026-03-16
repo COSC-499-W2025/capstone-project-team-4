@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import {
@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Download, FileText } from 'lucide-react';
+import { Download, FileText, Loader2 } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import PersonalInfoForm from '@/components/custom/ResumeBuilder/PersonalInfoForm';
 import EducationForm from '@/components/custom/ResumeBuilder/EducationForm';
@@ -16,6 +16,7 @@ import ProjectsForm from '@/components/custom/ResumeBuilder/ProjectsForm';
 import SkillsForm from '@/components/custom/ResumeBuilder/SkillsForm';
 import ResumePreview from '@/components/custom/ResumeBuilder/ResumePreview';
 import { exportResume } from '@/components/custom/ResumeBuilder/exportResume';
+import { getMyProfile, getUserResume } from '@/lib/resumeBuilderApi';
 
 const INITIAL_STATE = {
   contact: { name: '', phone: '', email: '', linkedin_url: '', github_url: '', portfolio_url: '', location: '' },
@@ -84,6 +85,83 @@ function toAPIData(data) {
   };
 }
 
+/**
+ * Converts FullResumeData (API response) back to internal form state.
+ * Dates are returned as "YYYY-MM-DD" strings and converted to "YYYY-MM" for month inputs.
+ */
+function fromAPIData(data) {
+  const toMonthStr = (d) => (d ? String(d).slice(0, 7) : '');
+
+  return {
+    contact: {
+      name: data.contact?.name || '',
+      email: data.contact?.email || '',
+      phone: data.contact?.phone || '',
+      location: data.contact?.location || '',
+      linkedin_url: data.contact?.linkedin_url || '',
+      github_url: data.contact?.github_url || '',
+      portfolio_url: data.contact?.portfolio_url || '',
+    },
+    summary: data.summary || '',
+    education: data.education?.length
+      ? data.education.map(e => ({
+          id: crypto.randomUUID(),
+          institution: e.institution || '',
+          degree: e.degree || '',
+          field_of_study: e.field_of_study || '',
+          location: e.location || '',
+          gpa: e.gpa != null ? String(e.gpa) : '',
+          start_date: toMonthStr(e.start_date),
+          end_date: toMonthStr(e.end_date),
+          is_current: e.is_current || false,
+        }))
+      : INITIAL_STATE.education,
+    experience: data.experience?.length
+      ? data.experience.map(e => ({
+          id: crypto.randomUUID(),
+          company_name: e.company_name || '',
+          job_title: e.job_title || '',
+          location: e.location || '',
+          is_remote: e.is_remote || false,
+          start_date: toMonthStr(e.start_date),
+          end_date: toMonthStr(e.end_date),
+          is_current: e.is_current || false,
+          responsibilities: e.responsibilities || [],
+          achievements: e.achievements || [],
+        }))
+      : INITIAL_STATE.experience,
+    projects: data.projects?.length
+      ? data.projects.map(p => ({
+          id: crypto.randomUUID(),
+          title: p.title || '',
+          technologies: p.technologies || [],
+          date_label: p.date_label || '',
+          highlights: p.highlights || [],
+        }))
+      : INITIAL_STATE.projects,
+    skills: Object.keys(data.skills || {}).length
+      ? Object.entries(data.skills).map(([category, skills]) => ({
+          id: crypto.randomUUID(),
+          category,
+          skills,
+        }))
+      : INITIAL_STATE.skills,
+  };
+}
+
+/** Build a minimal contact object from a user profile response. */
+function contactFromProfile(profile) {
+  return {
+    name: [profile.first_name, profile.last_name].filter(Boolean).join(' '),
+    email: '',
+    phone: profile.phone || '',
+    location: [profile.city, profile.state, profile.country].filter(Boolean).join(', '),
+    linkedin_url: profile.linkedin_url || '',
+    github_url: profile.github_url || '',
+    portfolio_url: profile.portfolio_url || '',
+  };
+}
+
 // 8.5in at 96 dpi
 const IFRAME_WIDTH_PX = 816;
 const IFRAME_HEIGHT_PX = Math.round(IFRAME_WIDTH_PX * 11 / 8.5); // 1056px
@@ -95,7 +173,33 @@ export default function ResumeBuilder() {
   const [showPreview, setShowPreview] = useState(true);
   const [previewScale, setPreviewScale] = useState(0.75);
   const [exporting, setExporting] = useState(false);
+  const [loading, setLoading] = useState(true);
   const observerRef = useRef(null);
+
+  // Load profile + resume from backend on mount
+  useEffect(() => {
+    async function loadInitialData() {
+      try {
+        const profile = await getMyProfile();
+        try {
+          const resume = await getUserResume(profile.user_id);
+          setData(fromAPIData(resume));
+        } catch {
+          // No resume yet — populate contact section from profile
+          setData(d => ({
+            ...d,
+            contact: contactFromProfile(profile),
+            summary: profile.summary || '',
+          }));
+        }
+      } catch {
+        // Not authenticated or no profile — leave empty initial state
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadInitialData();
+  }, []);
 
   const handleExport = async (format) => {
     setExporting(true);
@@ -107,6 +211,25 @@ export default function ResumeBuilder() {
       setExporting(false);
     }
   };
+
+  /**
+   * Called by ProjectsForm when a project is autofilled from analysis.
+   * Merges skills into the skills section (new categories only).
+   *
+   * @param {Record<string, string[]>} skillsObj  e.g. { Languages: ['Python'], Frameworks: ['FastAPI'] }
+   */
+  const handleAddSkills = useCallback((skillsObj) => {
+    setData(d => {
+      const existingCategories = new Set(d.skills.map(s => s.category));
+      const toAdd = Object.entries(skillsObj)
+        .filter(([cat]) => cat && !existingCategories.has(cat))
+        .map(([category, skills]) => ({ id: crypto.randomUUID(), category, skills }));
+      if (!toAdd.length) return d;
+      // Drop the empty placeholder entry before merging
+      const nonEmpty = d.skills.filter(s => s.category);
+      return { ...d, skills: [...nonEmpty, ...toAdd] };
+    });
+  }, []);
 
   // Callback ref — re-runs whenever the preview panel mounts or unmounts
   const previewPanelRef = useCallback((el) => {
@@ -148,7 +271,7 @@ export default function ResumeBuilder() {
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" className="gap-2" disabled={exporting}>
+                <Button size="sm" className="gap-2" disabled={exporting || loading}>
                   <Download className="h-4 w-4" />
                   {exporting ? 'Exporting…' : 'Export'}
                 </Button>
@@ -175,50 +298,61 @@ export default function ResumeBuilder() {
         {/* Form panel */}
         <div className={`overflow-y-auto ${showPreview ? 'border-r' : 'w-full'}`}>
           <div className={`p-5 ${showPreview ? '' : 'max-w-3xl mx-auto'}`}>
-            <Tabs defaultValue="personal">
-              <TabsList className="w-full flex-wrap h-auto gap-1 mb-5 bg-muted/50 p-1">
-                {TABS.map(tab => (
-                  <TabsTrigger key={tab.value} value={tab.value} className="flex-1 text-xs">
-                    {tab.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+            {loading ? (
+              <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm">Loading your resume data…</span>
+              </div>
+            ) : (
+              <Tabs defaultValue="personal">
+                <TabsList className="w-full flex-wrap h-auto gap-1 mb-5 bg-muted/50 p-1">
+                  {TABS.map(tab => (
+                    <TabsTrigger key={tab.value} value={tab.value} className="flex-1 text-xs">
+                      {tab.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
 
-              <TabsContent value="personal">
-                <SectionWrapper title="Personal Information" description="Your contact details and a brief professional summary.">
-                  <PersonalInfoForm
-                    contact={data.contact}
-                    summary={data.summary}
-                    onContactChange={contact => setData(d => ({ ...d, contact }))}
-                    onSummaryChange={summary => setData(d => ({ ...d, summary }))}
-                  />
-                </SectionWrapper>
-              </TabsContent>
+                <TabsContent value="personal">
+                  <SectionWrapper title="Personal Information" description="Your contact details and a brief professional summary.">
+                    <PersonalInfoForm
+                      contact={data.contact}
+                      summary={data.summary}
+                      onContactChange={contact => setData(d => ({ ...d, contact }))}
+                      onSummaryChange={summary => setData(d => ({ ...d, summary }))}
+                    />
+                  </SectionWrapper>
+                </TabsContent>
 
-              <TabsContent value="education">
-                <SectionWrapper title="Education" description="Your academic background, most recent first.">
-                  <EducationForm entries={data.education} onChange={education => setData(d => ({ ...d, education }))} />
-                </SectionWrapper>
-              </TabsContent>
+                <TabsContent value="education">
+                  <SectionWrapper title="Education" description="Your academic background, most recent first.">
+                    <EducationForm entries={data.education} onChange={education => setData(d => ({ ...d, education }))} />
+                  </SectionWrapper>
+                </TabsContent>
 
-              <TabsContent value="experience">
-                <SectionWrapper title="Work Experience" description="Your professional experience, most recent first.">
-                  <ExperienceForm entries={data.experience} onChange={experience => setData(d => ({ ...d, experience }))} />
-                </SectionWrapper>
-              </TabsContent>
+                <TabsContent value="experience">
+                  <SectionWrapper title="Work Experience" description="Your professional experience, most recent first.">
+                    <ExperienceForm entries={data.experience} onChange={experience => setData(d => ({ ...d, experience }))} />
+                  </SectionWrapper>
+                </TabsContent>
 
-              <TabsContent value="projects">
-                <SectionWrapper title="Projects" description="Noteworthy projects with technologies and highlights.">
-                  <ProjectsForm entries={data.projects} onChange={projects => setData(d => ({ ...d, projects }))} />
-                </SectionWrapper>
-              </TabsContent>
+                <TabsContent value="projects">
+                  <SectionWrapper title="Projects" description="Noteworthy projects with technologies and highlights.">
+                    <ProjectsForm
+                      entries={data.projects}
+                      onChange={projects => setData(d => ({ ...d, projects }))}
+                      onAddSkills={handleAddSkills}
+                    />
+                  </SectionWrapper>
+                </TabsContent>
 
-              <TabsContent value="skills">
-                <SectionWrapper title="Technical Skills" description="Group your skills by category (e.g. Languages, Frameworks, Tools).">
-                  <SkillsForm entries={data.skills} onChange={skills => setData(d => ({ ...d, skills }))} />
-                </SectionWrapper>
-              </TabsContent>
-            </Tabs>
+                <TabsContent value="skills">
+                  <SectionWrapper title="Technical Skills" description="Group your skills by category (e.g. Languages, Frameworks, Tools).">
+                    <SkillsForm entries={data.skills} onChange={skills => setData(d => ({ ...d, skills }))} />
+                  </SectionWrapper>
+                </TabsContent>
+              </Tabs>
+            )}
           </div>
         </div>
 
