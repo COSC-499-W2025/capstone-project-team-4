@@ -17,6 +17,12 @@ import SnapshotComparisonModal from '@/components/custom/Generator/SnapshotCompa
 
 const PROJECT = { projectId: 17, name: 'My Project' };
 
+const TIMELINE = [
+  { index: 0, hash: 'aaa', committed_at: '2024-01-01T00:00:00+00:00', percentage: 1 },
+  { index: 5, hash: 'bbb', committed_at: '2024-06-01T00:00:00+00:00', percentage: 50 },
+  { index: 10, hash: 'ccc', committed_at: '2025-03-15T00:00:00+00:00', percentage: 100 },
+];
+
 const COMPARISON = {
   project_id: 17,
   current_snapshot_id: 2,
@@ -61,7 +67,10 @@ const open = (props = {}) =>
 
 const loadComparison = async () => {
   axios.post.mockResolvedValueOnce({ data: {} });
-  axios.get.mockResolvedValueOnce({ data: COMPARISON });
+  axios.get.mockImplementation((url) => {
+    if (url.includes('commit-timeline')) return Promise.resolve({ data: TIMELINE });
+    return Promise.resolve({ data: COMPARISON });
+  });
   fireEvent.click(screen.getByRole('button', { name: /load comparison/i }));
   await waitFor(() => expect(screen.queryByText(/loading|creating|comparing/i)).toBeNull());
 };
@@ -69,6 +78,11 @@ const loadComparison = async () => {
 describe('SnapshotComparisonModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Route GET calls by URL so timeline and compare don't interfere
+    axios.get.mockImplementation((url) => {
+      if (url.includes('commit-timeline')) return Promise.resolve({ data: TIMELINE });
+      return Promise.resolve({ data: COMPARISON });
+    });
   });
 
   // ── Visibility ──────────────────────────────────────────────────────────────
@@ -100,7 +114,6 @@ describe('SnapshotComparisonModal', () => {
 
   it('POSTs to /api/snapshots/{id}/create with default percentage=50&end_percentage=100', async () => {
     axios.post.mockResolvedValueOnce({ data: {} });
-    axios.get.mockResolvedValueOnce({ data: COMPARISON });
     open();
     fireEvent.click(screen.getByRole('button', { name: /load comparison/i }));
     await waitFor(() => {
@@ -114,7 +127,6 @@ describe('SnapshotComparisonModal', () => {
 
   it('GETs /api/snapshots/{id}/compare after create succeeds', async () => {
     axios.post.mockResolvedValueOnce({ data: {} });
-    axios.get.mockResolvedValueOnce({ data: COMPARISON });
     open();
     fireEvent.click(screen.getByRole('button', { name: /load comparison/i }));
     await waitFor(() => {
@@ -130,7 +142,10 @@ describe('SnapshotComparisonModal', () => {
     open();
     fireEvent.click(screen.getByRole('button', { name: /load comparison/i }));
     await waitFor(() => screen.getByRole('button', { name: /retry/i }));
-    expect(axios.get).not.toHaveBeenCalled();
+    expect(axios.get).not.toHaveBeenCalledWith(
+      '/api/snapshots/17/compare',
+      expect.anything()
+    );
   });
 
   // ── Loading states ───────────────────────────────────────────────────────────
@@ -144,7 +159,10 @@ describe('SnapshotComparisonModal', () => {
 
   it('shows "Comparing snapshots..." while GET is in-flight', async () => {
     axios.post.mockResolvedValueOnce({ data: {} });
-    axios.get.mockReturnValueOnce(new Promise(() => {}));
+    axios.get.mockImplementation((url) => {
+      if (url.includes('commit-timeline')) return Promise.resolve({ data: TIMELINE });
+      return new Promise(() => {}); // compare never resolves
+    });
     open();
     fireEvent.click(screen.getByRole('button', { name: /load comparison/i }));
     expect(await screen.findByText(/comparing snapshots/i)).toBeInTheDocument();
@@ -162,7 +180,6 @@ describe('SnapshotComparisonModal', () => {
   it('displays formatted commit dates from response', async () => {
     open();
     await loadComparison();
-    // Dates appear in both the commit range header and the slider labels
     expect(screen.getAllByText(/Mar 15, 2025/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Jun 1, 2024/i).length).toBeGreaterThan(0);
   });
@@ -258,7 +275,10 @@ describe('SnapshotComparisonModal', () => {
       tools_and_technologies: { added: [], removed: [] },
     };
     axios.post.mockResolvedValueOnce({ data: {} });
-    axios.get.mockResolvedValueOnce({ data: noChanges });
+    axios.get.mockImplementation((url) => {
+      if (url.includes('commit-timeline')) return Promise.resolve({ data: TIMELINE });
+      return Promise.resolve({ data: noChanges });
+    });
     open();
     fireEvent.click(screen.getByRole('button', { name: /load comparison/i }));
     await waitFor(() =>
@@ -303,12 +323,11 @@ describe('SnapshotComparisonModal', () => {
     await loadComparison();
 
     axios.post.mockResolvedValueOnce({ data: {} });
-    axios.get.mockResolvedValueOnce({ data: COMPARISON });
     fireEvent.click(screen.getByRole('button', { name: /refresh/i }));
 
     await waitFor(() => {
       expect(axios.post).toHaveBeenCalledTimes(2);
-      expect(axios.get).toHaveBeenCalledTimes(2);
+      expect(axios.get).toHaveBeenCalledWith('/api/snapshots/17/compare', expect.anything());
     });
   });
 
@@ -363,7 +382,6 @@ describe('SnapshotComparisonModal', () => {
     await waitFor(() => screen.getByRole('button', { name: /retry/i }));
 
     axios.post.mockResolvedValueOnce({ data: {} });
-    axios.get.mockResolvedValueOnce({ data: COMPARISON });
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
 
     await waitFor(() =>
@@ -378,14 +396,16 @@ describe('SnapshotComparisonModal', () => {
     expect(document.querySelectorAll('[role="slider"]').length).toBe(2);
   });
 
-  it('shows "50%" as the default from-point label', () => {
+  it('shows from-slider label containing "50%"', async () => {
     open();
-    expect(screen.getByText('50%')).toBeInTheDocument();
+    // While timeline loads: "50% (Loading…)"; after: "Jun 1, 2024 (50%)"
+    expect(await screen.findByText(/50%/)).toBeInTheDocument();
   });
 
-  it('shows "Current HEAD" as the default to-point label', () => {
+  it('shows to-slider label containing "Current"', async () => {
     open();
-    expect(screen.getByText('Current HEAD')).toBeInTheDocument();
+    // While timeline loads: "Current HEAD (Loading…)"; after: "Mar 15, 2025 (Current)"
+    expect(await screen.findByText(/Current/)).toBeInTheDocument();
   });
 
   it('shows two slider thumbs in the results state for re-running', async () => {
@@ -397,7 +417,6 @@ describe('SnapshotComparisonModal', () => {
   it('shows formatted dates on the slider labels after load', async () => {
     open();
     await loadComparison();
-    // fromDate (midpoint_commit_date) → Jun 1, 2024; toDate (current_commit_date) → Mar 15, 2025
     expect(screen.getAllByText(/Jun 1, 2024/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Mar 15, 2025/i).length).toBeGreaterThan(0);
   });
@@ -405,9 +424,51 @@ describe('SnapshotComparisonModal', () => {
   it('range slider thumbs have correct initial aria-valuenow attributes', () => {
     open();
     const [fromThumb, toThumb] = document.querySelectorAll('[role="slider"]');
-    // from defaults to 50, to defaults to 100
     expect(fromThumb).toHaveAttribute('aria-valuenow', '50');
     expect(toThumb).toHaveAttribute('aria-valuenow', '100');
+  });
+
+  // ── Commit timeline (live slider dates) ──────────────────────────────────────
+
+  it('fetches commit-timeline on open', async () => {
+    open();
+    await waitFor(() =>
+      expect(axios.get).toHaveBeenCalledWith(
+        '/api/snapshots/17/commit-timeline',
+        expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer test-token' }) })
+      )
+    );
+  });
+
+  it('shows date from timeline on the from-slider label at 50%', async () => {
+    open();
+    // TIMELINE entry at percentage=50 has committed_at 2024-06-01
+    expect(await screen.findByText(/Jun 1, 2024/i)).toBeInTheDocument();
+  });
+
+  it('shows date from timeline on the to-slider label at 100%', async () => {
+    open();
+    // TIMELINE entry at percentage=100 has committed_at 2025-03-15
+    expect(await screen.findByText(/Mar 15, 2025/i)).toBeInTheDocument();
+  });
+
+  it('shows "Loading…" on slider labels while timeline is in-flight', async () => {
+    axios.get.mockImplementation((url) => {
+      if (url.includes('commit-timeline')) return new Promise(() => {}); // never resolves
+      return Promise.resolve({ data: COMPARISON });
+    });
+    open();
+    const loadingLabels = await screen.findAllByText(/Loading/);
+    expect(loadingLabels.length).toBeGreaterThan(0);
+  });
+
+  it('falls back to percentage labels when timeline fetch fails', async () => {
+    axios.get.mockImplementation((url) => {
+      if (url.includes('commit-timeline')) return Promise.reject(new Error('network'));
+      return Promise.resolve({ data: COMPARISON });
+    });
+    open();
+    await waitFor(() => expect(screen.getByText('50%')).toBeInTheDocument());
   });
 
   // ── onClose ───────────────────────────────────────────────────────────────────

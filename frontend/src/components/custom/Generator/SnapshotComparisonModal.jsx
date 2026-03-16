@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Dialog,
@@ -36,7 +36,17 @@ const formatCommitDate = (isoString) => {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+    timeZone: 'UTC',
   });
+};
+
+/** Find the closest timeline entry to the given percentage. */
+const getDateAtPct = (pct, timeline) => {
+  if (!Array.isArray(timeline) || timeline.length === 0) return null;
+  const closest = timeline.reduce((prev, curr) =>
+    Math.abs(curr.percentage - pct) < Math.abs(prev.percentage - pct) ? curr : prev
+  );
+  return closest.committed_at ?? null;
 };
 
 const DeltaBadge = ({ delta, formatFn }) => {
@@ -136,14 +146,23 @@ const MetricRow = ({ label, countDelta }) => {
 };
 
 /** Range slider showing two labeled date/percentage points. */
-const RangeSliderControl = ({ fromPct, toPct, onChange, fromDate, toDate }) => {
-  const fromLabel = fromDate ? `${formatCommitDate(fromDate)} (${fromPct}%)` : `${fromPct}%`;
-  const toLabel =
-    toPct >= 100
-      ? (toDate ? `${formatCommitDate(toDate)} (Current)` : 'Current HEAD')
-      : toDate
-      ? `${formatCommitDate(toDate)} (${toPct}%)`
-      : `${toPct}%`;
+const RangeSliderControl = ({ fromPct, toPct, onChange, commitTimeline, timelineLoading }) => {
+  const fromDateStr = getDateAtPct(fromPct, commitTimeline);
+  const toDateStr = getDateAtPct(toPct, commitTimeline);
+
+  const fromLabel = timelineLoading
+    ? `${fromPct}% (Loading…)`
+    : fromDateStr
+    ? `${formatCommitDate(fromDateStr)} (${fromPct}%)`
+    : `${fromPct}%`;
+
+  const toLabel = timelineLoading
+    ? toPct >= 100 ? 'Current HEAD (Loading…)' : `${toPct}% (Loading…)`
+    : toPct >= 100
+    ? (toDateStr ? `${formatCommitDate(toDateStr)} (Current)` : 'Current HEAD')
+    : toDateStr
+    ? `${formatCommitDate(toDateStr)} (${toPct}%)`
+    : `${toPct}%`;
 
   return (
     <div className="w-full max-w-sm space-y-2">
@@ -173,6 +192,18 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
   const [errorMsg, setErrorMsg] = useState(null);
   const [fromPct, setFromPct] = useState(50);
   const [toPct, setToPct] = useState(100);
+  const [commitTimeline, setCommitTimeline] = useState(null);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !project?.projectId) return;
+    setTimelineLoading(true);
+    axios
+      .get(`/api/snapshots/${project.projectId}/commit-timeline`, { headers: getAuthHeaders() })
+      .then((res) => setCommitTimeline(res.data))
+      .catch(() => setCommitTimeline(null))
+      .finally(() => setTimelineLoading(false));
+  }, [isOpen, project?.projectId]);
 
   const handleLoad = async () => {
     if (!project?.projectId) return;
@@ -218,6 +249,7 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
         setErrorMsg(null);
         setFromPct(50);
         setToPct(100);
+        setCommitTimeline(null);
       }, 300);
     }
   };
@@ -239,9 +271,6 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
 
   const loadingMessage =
     step === 'creating' ? 'Creating snapshots...' : 'Comparing snapshots...';
-
-  const fromDate = comparison?.midpoint_commit_date ?? null;
-  const toDate = comparison?.current_commit_date ?? null;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -268,8 +297,8 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
                 fromPct={fromPct}
                 toPct={toPct}
                 onChange={(from, to) => { setFromPct(from); setToPct(to); }}
-                fromDate={fromDate}
-                toDate={toDate}
+                commitTimeline={commitTimeline}
+                timelineLoading={timelineLoading}
               />
               <Button onClick={handleLoad} className="bg-indigo-600 hover:bg-indigo-700 text-white">
                 Load Comparison
@@ -304,7 +333,9 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
                 <div className="flex flex-col">
                   <span className="text-gray-400">From</span>
                   <span className="font-medium text-gray-700">
-                    {fromDate ? formatCommitDate(fromDate) : comparison.midpoint_commit_hash.slice(0, 8)}
+                    {comparison.midpoint_commit_date
+                      ? formatCommitDate(comparison.midpoint_commit_date)
+                      : comparison.midpoint_commit_hash.slice(0, 8)}
                   </span>
                   <span className="font-mono text-gray-400">{comparison.midpoint_commit_hash.slice(0, 8)}</span>
                 </div>
@@ -312,7 +343,9 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
                 <div className="flex flex-col items-end">
                   <span className="text-gray-400">To</span>
                   <span className="font-medium text-gray-700">
-                    {toDate ? formatCommitDate(toDate) : comparison.current_commit_hash.slice(0, 8)}
+                    {comparison.current_commit_date
+                      ? formatCommitDate(comparison.current_commit_date)
+                      : comparison.current_commit_hash.slice(0, 8)}
                   </span>
                   <span className="font-mono text-gray-400">{comparison.current_commit_hash.slice(0, 8)}</span>
                 </div>
@@ -421,8 +454,8 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
                     fromPct={fromPct}
                     toPct={toPct}
                     onChange={(from, to) => { setFromPct(from); setToPct(to); }}
-                    fromDate={fromDate}
-                    toDate={toDate}
+                    commitTimeline={commitTimeline}
+                    timelineLoading={timelineLoading}
                   />
                 </div>
                 <div className="flex justify-end pt-1">

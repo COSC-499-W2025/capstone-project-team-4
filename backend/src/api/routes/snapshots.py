@@ -36,6 +36,16 @@ async def delete_snapshot(
     return service.delete_snapshot(project_id, snapshot_id)
 
 
+@router.get("/{project_id}/commit-timeline", status_code=200)
+async def get_commit_timeline(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """Return a lightweight sampled commit list with dates and percentages for the slider."""
+    service = SnapshotService(db)
+    return service.get_commit_timeline(project_id)
+
+
 @router.get("/{project_id}/compare", response_model=SnapshotCurrentMidpointComparisonResponse, status_code=200)
 async def compare_current_and_midpoint_snapshots(
     project_id: int,

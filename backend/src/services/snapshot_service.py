@@ -623,6 +623,47 @@ class SnapshotService:
                     continue
                 zf.extract(info, dest)
 
+    def get_commit_timeline(self, project_id: int) -> list[dict]:
+        """Return a lightweight list of sampled commits (≤100) with their dates and percentages.
+
+        Each entry: {index, hash, committed_at (ISO-8601), percentage (1–100)}.
+        """
+        project = self.project_repo.get(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            repo_root = self._materialize_repo(project.root_path, project.source_url, workspace)
+            log_output = self._git(repo_root, "log", "--reverse", "--format=%H %cI").strip()
+
+        if not log_output:
+            return []
+
+        lines = [l for l in log_output.splitlines() if l.strip()]
+        total = len(lines)
+
+        max_samples = 100
+        if total <= max_samples:
+            indices = list(range(total))
+        else:
+            indices = sorted(set(round(i * (total - 1) / (max_samples - 1)) for i in range(max_samples)))
+
+        entries = []
+        for idx in indices:
+            parts = lines[idx].split(" ", 1)
+            commit_hash = parts[0]
+            committed_at = parts[1] if len(parts) > 1 else None
+            percentage = max(1, round(idx / max(total - 1, 1) * 100)) if total > 1 else 100
+            entries.append({
+                "index": idx,
+                "hash": commit_hash,
+                "committed_at": committed_at,
+                "percentage": percentage,
+            })
+
+        return entries
+
     def _git(self, repo_root: Path, *args: str) -> str:
         cmd = ["git", "-C", str(repo_root), *args]
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
