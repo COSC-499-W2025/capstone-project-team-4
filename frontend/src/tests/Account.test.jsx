@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -128,7 +129,7 @@ describe("AccountPage - Manage Data", () => {
 
     // Toggle data collection off
     const toggles = screen.getAllByRole("switch");
-    fireEvent.click(toggles[0]);
+    await userEvent.click(toggles[0]);
 
     fireEvent.click(screen.getByText("Save Settings"));
 
@@ -157,7 +158,7 @@ describe("AccountPage - Manage Data", () => {
 
     // Toggle data collection on
     const toggles = screen.getAllByRole("switch");
-    fireEvent.click(toggles[0]);
+    await userEvent.click(toggles[0]);
 
     fireEvent.click(screen.getByText("Save Settings"));
 
