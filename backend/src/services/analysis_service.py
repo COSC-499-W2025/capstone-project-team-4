@@ -780,7 +780,6 @@ class AnalysisService:
             ),
             user_id=user_id
         )
-
         project_id = project.id
         logger.info(f"Step 2 complete: Project ID {project_id}")
 

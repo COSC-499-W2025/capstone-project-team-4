@@ -126,6 +126,15 @@ class ComplexityRepository(BaseRepository[Complexity]):
         stmt = select(func.count(Complexity.id)).where(Complexity.project_id == project_id)
         return self.db.scalar(stmt) or 0
 
+    def delete_by_project(self, project_id: int) -> int:
+        """Delete all complexity rows for a project."""
+        from sqlalchemy import delete
+
+        stmt = delete(Complexity).where(Complexity.project_id == project_id)
+        result = self.db.execute(stmt)
+        self.db.commit()
+        return result.rowcount
+
     def get_by_project_and_paths(self, project_id: int, paths: set[str]) -> list[Complexity]:
         if not paths:
             return []

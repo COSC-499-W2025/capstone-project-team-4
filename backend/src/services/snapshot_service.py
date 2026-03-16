@@ -159,6 +159,8 @@ class SnapshotService:
             "midpoint_snapshot_id": midpoint_snap.id,
             "current_commit_hash": current_snap.commit_hash,
             "midpoint_commit_hash": midpoint_snap.commit_hash,
+            "current_commit_date": current_payload.get("commit", {}).get("committed_at"),
+            "midpoint_commit_date": midpoint_payload.get("commit", {}).get("committed_at"),
             "totals": {
                 "total_files": count_delta(
                     cur_summary.get("total_files", 0), mid_summary.get("total_files", 0)
@@ -201,8 +203,13 @@ class SnapshotService:
             },
         }
 
-    def create_current_and_midpoint_snapshots(self, project_id: int) -> dict:
-        """Create both current and midpoint snapshots in one request."""
+    def create_current_and_midpoint_snapshots(self, project_id: int, percentage: int = 50, end_percentage: int = 100) -> dict:
+        """Create both current and midpoint snapshots in one request.
+
+        ``percentage`` selects the start/from commit (1–99% through history).
+        ``end_percentage`` selects the end/to commit (2–100%, where 100 = current HEAD).
+        Both commit points are resolved before any checkout to avoid HEAD drift.
+        """
         project = self.project_repo.get(project_id)
         if not project:
             raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
@@ -211,13 +218,29 @@ class SnapshotService:
             workspace = Path(tmp_dir)
             repo_root = self._materialize_repo(project.root_path, project.source_url, workspace)
 
-            current_commit = self._resolve_commit_point(repo_root, snapshot_type="current")
+            # Resolve ALL commit points before any checkout (repo is at HEAD here)
+            if end_percentage >= 100:
+                current_commit = self._resolve_commit_point(repo_root, snapshot_type="current")
+                need_checkout_for_current = False
+            else:
+                end_pt = self._get_midpoint_commit(repo_root, percentage=end_percentage)
+                current_commit = CommitPoint(
+                    hash=end_pt.hash, index=end_pt.index, total_commits=end_pt.total_commits
+                )
+                need_checkout_for_current = True
+
+            midpoint_commit = self._resolve_commit_point(repo_root, snapshot_type="midpoint", percentage=percentage)
+
+            # Build current (end) snapshot
+            if need_checkout_for_current:
+                self._git(repo_root, "checkout", "--force", "--detach", current_commit.hash)
+                self._git(repo_root, "clean", "-fd")
             current_snapshot = self._build_snapshot(
                 project_id, repo_root, current_commit, snapshot_type="current"
             )
             current_saved = self._persist_snapshot(project_id, current_snapshot)
 
-            midpoint_commit = self._resolve_commit_point(repo_root, snapshot_type="midpoint")
+            # Build midpoint (start) snapshot — always requires checkout
             self._git(repo_root, "checkout", "--force", "--detach", midpoint_commit.hash)
             self._git(repo_root, "clean", "-fd")
             midpoint_snapshot = self._build_snapshot(
@@ -293,12 +316,12 @@ class SnapshotService:
         )
         return result.returncode == 0
 
-    def _get_midpoint_commit(self, repo_root: Path) -> MidpointCommit:
+    def _get_midpoint_commit(self, repo_root: Path, percentage: int = 50) -> MidpointCommit:
         output = self._git(repo_root, "rev-list", "--reverse", "HEAD")
         commits = [line.strip() for line in output.splitlines() if line.strip()]
         if not commits:
             raise HTTPException(status_code=400, detail="No commits found in repository history.")
-        midpoint_index = (len(commits) - 1) // 2
+        midpoint_index = round((len(commits) - 1) * percentage / 100)
         return MidpointCommit(hash=commits[midpoint_index], index=midpoint_index, total_commits=len(commits))
 
     def _get_current_commit(self, repo_root: Path) -> CommitPoint:
@@ -309,9 +332,9 @@ class SnapshotService:
         current_index = len(commits) - 1
         return CommitPoint(hash=commits[current_index], index=current_index, total_commits=len(commits))
 
-    def _resolve_commit_point(self, repo_root: Path, snapshot_type: str) -> CommitPoint:
+    def _resolve_commit_point(self, repo_root: Path, snapshot_type: str, percentage: int = 50) -> CommitPoint:
         if snapshot_type == "midpoint":
-            midpoint = self._get_midpoint_commit(repo_root)
+            midpoint = self._get_midpoint_commit(repo_root, percentage=percentage)
             return CommitPoint(hash=midpoint.hash, index=midpoint.index, total_commits=midpoint.total_commits)
         if snapshot_type == "current":
             return self._get_current_commit(repo_root)
@@ -599,6 +622,47 @@ class SnapshotService:
                 ):
                     continue
                 zf.extract(info, dest)
+
+    def get_commit_timeline(self, project_id: int) -> list[dict]:
+        """Return a lightweight list of sampled commits (≤100) with their dates and percentages.
+
+        Each entry: {index, hash, committed_at (ISO-8601), percentage (1–100)}.
+        """
+        project = self.project_repo.get(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            repo_root = self._materialize_repo(project.root_path, project.source_url, workspace)
+            log_output = self._git(repo_root, "log", "--reverse", "--format=%H %cI").strip()
+
+        if not log_output:
+            return []
+
+        lines = [l for l in log_output.splitlines() if l.strip()]
+        total = len(lines)
+
+        max_samples = 100
+        if total <= max_samples:
+            indices = list(range(total))
+        else:
+            indices = sorted(set(round(i * (total - 1) / (max_samples - 1)) for i in range(max_samples)))
+
+        entries = []
+        for idx in indices:
+            parts = lines[idx].split(" ", 1)
+            commit_hash = parts[0]
+            committed_at = parts[1] if len(parts) > 1 else None
+            percentage = max(1, round(idx / max(total - 1, 1) * 100)) if total > 1 else 100
+            entries.append({
+                "index": idx,
+                "hash": commit_hash,
+                "committed_at": committed_at,
+                "percentage": percentage,
+            })
+
+        return entries
 
     def _git(self, repo_root: Path, *args: str) -> str:
         cmd = ["git", "-C", str(repo_root), *args]

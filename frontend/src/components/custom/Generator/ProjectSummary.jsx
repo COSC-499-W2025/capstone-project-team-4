@@ -304,9 +304,9 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
                     {project.projectId && (
                       <Button
                         type="button"
-                        size="sm"
+                        size="default"
                         variant="outline"
-                        className="mt-2 w-full"
+                        className="mt-3 min-h-11 w-full whitespace-normal border-2 border-gray-300 bg-gray-100 px-3 py-2 text-sm font-semibold leading-tight text-gray-800 shadow-sm transition-colors hover:bg-gray-200"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleContributorInsightsClick(project);
