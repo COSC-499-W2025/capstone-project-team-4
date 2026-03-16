@@ -1,8 +1,7 @@
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { FileText, Home, Sparkles, User } from "lucide-react";
-import { Home, Sparkles, User, LayoutDashboard } from "lucide-react";
+import { FileText, Home, Sparkles, User, LayoutDashboard } from "lucide-react";
 import { clearAccessToken, isAuthenticated } from "@/lib/auth";
 
 const Navigation = () => {

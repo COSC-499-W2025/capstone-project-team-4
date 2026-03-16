@@ -46,6 +46,10 @@ function App() {
           element={
             <ProtectedRoute>
               <ResumeBuilder />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/portfolio"
           element={
             <ProtectedRoute>
