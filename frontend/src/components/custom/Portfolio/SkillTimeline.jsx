@@ -1,6 +1,6 @@
 import { TrendingUp } from "lucide-react";
 
-export default function SkillTimeline({ portfolio }) {
+export default function SkillTimeline() {
   return (
     <section>
       <h2 className="pf-section-title">Skills Timeline</h2>
