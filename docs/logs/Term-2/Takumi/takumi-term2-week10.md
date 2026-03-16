@@ -1,5 +1,7 @@
 ## Week 10 – Individual Log (Takumi)
 
+<img width="1072" height="610" alt="Screenshot 2026-03-08 at 18 46 32" src="https://github.com/user-attachments/assets/dfb6e83c-300b-4353-b6d7-32d345dbb6b4" />
+
 ### Overview
 Implemented the snapshot comparison feature on the frontend, connecting it to the existing backend endpoints. Extended the feature to support a user-controlled range slider so users can compare any two points in commit history. Added live commit dates on the slider labels by building a new /commit-timeline backend endpoint. Wrote a full frontend test suite for the modal component.
 
