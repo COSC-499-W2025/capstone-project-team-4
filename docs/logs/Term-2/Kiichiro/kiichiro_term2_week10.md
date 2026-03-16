@@ -1,4 +1,4 @@
-## Week 9
+## Week 10
 
 ### Coding Tasks
 
@@ -30,5 +30,7 @@ Reviewed PRs
 
 - there is a issue with displaying projects that is relating to the loged in user.
 - might change depending on the feedback from peer testing
+
+
 
 Hours Worked: ~8 hours
