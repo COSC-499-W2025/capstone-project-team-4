@@ -32,6 +32,7 @@ import {
   GitCompare
 } from 'lucide-react';
 import EditProjectModal from '@/components/custom/Generator/EditProjectModal';
+import ContributorInsightsDialog from '@/components/custom/Generator/ContributorInsightsDialog';
 import SnapshotComparisonModal from '@/components/custom/Generator/SnapshotComparisonModal';
 
 const ProjectSummary = ({ projects, onUpdateProject }) => {
@@ -41,6 +42,7 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
   
   // Contributor modal state
   const [contributorModalOpen, setContributorModalOpen] = useState(false);
+  const [contributorInsightsOpen, setContributorInsightsOpen] = useState(false);
   const [selectedProjectForContributors, setSelectedProjectForContributors] = useState(null);
   const [contributorData, setContributorData] = useState(null);
   const [contributorLoading, setContributorLoading] = useState(false);
@@ -158,6 +160,16 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
     }
   };
 
+  const handleContributorInsightsClick = (project) => {
+    if (!project.projectId) {
+      console.error('No projectId available for this project');
+      return;
+    }
+
+    setSelectedProjectForContributors(project);
+    setContributorInsightsOpen(true);
+  };
+
   // Render expandable badge list
   const renderExpandableBadges = (items, projectIndex, sectionType, maxItems = 5, badgeProps = {}) => {
     if (!items || items.length === 0) return null;
@@ -260,31 +272,48 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
                   </div>
 
                   {/* Contributors - CLICKABLE */}
-                  <div 
-                    className={`flex items-center gap-2 p-2 -m-2 rounded-lg transition-all ${
-                      project.projectId 
-                        ? 'cursor-pointer hover:bg-blue-50 group' 
-                        : ''
-                    }`}
-                    onClick={() => project.projectId && handleContributorClick(project)}
-                    role={project.projectId ? "button" : undefined}
-                    tabIndex={project.projectId ? 0 : undefined}
-                    onKeyDown={(e) => {
-                      if (project.projectId && (e.key === 'Enter' || e.key === ' ')) {
-                        handleContributorClick(project);
-                      }
-                    }}
-                    title={project.projectId ? "Click to view contributor details" : undefined}
-                  >
-                    <Users className="h-4 w-4 text-blue-500" />
-                    <div className="flex-1">
-                      <span className="text-gray-600 text-xs block">Contributors</span>
-                      <span className={`font-semibold ${project.projectId ? 'text-blue-600 group-hover:underline' : 'text-blue-600'}`}>
-                        {project.contributorCount || 0}
-                      </span>
+                  <div>
+                    <div 
+                      className={`flex items-center gap-2 p-2 -m-2 rounded-lg transition-all ${
+                        project.projectId 
+                          ? 'cursor-pointer hover:bg-blue-50 group' 
+                          : ''
+                      }`}
+                      onClick={() => project.projectId && handleContributorClick(project)}
+                      role={project.projectId ? "button" : undefined}
+                      tabIndex={project.projectId ? 0 : undefined}
+                      onKeyDown={(e) => {
+                        if (project.projectId && (e.key === 'Enter' || e.key === ' ')) {
+                          handleContributorClick(project);
+                        }
+                      }}
+                      title={project.projectId ? "Click to view contributor details" : undefined}
+                    >
+                      <Users className="h-4 w-4 text-blue-500" />
+                      <div className="flex-1">
+                        <span className="text-gray-600 text-xs block">Contributors</span>
+                        <span className={`font-semibold ${project.projectId ? 'text-blue-600 group-hover:underline' : 'text-blue-600'}`}>
+                          {project.contributorCount || 0}
+                        </span>
+                      </div>
+                      {project.projectId && (
+                        <ChevronRight className="h-4 w-4 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      )}
                     </div>
+
                     {project.projectId && (
-                      <ChevronRight className="h-4 w-4 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="mt-2 w-full"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleContributorInsightsClick(project);
+                        }}
+                      >
+                        Open Contributor Insights
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -555,6 +584,12 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ContributorInsightsDialog
+        open={contributorInsightsOpen}
+        onOpenChange={setContributorInsightsOpen}
+        project={selectedProjectForContributors}
+      />
     </div>
   );
 };
