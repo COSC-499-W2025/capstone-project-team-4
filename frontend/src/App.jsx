@@ -7,6 +7,7 @@ import ResumeBuilder from "@/pages/ResumeBuilder";
 import LoginPage from "@/pages/auth/login";
 import SignupPage from "@/pages/auth/signup";
 import { isAuthenticated } from "@/lib/auth";
+import PortfolioPage from "@/pages/Portfolio";
 import "./App.css";
 
 function ProtectedRoute({ children }) {
@@ -45,6 +46,10 @@ function App() {
           element={
             <ProtectedRoute>
               <ResumeBuilder />
+          path="/portfolio"
+          element={
+            <ProtectedRoute>
+              <PortfolioPage />
             </ProtectedRoute>
           }
         />

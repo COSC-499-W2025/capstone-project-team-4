@@ -437,6 +437,7 @@ class AnalysisService:
                     zip_upload_time=datetime.utcnow(),
                     earliest_file_date_in_zip=earliest_file_date,
                     use_cache=use_cache,
+                    user_id=user_id,
                 )
                 results.append(result)
 
@@ -777,12 +778,12 @@ class AnalysisService:
                 if cached_project
                 else (incremental_base.id if incremental_base else None)
             ),
+            user_id=user_id,
         )
-
         project_id = project.id
         logger.info(f"Step 2 complete: Project ID {project_id}")
 
-        if incremental_base is not None and unchanged_paths:
+        if incremental_base is not None and unchanged_paths and cached_project is None:
             self._clone_files_and_complexity_for_paths(
                 from_project_id=incremental_base.id,
                 to_project_id=project_id,
@@ -1042,10 +1043,17 @@ class AnalysisService:
                     if f["path"].replace("\\", "/") not in unchanged_paths
                 ]
                 self._save_files(project_id, delta_file_list)
-            else:
+            elif incremental_base is None:
                 self._save_files(project_id, file_list)
 
-            self._save_complexity(project_id, complexity_dict.get("functions", []))
+            if incremental_base is None or not unchanged_paths:
+                self._save_complexity(project_id, complexity_dict.get("functions", []))
+            elif complexity_dict.get("functions"):
+                changed_functions = [
+                    f for f in complexity_dict.get("functions", [])
+                    if f.get("file_path", "").replace("\\", "/") not in unchanged_paths
+                ]
+                self._save_complexity(project_id, changed_functions)
 
             if contributors:
                 self._save_contributors(project_id, contributors)
@@ -1440,7 +1448,8 @@ class AnalysisService:
         if not paths_to_clone:
             return
 
-        # normalize to forward slashes (DB paths should match whatever you save)
+        self.complexity_repo.delete_by_project(to_project_id)
+        self.file_repo.delete_by_project(to_project_id)
         norm_paths = {p.replace("\\", "/") for p in paths_to_clone}
 
         # --- clone files ---

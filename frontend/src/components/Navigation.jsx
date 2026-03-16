@@ -2,6 +2,7 @@ import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { FileText, Home, Sparkles, User } from "lucide-react";
+import { Home, Sparkles, User, LayoutDashboard } from "lucide-react";
 import { clearAccessToken, isAuthenticated } from "@/lib/auth";
 
 const Navigation = () => {
@@ -85,6 +86,20 @@ const Navigation = () => {
                   >
                     <User className="h-4 w-4" />
                     <span>Account</span>
+                  </Button>
+                </Link>
+              ) : null}
+
+              {authed ? (
+                <Link to="/portfolio">
+                  <Button
+                    variant={
+                      location.pathname === "/portfolio" ? "default" : "ghost"
+                    }
+                    className="flex items-center space-x-2"
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    <span>Portfolio</span>
                   </Button>
                 </Link>
               ) : null}
