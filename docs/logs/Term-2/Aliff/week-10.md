@@ -1,5 +1,5 @@
 ## Week 10
-
+<img width="1110" height="640" alt="Screenshot 2026-03-01 at 21 53 03" src="https://github.com/user-attachments/assets/cb65e92c-8b09-4630-a417-3ae49675ef22" />
 
 ### Summary and Continuity from Previous Week
 - Start milestone 3
