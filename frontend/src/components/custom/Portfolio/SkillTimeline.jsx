@@ -3,7 +3,7 @@ import axios from "axios";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import SkillTimelineDateRow from "./SkillTimelineDateRow";
-import { buildSkillSnapshots } from "./utils/skillTimeline";
+import { buildSkillSnapshots } from "./utils/SkillTimeline";
 
 const SCROLL_MAX_HEIGHT = 420;
 
