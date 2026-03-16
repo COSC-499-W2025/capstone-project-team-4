@@ -150,7 +150,6 @@ export const useFileUpload = () => {
           }
 
           results.push({
-          
             name: data.project_name,
             contributions: data.file_count || 0,
             date: data.zip_uploaded_at || new Date().toISOString(),
@@ -214,7 +213,7 @@ export const useFileUpload = () => {
         });
       }
     } catch {
-    console.error("Failed to load privacy settings:", err);
+      // privacy settings update is non-critical, ignore failure
     }
     processFiles();
   };
