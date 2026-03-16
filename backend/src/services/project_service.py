@@ -113,12 +113,12 @@ class ProjectService:
                 return domain_index["languages"][lang_key]
         return None
 
-    def list_projects(self, page: int = 1, page_size: int = 20) -> ProjectList:
+    def list_projects(self, page: int = 1, page_size: int = 20, user_id: int = None) -> ProjectList:
         skip = (page - 1) * page_size
-        total = self.project_repo.count()
+        total = self.project_repo.count(user_id=user_id)
         pages = (total + page_size - 1) // page_size
 
-        summaries = self.project_repo.get_all_summaries(skip=skip, limit=page_size)
+        summaries = self.project_repo.get_all_summaries(skip=skip, limit=page_size, user_id=user_id)
 
         # Populate thumbnail fields (feedback #4 / #9)
         project_ids = [s["id"] for s in summaries if s]
