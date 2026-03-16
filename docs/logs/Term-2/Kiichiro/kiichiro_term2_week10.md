@@ -31,6 +31,6 @@ Reviewed PRs
 - there is a issue with displaying projects that is relating to the loged in user.
 - might change depending on the feedback from peer testing
 
-
+<img width="1087" height="639" alt="Screenshot 2026-03-08 at 19 52 08" src="https://github.com/user-attachments/assets/e4c52acd-80ac-4480-ad37-f2e6cea9650c" />
 
 Hours Worked: ~8 hours
