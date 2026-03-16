@@ -112,23 +112,30 @@ export const useFileUpload = () => {
         const payload = response.data;
         const items = Array.isArray(payload) ? payload : [payload];
 
-        // Filter out empty/root “outer zip” result so it doesn’t render as a card
-        const filteredItems = items.filter((p) => {
+        // Keep named projects visible even if metrics are sparse.
+        // When multiple items are returned, prefer contentful ones to avoid a noisy outer-zip placeholder.
+        const namedItems = items.filter((p) => {
           if (!p) return false;
+          return typeof p.project_name === "string" && p.project_name.trim().length > 0;
+        });
 
-          const hasName = typeof p.project_name === "string" && p.project_name.trim().length > 0;
-
-          const hasContent =
+        const contentfulItems = namedItems.filter((p) => {
+          return (
             (p.file_count ?? 0) > 0 ||
             (p.total_lines_of_code ?? 0) > 0 ||
             (p.languages?.length ?? 0) > 0 ||
             (p.frameworks?.length ?? 0) > 0 ||
             (p.libraries?.length ?? 0) > 0 ||
-            (p.tools_and_technologies?.length ?? 0) > 0;
-
-          // If backend returns a “root project” summary for the outer zip, it often has no name or no content.
-          return hasName && hasContent;
+            (p.tools_and_technologies?.length ?? 0) > 0
+          );
         });
+
+        const filteredItems =
+          namedItems.length <= 1
+            ? namedItems
+            : contentfulItems.length > 0
+              ? contentfulItems
+              : namedItems;
 
         for (const data of filteredItems) {
           let contributorDetails = null;
@@ -186,6 +193,11 @@ export const useFileUpload = () => {
         alert(
           `Error: ${details}\n\nYour session is missing or expired. Please log in and try again.`,
         );
+        return;
+      }
+
+      if (status === 400 || status === 422) {
+        alert(`Error: ${details}`);
         return;
       }
 

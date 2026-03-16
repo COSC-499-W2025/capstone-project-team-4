@@ -385,23 +385,35 @@ class AnalysisService:
 
             inner_zip_entries = list_inner_zip_entries(zip_path)
             for inner_name in sorted(inner_zip_entries):
+                if _is_under_ignored_dir(inner_name):
+                    continue
+
                 inner_zip_path = temp_path / inner_name
                 if not inner_zip_path.exists():
                     logger.warning(f"Inner zip listed but not extracted: {inner_name}")
                     continue
 
                 nested_name = f"{base_name} - {Path(inner_name).stem}"
-                results.extend(
-                    self.analyze_from_zip(
-                        inner_zip_path,
-                        nested_name,
-                        reuse_cached_analysis=use_cache,
-                        split_projects=split_projects,
-                        user_id=user_id,
-                        _depth=_depth + 1,
-                        _max_depth=_max_depth,
+                try:
+                    results.extend(
+                        self.analyze_from_zip(
+                            inner_zip_path,
+                            nested_name,
+                            reuse_cached_analysis=use_cache,
+                            split_projects=split_projects,
+                            user_id=user_id,
+                            _depth=_depth + 1,
+                            _max_depth=_max_depth,
+                        )
                     )
-                )
+                except (zipfile.BadZipFile, ValueError, FileNotFoundError) as e:
+                    logger.warning(
+                        "Skipping invalid nested ZIP '%s' under '%s': %s",
+                        inner_name,
+                        zip_path,
+                        e,
+                    )
+                    continue
 
             # 2) analyze project roots in the extracted content
             base_root = _normalize_zip_root(temp_path)

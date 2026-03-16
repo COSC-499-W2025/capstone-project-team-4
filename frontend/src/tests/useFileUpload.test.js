@@ -171,5 +171,76 @@ describe('useFileUpload', () => {
     expect(result.current.projectData).toHaveLength(1);
   });
 
+  it('keeps a single named result even when analysis metrics are empty', async () => {
+    localStorageMock.setItem('consentGiven', 'true');
+    axios.post.mockResolvedValue({
+      data: [{
+        ...fakeProject,
+        project_name: 'SparseProject',
+        file_count: 0,
+        total_lines_of_code: 0,
+        languages: [],
+        frameworks: [],
+        libraries: [],
+        tools_and_technologies: [],
+      }],
+    });
+
+    const { result } = renderHook(() => useFileUpload());
+
+    act(() => {
+      result.current.handleFileDrop([
+        new File(['content'], 'test.zip', { type: 'application/zip' }),
+      ]);
+    });
+
+    await act(async () => {
+      await result.current.processFiles();
+    });
+
+    expect(result.current.projectData).toHaveLength(1);
+    expect(result.current.projectData[0].name).toBe('SparseProject');
+  });
+
+  it('filters empty placeholder when multiple results include a contentful project', async () => {
+    localStorageMock.setItem('consentGiven', 'true');
+    axios.post.mockResolvedValue({
+      data: [
+        {
+          ...fakeProject,
+          project_name: 'OuterZipPlaceholder',
+          file_count: 0,
+          total_lines_of_code: 0,
+          languages: [],
+          frameworks: [],
+          libraries: [],
+          tools_and_technologies: [],
+        },
+        {
+          ...fakeProject,
+          project_name: 'ActualProject',
+          file_count: 10,
+          total_lines_of_code: 300,
+          languages: ['JavaScript'],
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useFileUpload());
+
+    act(() => {
+      result.current.handleFileDrop([
+        new File(['content'], 'test.zip', { type: 'application/zip' }),
+      ]);
+    });
+
+    await act(async () => {
+      await result.current.processFiles();
+    });
+
+    expect(result.current.projectData).toHaveLength(1);
+    expect(result.current.projectData[0].name).toBe('ActualProject');
+  });
+
 });
 

@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+import zipfile
 from pathlib import Path
 from typing import Optional, Union, List
 
@@ -102,6 +103,11 @@ async def analyze_upload(
         analysis_succeeded = True
         return final_result
 
+    except zipfile.BadZipFile as e:
+        logger.error("Corrupted ZIP detected during analysis: %s", str(e))
+        raise InvalidFileError(
+            "Corrupted ZIP archive. Please re-create the ZIP file and try again."
+        )
     except (FileNotFoundError, ValueError) as e:
         logger.error("File or value error during analysis: %s", str(e))
         raise InvalidFileError(str(e))
