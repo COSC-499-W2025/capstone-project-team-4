@@ -37,8 +37,8 @@ const SORT_OPTIONS = [
 export default function TopProjects({
   portfolio,
   isPrivate,
-  featuredNames,
-  onFeaturedNamesChange,
+  featuredIds,
+  onFeaturedIdsChange,
   selectedProjectId,
   onSelectProject,
   onSnapshotCreated,
@@ -59,75 +59,79 @@ export default function TopProjects({
 
   const displayProjects = isPrivate
     ? [...projects].sort((a, b) => (b[sortBy] ?? 0) - (a[sortBy] ?? 0))
-    : projects.filter(p => featuredNames?.has(p.name));
+    : projects.filter(p => featuredIds?.has(p.id));
 
   const top3 = displayProjects.slice(0, 3);
 
   function handleOpenPicker() {
-    setPickerSelection(new Set(featuredNames));
+    setPickerSelection(new Set(featuredIds));
     setShowPicker(true);
   }
 
-  function handlePickerToggle(name) {
+  function handlePickerToggle(id) {
     setPickerSelection(prev => {
       const next = new Set(prev);
-      if (next.has(name)) {
-        next.delete(name);
+      if (next.has(id)) {
+        next.delete(id);
       } else if (next.size < 3) {
-        next.add(name);
+        next.add(id);
       }
       return next;
     });
   }
 
   async function handlePickerConfirm() {
-    const toAdd = [...pickerSelection].filter(n => !featuredNames?.has(n));
-    const toRemove = [...(featuredNames ?? [])].filter(n => !pickerSelection.has(n));
+    const toAdd = [...pickerSelection].filter(id => !featuredIds?.has(id));
+    const toRemove = [...(featuredIds ?? [])].filter(id => !pickerSelection.has(id));
 
-    onFeaturedNamesChange?.(new Set(pickerSelection));
+    onFeaturedIdsChange?.(new Set(pickerSelection));
     setShowPicker(false);
 
     await Promise.all([
-      ...toAdd.map(name =>
-        axios.put(
-          `/api/portfolio/${portfolio.id}/projects/${encodeURIComponent(name)}/customize`,
+      ...toAdd.map(id => {
+        const project = projects.find(p => p.id === id);
+        if (!project) return Promise.resolve();
+        return axios.put(
+          `/api/portfolio/${portfolio.id}/projects/${encodeURIComponent(project.name)}/customize`,
           { is_featured: true },
           { headers: authHeader }
-        ).catch(err => console.error("Failed to feature", name, err?.response?.data || err))
-      ),
-      ...toRemove.map(name =>
-        axios.put(
-          `/api/portfolio/${portfolio.id}/projects/${encodeURIComponent(name)}/customize`,
+        ).catch(err => console.error("Failed to feature", project.name, err?.response?.data || err));
+      }),
+      ...toRemove.map(id => {
+        const project = projects.find(p => p.id === id);
+        if (!project) return Promise.resolve();
+        return axios.put(
+          `/api/portfolio/${portfolio.id}/projects/${encodeURIComponent(project.name)}/customize`,
           { is_featured: false },
           { headers: authHeader }
-        ).catch(err => console.error("Failed to unfeature", name, err?.response?.data || err))
-      ),
+        ).catch(err => console.error("Failed to unfeature", project.name, err?.response?.data || err));
+      }),
     ]);
   }
 
   async function handleToggleFeatured(project) {
     if (!portfolio?.id) return;
-    setSavingFeature(project.name);
+    setSavingFeature(project.id);
 
-    onFeaturedNamesChange?.(prev => {
+    onFeaturedIdsChange?.(prev => {
       const next = new Set(prev);
-      if (next.has(project.name)) next.delete(project.name);
-      else next.add(project.name);
+      if (next.has(project.id)) next.delete(project.id);
+      else next.add(project.id);
       return next;
     });
 
     try {
       const res = await axios.put(
         `/api/portfolio/${portfolio.id}/projects/${encodeURIComponent(project.name)}/customize`,
-        { is_featured: !featuredNames?.has(project.name) },
+        { is_featured: !featuredIds?.has(project.id) },
         { headers: authHeader }
       );
       onPortfolioUpdate?.({ ...res.data, content: { ...res.data.content, projects: [...res.data.content.projects] } });
     } catch (error) {
-      onFeaturedNamesChange?.(prev => {
+      onFeaturedIdsChange?.(prev => {
         const next = new Set(prev);
-        if (next.has(project.name)) next.delete(project.name);
-        else next.add(project.name);
+        if (next.has(project.id)) next.delete(project.id);
+        else next.add(project.id);
         return next;
       });
       console.error("Failed to update featured status", error?.response?.data || error);
@@ -208,9 +212,9 @@ export default function TopProjects({
             >
               <ListFilter style={{ width: 12, height: 12 }} />
               Choose Projects
-              {featuredNames?.size > 0 && (
+              {featuredIds?.size > 0 && (
                 <span style={{ background: "#0d9488", color: "#fff", borderRadius: 10, padding: "0 6px", fontSize: 10, fontWeight: 700 }}>
-                  {featuredNames.size}
+                  {featuredIds.size}
                 </span>
               )}
             </button>
@@ -221,7 +225,7 @@ export default function TopProjects({
         </div>
       )}
 
-      {!isPrivate && featuredNames?.size === 0 && (
+      {!isPrivate && featuredIds?.size === 0 && (
         <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", marginTop: 16 }}>
           No featured projects — star projects in Private mode to feature them here.
         </p>
@@ -240,12 +244,12 @@ export default function TopProjects({
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 320, overflowY: "auto" }}>
               {projects.map(project => {
-                const selected = pickerSelection.has(project.name);
+                const selected = pickerSelection.has(project.id);
                 const disabled = !selected && pickerSelection.size >= 3;
                 return (
                   <div
-                    key={project.name}
-                    onClick={() => !disabled && handlePickerToggle(project.name)}
+                    key={project.id}
+                    onClick={() => !disabled && handlePickerToggle(project.id)}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -321,11 +325,11 @@ export default function TopProjects({
         >
           {top3.map((project, index) => {
             const colors = ACCENT_COLORS[index];
-            const isFeatured = featuredNames?.has(project.name) ?? false;
+            const isFeatured = featuredIds?.has(project.id) ?? false;
             return (
               // We can just use tailwind for this style but whatever lol
               <div
-                key={project.name ?? index}
+                key={project.id ?? index}
                 style={{
                   background: "#ffffff",
                   border:
@@ -378,14 +382,14 @@ export default function TopProjects({
                           e.stopPropagation();
                           handleToggleFeatured(project);
                         }}
-                        disabled={savingFeature === project.name}
+                        disabled={savingFeature === project.id}
                         title={isFeatured ? "Remove from public portfolio" : "Feature in public portfolio"}
                         style={{
                           background: "none",
                           border: "none",
-                          cursor: savingFeature === project.name ? "not-allowed" : "pointer",
+                          cursor: savingFeature === project.id ? "not-allowed" : "pointer",
                           padding: 2,
-                          opacity: savingFeature === project.name ? 0.5 : 1,
+                          opacity: savingFeature === project.id ? 0.5 : 1,
                         }}
                       >
                         <Star

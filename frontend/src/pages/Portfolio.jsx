@@ -14,7 +14,7 @@ export default function PortfolioPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [mode, setMode] = useState("private");
-  const [featuredNames, setFeaturedNames] = useState(() => new Set());
+  const [featuredIds, setFeaturedIds] = useState(() => new Set());
 
   // To make the Heatmap (and maybe the skills thing) work well, make the user
   // view it based on the currently clicked on project
@@ -45,8 +45,8 @@ export default function PortfolioPage() {
         console.log("Full portfolio response:", res.data);
         console.log("Auth header:", authHeader);
         setPortfolio(res.data);
-        setFeaturedNames(new Set(
-          (res.data.content?.projects ?? []).filter(p => p.is_featured).map(p => p.name)
+        setFeaturedIds(new Set(
+          (res.data.content?.projects ?? []).filter(p => p.is_featured).map(p => p.id)
         ));
       } catch (err) {
         setError(
@@ -268,8 +268,8 @@ export default function PortfolioPage() {
                       try {
                         const res = await axios.post("/api/portfolio/generate", {}, { headers: authHeader });
                         setPortfolio(res.data);
-                        setFeaturedNames(new Set(
-                          (res.data.content?.projects ?? []).filter(p => p.is_featured).map(p => p.name)
+                        setFeaturedIds(new Set(
+                          (res.data.content?.projects ?? []).filter(p => p.is_featured).map(p => p.id)
                         ));
                       } catch (err) {
                         setError(err?.response?.data?.detail || err?.message || "Failed to regenerate portfolio.");
@@ -375,8 +375,8 @@ export default function PortfolioPage() {
               <TopProjects
                 portfolio={portfolio}
                 isPrivate={true}
-                featuredNames={featuredNames}
-                onFeaturedNamesChange={setFeaturedNames}
+                featuredIds={featuredIds}
+                onFeaturedIdsChange={setFeaturedIds}
                 selectedProjectId={selectedProjectId}
                 onSelectProject={setSelectedProjectId}
                 onSnapshotCreated={(projectId) => {
@@ -399,8 +399,8 @@ export default function PortfolioPage() {
               <TopProjects
                 portfolio={portfolio}
                 isPrivate={false}
-                featuredNames={featuredNames}
-                onFeaturedNamesChange={setFeaturedNames}
+                featuredIds={featuredIds}
+                onFeaturedIdsChange={setFeaturedIds}
               />
               <SkillTimeline />
               <ActivityHeatmap
