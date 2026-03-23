@@ -34,7 +34,7 @@ const Navigation = () => {
             {/* Logo/Brand */}
             <div className="flex-shrink-0 flex items-center">
               <h1 className="text-xl font-bold text-gray-900">
-                Resume Generator
+                Coding Project Analyzer
               </h1>
             </div>
 
@@ -71,21 +71,7 @@ const Navigation = () => {
                     className="flex items-center space-x-2"
                   >
                     <FileText className="h-4 w-4" />
-                    <span>Resume Builder</span>
-                  </Button>
-                </Link>
-              ) : null}
-
-              {authed ? (
-                <Link to="/account">
-                  <Button
-                    variant={
-                      location.pathname === "/account" ? "default" : "ghost"
-                    }
-                    className="flex items-center space-x-2"
-                  >
-                    <User className="h-4 w-4" />
-                    <span>Account</span>
+                    <span>Coding Project Analyzer</span>
                   </Button>
                 </Link>
               ) : null}
@@ -100,6 +86,20 @@ const Navigation = () => {
                   >
                     <LayoutDashboard className="h-4 w-4" />
                     <span>Portfolio</span>
+                  </Button>
+                </Link>
+              ) : null}
+
+              {authed ? (
+                <Link to="/account">
+                  <Button
+                    variant={
+                      location.pathname === "/account" ? "default" : "ghost"
+                    }
+                    className="flex items-center space-x-2"
+                  >
+                    <User className="h-4 w-4" />
+                    <span>Account</span>
                   </Button>
                 </Link>
               ) : null}
