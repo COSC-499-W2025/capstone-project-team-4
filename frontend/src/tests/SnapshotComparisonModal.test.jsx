@@ -402,10 +402,10 @@ describe('SnapshotComparisonModal', () => {
     expect(await screen.findByText(/50%/)).toBeInTheDocument();
   });
 
-  it('shows to-slider label containing "Current"', async () => {
+  it('shows to-slider label containing "Latest"', async () => {
     open();
-    // While timeline loads: "Current HEAD (Loading…)"; after: "Mar 15, 2025 (Current)"
-    expect(await screen.findByText(/Current/)).toBeInTheDocument();
+    // While timeline loads: "Latest HEAD (Loading…)"; after: "Mar 15, 2025 (Latest)"
+    expect(await screen.findByText(/Latest HEAD|\(Latest\)/)).toBeInTheDocument();
   });
 
   it('shows two slider thumbs in the results state for re-running', async () => {
