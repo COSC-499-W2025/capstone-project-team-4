@@ -15,6 +15,7 @@ export default function PortfolioPage() {
   const [error, setError] = useState("");
   const [mode, setMode] = useState("private");
   const [featuredIds, setFeaturedIds] = useState(() => new Set());
+  const [pinnedIds, setPinnedIds] = useState(() => new Set());
 
   // To make the Heatmap (and maybe the skills thing) work well, make the user
   // view it based on the currently clicked on project
@@ -45,9 +46,11 @@ export default function PortfolioPage() {
         console.log("Full portfolio response:", res.data);
         console.log("Auth header:", authHeader);
         setPortfolio(res.data);
-        setFeaturedIds(new Set(
+        const featured = new Set(
           (res.data.content?.projects ?? []).filter(p => p.is_featured).map(p => p.id)
-        ));
+        );
+        setFeaturedIds(featured);
+        setPinnedIds(new Set(featured));
       } catch (err) {
         setError(
           err?.response?.data?.detail ||
@@ -268,9 +271,11 @@ export default function PortfolioPage() {
                       try {
                         const res = await axios.post("/api/portfolio/generate", {}, { headers: authHeader });
                         setPortfolio(res.data);
-                        setFeaturedIds(new Set(
+                        const featured = new Set(
                           (res.data.content?.projects ?? []).filter(p => p.is_featured).map(p => p.id)
-                        ));
+                        );
+                        setFeaturedIds(featured);
+                        setPinnedIds(new Set(featured));
                       } catch (err) {
                         setError(err?.response?.data?.detail || err?.message || "Failed to regenerate portfolio.");
                       } finally {
@@ -377,6 +382,8 @@ export default function PortfolioPage() {
                 isPrivate={true}
                 featuredIds={featuredIds}
                 onFeaturedIdsChange={setFeaturedIds}
+                pinnedIds={pinnedIds}
+                onPinnedIdsChange={setPinnedIds}
                 selectedProjectId={selectedProjectId}
                 onSelectProject={setSelectedProjectId}
                 onSnapshotCreated={(projectId) => {
@@ -401,6 +408,8 @@ export default function PortfolioPage() {
                 isPrivate={false}
                 featuredIds={featuredIds}
                 onFeaturedIdsChange={setFeaturedIds}
+                pinnedIds={pinnedIds}
+                onPinnedIdsChange={setPinnedIds}
               />
               <SkillTimeline />
               <ActivityHeatmap

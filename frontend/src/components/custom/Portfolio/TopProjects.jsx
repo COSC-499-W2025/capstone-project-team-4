@@ -39,6 +39,8 @@ export default function TopProjects({
   isPrivate,
   featuredIds,
   onFeaturedIdsChange,
+  pinnedIds,
+  onPinnedIdsChange,
   selectedProjectId,
   onSelectProject,
   onSnapshotCreated,
@@ -58,7 +60,9 @@ export default function TopProjects({
   const projects = portfolio?.content?.projects ?? [];
 
   const displayProjects = isPrivate
-    ? [...projects].sort((a, b) => (b[sortBy] ?? 0) - (a[sortBy] ?? 0))
+    ? pinnedIds?.size > 0
+      ? projects.filter(p => pinnedIds.has(p.id))
+      : [...projects].sort((a, b) => (b[sortBy] ?? 0) - (a[sortBy] ?? 0))
     : projects.filter(p => featuredIds?.has(p.id));
 
   const top3 = displayProjects.slice(0, 3);
@@ -85,6 +89,7 @@ export default function TopProjects({
     const toRemove = [...(featuredIds ?? [])].filter(id => !pickerSelection.has(id));
 
     onFeaturedIdsChange?.(new Set(pickerSelection));
+    onPinnedIdsChange?.(new Set(pickerSelection));
     setShowPicker(false);
 
     await Promise.all([
@@ -175,13 +180,16 @@ export default function TopProjects({
             {SORT_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
-                onClick={() => setSortBy(opt.value)}
+                onClick={() => {
+                  setSortBy(opt.value);
+                  onPinnedIdsChange?.(new Set());
+                }}
                 style={{
                   padding: "4px 12px",
                   borderRadius: 6,
-                  border: `1px solid ${sortBy === opt.value ? "#0d9488" : "#e2e8f0"}`,
-                  background: sortBy === opt.value ? "#0d9488" : "transparent",
-                  color: sortBy === opt.value ? "#ffffff" : "#64748b",
+                  border: `1px solid ${sortBy === opt.value && pinnedIds?.size === 0 ? "#0d9488" : "#e2e8f0"}`,
+                  background: sortBy === opt.value && pinnedIds?.size === 0 ? "#0d9488" : "transparent",
+                  color: sortBy === opt.value && pinnedIds?.size === 0 ? "#ffffff" : "#64748b",
                   fontSize: 12,
                   fontWeight: 500,
                   cursor: "pointer",
@@ -197,9 +205,9 @@ export default function TopProjects({
               style={{
                 padding: "4px 12px",
                 borderRadius: 6,
-                border: "1px solid #e2e8f0",
-                background: "transparent",
-                color: "#64748b",
+                border: `1px solid ${pinnedIds?.size > 0 ? "#0d9488" : "#e2e8f0"}`,
+                background: pinnedIds?.size > 0 ? "#0d9488" : "transparent",
+                color: pinnedIds?.size > 0 ? "#ffffff" : "#64748b",
                 fontSize: 12,
                 fontWeight: 500,
                 cursor: "pointer",
@@ -212,9 +220,9 @@ export default function TopProjects({
             >
               <ListFilter style={{ width: 12, height: 12 }} />
               Choose Projects
-              {featuredIds?.size > 0 && (
-                <span style={{ background: "#0d9488", color: "#fff", borderRadius: 10, padding: "0 6px", fontSize: 10, fontWeight: 700 }}>
-                  {featuredIds.size}
+              {pinnedIds?.size > 0 && (
+                <span style={{ background: "#ffffff", color: "#0d9488", borderRadius: 10, padding: "0 6px", fontSize: 10, fontWeight: 700 }}>
+                  {pinnedIds.size}
                 </span>
               )}
             </button>
@@ -240,7 +248,7 @@ export default function TopProjects({
               <span style={{ fontSize: 12, color: "#94a3b8" }}>{pickerSelection.size}/3 selected</span>
             </div>
             <p style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>
-              Select up to 3 projects to feature in your public portfolio.
+              Select up to 3 projects to pin here and feature in your public portfolio.
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 320, overflowY: "auto" }}>
               {projects.map(project => {
