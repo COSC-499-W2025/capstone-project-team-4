@@ -43,10 +43,8 @@ export default function TopProjects({
   onPinnedIdsChange,
   selectedProjectId,
   onSelectProject,
-  onSnapshotCreated,
   onPortfolioUpdate,
 }) {
-  const [creatingSnapshotId, setCreatingSnapshotId] = useState(null);
   const [sortBy, setSortBy] = useState("total_lines_of_code");
   const [savingFeature, setSavingFeature] = useState(null);
   const [showPicker, setShowPicker] = useState(false);
@@ -61,9 +59,9 @@ export default function TopProjects({
 
   const displayProjects = isPrivate
     ? pinnedIds?.size > 0
-      ? projects.filter(p => pinnedIds.has(p.id))
+      ? projects.filter((p) => pinnedIds.has(p.id))
       : [...projects].sort((a, b) => (b[sortBy] ?? 0) - (a[sortBy] ?? 0))
-    : projects.filter(p => featuredIds?.has(p.id));
+    : projects.filter((p) => featuredIds?.has(p.id));
 
   const top3 = displayProjects.slice(0, 3);
 
@@ -73,7 +71,7 @@ export default function TopProjects({
   }
 
   function handlePickerToggle(id) {
-    setPickerSelection(prev => {
+    setPickerSelection((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -85,31 +83,49 @@ export default function TopProjects({
   }
 
   async function handlePickerConfirm() {
-    const toAdd = [...pickerSelection].filter(id => !featuredIds?.has(id));
-    const toRemove = [...(featuredIds ?? [])].filter(id => !pickerSelection.has(id));
+    const toAdd = [...pickerSelection].filter((id) => !featuredIds?.has(id));
+    const toRemove = [...(featuredIds ?? [])].filter(
+      (id) => !pickerSelection.has(id),
+    );
 
     onFeaturedIdsChange?.(new Set(pickerSelection));
     onPinnedIdsChange?.(new Set(pickerSelection));
     setShowPicker(false);
 
     await Promise.all([
-      ...toAdd.map(id => {
-        const project = projects.find(p => p.id === id);
+      ...toAdd.map((id) => {
+        const project = projects.find((p) => p.id === id);
         if (!project) return Promise.resolve();
-        return axios.put(
-          `/api/portfolio/${portfolio.id}/projects/${encodeURIComponent(project.name)}/customize`,
-          { is_featured: true },
-          { headers: authHeader }
-        ).catch(err => console.error("Failed to feature", project.name, err?.response?.data || err));
+        return axios
+          .put(
+            `/api/portfolio/${portfolio.id}/projects/${encodeURIComponent(project.name)}/customize`,
+            { is_featured: true },
+            { headers: authHeader },
+          )
+          .catch((err) =>
+            console.error(
+              "Failed to feature",
+              project.name,
+              err?.response?.data || err,
+            ),
+          );
       }),
-      ...toRemove.map(id => {
-        const project = projects.find(p => p.id === id);
+      ...toRemove.map((id) => {
+        const project = projects.find((p) => p.id === id);
         if (!project) return Promise.resolve();
-        return axios.put(
-          `/api/portfolio/${portfolio.id}/projects/${encodeURIComponent(project.name)}/customize`,
-          { is_featured: false },
-          { headers: authHeader }
-        ).catch(err => console.error("Failed to unfeature", project.name, err?.response?.data || err));
+        return axios
+          .put(
+            `/api/portfolio/${portfolio.id}/projects/${encodeURIComponent(project.name)}/customize`,
+            { is_featured: false },
+            { headers: authHeader },
+          )
+          .catch((err) =>
+            console.error(
+              "Failed to unfeature",
+              project.name,
+              err?.response?.data || err,
+            ),
+          );
       }),
     ]);
   }
@@ -118,7 +134,7 @@ export default function TopProjects({
     if (!portfolio?.id) return;
     setSavingFeature(project.id);
 
-    onFeaturedIdsChange?.(prev => {
+    onFeaturedIdsChange?.((prev) => {
       const next = new Set(prev);
       if (next.has(project.id)) next.delete(project.id);
       else next.add(project.id);
@@ -129,42 +145,28 @@ export default function TopProjects({
       const res = await axios.put(
         `/api/portfolio/${portfolio.id}/projects/${encodeURIComponent(project.name)}/customize`,
         { is_featured: !featuredIds?.has(project.id) },
-        { headers: authHeader }
+        { headers: authHeader },
       );
-      onPortfolioUpdate?.({ ...res.data, content: { ...res.data.content, projects: [...res.data.content.projects] } });
+      onPortfolioUpdate?.({
+        ...res.data,
+        content: {
+          ...res.data.content,
+          projects: [...res.data.content.projects],
+        },
+      });
     } catch (error) {
-      onFeaturedIdsChange?.(prev => {
+      onFeaturedIdsChange?.((prev) => {
         const next = new Set(prev);
         if (next.has(project.id)) next.delete(project.id);
         else next.add(project.id);
         return next;
       });
-      console.error("Failed to update featured status", error?.response?.data || error);
+      console.error(
+        "Failed to update featured status",
+        error?.response?.data || error,
+      );
     } finally {
       setSavingFeature(null);
-    }
-  }
-
-  async function handleCreateSnapshot(projectId) {
-    try {
-      setCreatingSnapshotId(projectId);
-      onSelectProject?.(projectId);
-
-      const response = await fetch(`/api/snapshots/${projectId}/create`, {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to create snapshot");
-      }
-
-      await response.json();
-      onSnapshotCreated?.(projectId);
-    } catch (error) {
-      console.error(error);
-      alert("Could not create snapshot.");
-    } finally {
-      setCreatingSnapshotId(null);
     }
   }
 
@@ -174,7 +176,15 @@ export default function TopProjects({
       <div className="pf-divider" />
 
       {isPrivate && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginTop: 20,
+            flexWrap: "wrap",
+          }}
+        >
           <span style={{ fontSize: 12, color: "#64748b" }}>Sort by:</span>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {SORT_OPTIONS.map((opt) => (
@@ -188,8 +198,14 @@ export default function TopProjects({
                   padding: "4px 12px",
                   borderRadius: 6,
                   border: `1px solid ${sortBy === opt.value && pinnedIds?.size === 0 ? "#0d9488" : "#e2e8f0"}`,
-                  background: sortBy === opt.value && pinnedIds?.size === 0 ? "#0d9488" : "transparent",
-                  color: sortBy === opt.value && pinnedIds?.size === 0 ? "#ffffff" : "#64748b",
+                  background:
+                    sortBy === opt.value && pinnedIds?.size === 0
+                      ? "#0d9488"
+                      : "transparent",
+                  color:
+                    sortBy === opt.value && pinnedIds?.size === 0
+                      ? "#ffffff"
+                      : "#64748b",
                   fontSize: 12,
                   fontWeight: 500,
                   cursor: "pointer",
@@ -221,7 +237,16 @@ export default function TopProjects({
               <ListFilter style={{ width: 12, height: 12 }} />
               Choose Projects
               {pinnedIds?.size > 0 && (
-                <span style={{ background: "#ffffff", color: "#0d9488", borderRadius: 10, padding: "0 6px", fontSize: 10, fontWeight: 700 }}>
+                <span
+                  style={{
+                    background: "#ffffff",
+                    color: "#0d9488",
+                    borderRadius: 10,
+                    padding: "0 6px",
+                    fontSize: 10,
+                    fontWeight: 700,
+                  }}
+                >
                   {pinnedIds.size}
                 </span>
               )}
@@ -234,24 +259,79 @@ export default function TopProjects({
       )}
 
       {!isPrivate && featuredIds?.size === 0 && (
-        <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", marginTop: 16 }}>
-          No featured projects — star projects in Private mode to feature them here.
+        <p
+          style={{
+            fontSize: 12,
+            color: "#94a3b8",
+            textAlign: "center",
+            marginTop: 16,
+          }}
+        >
+          No featured projects — star projects in Private mode to feature them
+          here.
         </p>
       )}
 
       {/* Choose Projects Modal */}
       {showPicker && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "#ffffff", borderRadius: 16, padding: 28, maxWidth: 480, width: "100%", boxShadow: "0 8px 32px rgba(15,23,42,0.16)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>Choose Featured Projects</h3>
-              <span style={{ fontSize: 12, color: "#94a3b8" }}>{pickerSelection.size}/3 selected</span>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,0.5)",
+            zIndex: 50,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 16,
+              padding: 28,
+              maxWidth: 480,
+              width: "100%",
+              boxShadow: "0 8px 32px rgba(15,23,42,0.16)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 8,
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: "#0f172a",
+                  margin: 0,
+                }}
+              >
+                Choose Featured Projects
+              </h3>
+              <span style={{ fontSize: 12, color: "#94a3b8" }}>
+                {pickerSelection.size}/3 selected
+              </span>
             </div>
             <p style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>
-              Select up to 3 projects to pin here and feature in your public portfolio.
+              Select up to 3 projects to pin here and feature in your public
+              portfolio.
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 320, overflowY: "auto" }}>
-              {projects.map(project => {
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                maxHeight: 320,
+                overflowY: "auto",
+              }}
+            >
+              {projects.map((project) => {
                 const selected = pickerSelection.has(project.id);
                 const disabled = !selected && pickerSelection.size >= 3;
                 return (
@@ -271,25 +351,53 @@ export default function TopProjects({
                       transition: "all 0.15s",
                     }}
                   >
-                    <div style={{
-                      width: 18,
-                      height: 18,
-                      borderRadius: 5,
-                      border: `2px solid ${selected ? "#0d9488" : "#cbd5e1"}`,
-                      background: selected ? "#0d9488" : "transparent",
-                      flexShrink: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}>
-                      {selected && <span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>✓</span>}
+                    <div
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 5,
+                        border: `2px solid ${selected ? "#0d9488" : "#cbd5e1"}`,
+                        background: selected ? "#0d9488" : "transparent",
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {selected && (
+                        <span
+                          style={{
+                            color: "#fff",
+                            fontSize: 11,
+                            fontWeight: 700,
+                          }}
+                        >
+                          ✓
+                        </span>
+                      )}
                     </div>
                     <div style={{ minWidth: 0 }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <p
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: "#0f172a",
+                          margin: 0,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
                         {project.custom_name ?? project.name}
                       </p>
                       {project.languages?.length > 0 && (
-                        <p style={{ fontSize: 11, color: "#94a3b8", margin: "2px 0 0" }}>
+                        <p
+                          style={{
+                            fontSize: 11,
+                            color: "#94a3b8",
+                            margin: "2px 0 0",
+                          }}
+                        >
                           {project.languages.slice(0, 3).join(", ")}
                         </p>
                       )}
@@ -298,16 +406,43 @@ export default function TopProjects({
                 );
               })}
             </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "flex-end" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                marginTop: 20,
+                justifyContent: "flex-end",
+              }}
+            >
               <button
                 onClick={() => setShowPicker(false)}
-                style={{ padding: "7px 18px", borderRadius: 8, border: "1px solid #e2e8f0", background: "transparent", color: "#64748b", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}
+                style={{
+                  padding: "7px 18px",
+                  borderRadius: 8,
+                  border: "1px solid #e2e8f0",
+                  background: "transparent",
+                  color: "#64748b",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
               >
                 Cancel
               </button>
               <button
                 onClick={handlePickerConfirm}
-                style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "#0d9488", color: "#ffffff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+                style={{
+                  padding: "7px 18px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "#0d9488",
+                  color: "#ffffff",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
               >
                 Confirm
               </button>
@@ -317,7 +452,10 @@ export default function TopProjects({
       )}
 
       {top3.length === 0 ? (
-        <div className="pf-card" style={{ padding: 32, textAlign: "center", marginTop: 32 }}>
+        <div
+          className="pf-card"
+          style={{ padding: 32, textAlign: "center", marginTop: 32 }}
+        >
           <p style={{ color: "#94a3b8", fontSize: 14 }}>
             No projects found. Upload a project to get started.
           </p>
@@ -357,18 +495,26 @@ export default function TopProjects({
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "translateY(-3px)";
-                  e.currentTarget.style.boxShadow = "0 8px 24px rgba(15,23,42,0.1)";
+                  e.currentTarget.style.boxShadow =
+                    "0 8px 24px rgba(15,23,42,0.1)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 2px 8px rgba(15,23,42,0.06)";
+                  e.currentTarget.style.boxShadow =
+                    "0 2px 8px rgba(15,23,42,0.06)";
                 }}
                 onClick={() => {
                   onSelectProject?.(project.id);
                 }}
               >
                 {/* Rank + star + link */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
                   <span
                     style={{
                       background: colors.badge,
@@ -383,7 +529,9 @@ export default function TopProjects({
                     #{index + 1}
                   </span>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                  >
                     {isPrivate && (
                       <button
                         onClick={(e) => {
@@ -391,11 +539,18 @@ export default function TopProjects({
                           handleToggleFeatured(project);
                         }}
                         disabled={savingFeature === project.id}
-                        title={isFeatured ? "Remove from public portfolio" : "Feature in public portfolio"}
+                        title={
+                          isFeatured
+                            ? "Remove from public portfolio"
+                            : "Feature in public portfolio"
+                        }
                         style={{
                           background: "none",
                           border: "none",
-                          cursor: savingFeature === project.id ? "not-allowed" : "pointer",
+                          cursor:
+                            savingFeature === project.id
+                              ? "not-allowed"
+                              : "pointer",
                           padding: 2,
                           opacity: savingFeature === project.id ? 0.5 : 1,
                         }}
@@ -478,36 +633,36 @@ export default function TopProjects({
                     }}
                   >
                     {project.resume_highlights.slice(0, 3).map((h, i) => (
-                      <li key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                        <span style={{ color: colors.badgeText, marginTop: 3, flexShrink: 0, fontWeight: 700 }}>▸</span>
-                        <span style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>{h}</span>
+                      <li
+                        key={i}
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: colors.badgeText,
+                            marginTop: 3,
+                            flexShrink: 0,
+                            fontWeight: 700,
+                          }}
+                        >
+                          ▸
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            color: "#64748b",
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {h}
+                        </span>
                       </li>
                     ))}
                   </ul>
-                )}
-
-                {/* Button for snapshot creation, honestly, this entire div should be in a Project component haha */}
-                {isPrivate && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCreateSnapshot(project.id);
-                    }}
-                    disabled={creatingSnapshotId === project.id}
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: 8,
-                      border: "none",
-                      background: "#2563eb",
-                      color: "#fff",
-                      cursor: creatingSnapshotId === project.id ? "not-allowed" : "pointer",
-                      opacity: creatingSnapshotId === project.id ? 0.7 : 1,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {creatingSnapshotId === project.id ? "Creating..." : "Create Snapshot"}
-                  </button>
                 )}
               </div>
             );

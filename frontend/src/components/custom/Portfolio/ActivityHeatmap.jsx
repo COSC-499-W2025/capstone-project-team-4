@@ -2,14 +2,30 @@ import { Activity } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityCalendar } from "react-activity-calendar";
 
-export default function ActivityHeatmap({ projectId, refreshKey }) {
+function toDateString(value) {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getLevel(count) {
+  if (count === 0) return 0;
+  if (count === 1) return 1;
+  if (count <= 3) return 2;
+  if (count <= 5) return 3;
+  return 4;
+}
+
+export default function ActivityHeatmap({ projectId, contributorIdentity }) {
   const [heatmapData, setHeatmapData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     async function fetchHeatmap() {
-      if (!projectId) {
+      if (!projectId || !contributorIdentity) {
         setHeatmapData([]);
         setError("");
         setLoading(false);
@@ -21,8 +37,14 @@ export default function ActivityHeatmap({ projectId, refreshKey }) {
         setError("");
 
         const response = await fetch(
-          `/api/snapshots/${projectId}/activity-heatmap`,
+          `/api/contributors/github/${encodeURIComponent(contributorIdentity)}/projects/${projectId}/activity-heatmap`,
         );
+
+        if (response.status === 404) {
+          setHeatmapData([]);
+          setError("");
+          return;
+        }
 
         if (!response.ok) {
           throw new Error("Failed to fetch heatmap data");
@@ -32,7 +54,7 @@ export default function ActivityHeatmap({ projectId, refreshKey }) {
         setHeatmapData(json.data ?? []);
       } catch (err) {
         console.error(err);
-        setError("Could not load activity heatmap.");
+        setError("Could not load commit activity.");
         setHeatmapData([]);
       } finally {
         setLoading(false);
@@ -40,35 +62,31 @@ export default function ActivityHeatmap({ projectId, refreshKey }) {
     }
 
     fetchHeatmap();
-  }, [projectId, refreshKey]);
+  }, [projectId, contributorIdentity]);
 
   const calendarData = useMemo(() => {
-    const dateMap = new Map(heatmapData.map((day) => [day.date, day.count]));
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(today.getDate() - 364);
 
-    const year = new Date().getFullYear();
-    const start = new Date(year, 0, 1);
-    const end = new Date(year, 11, 31);
+    const dateMap = new Map(
+      heatmapData.map((day) => [day.date, Number(day.count) || 0]),
+    );
 
     const filledData = [];
+    const cursor = new Date(start);
 
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toISOString().split("T")[0];
+    while (cursor <= today) {
+      const dateStr = toDateString(cursor);
       const count = dateMap.get(dateStr) ?? 0;
 
       filledData.push({
         date: dateStr,
         count,
-        level:
-          count === 0
-            ? 0
-            : count === 1
-              ? 1
-              : count <= 3
-                ? 2
-                : count <= 5
-                  ? 3
-                  : 4,
+        level: getLevel(count),
       });
+
+      cursor.setDate(cursor.getDate() + 1);
     }
 
     return filledData;
@@ -79,7 +97,7 @@ export default function ActivityHeatmap({ projectId, refreshKey }) {
   if (!projectId) {
     content = (
       <p style={{ color: "#374151", fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-        Select a project to view snapshot activity.
+        Select a project to view commit activity.
       </p>
     );
   } else if (loading) {
@@ -100,7 +118,7 @@ export default function ActivityHeatmap({ projectId, refreshKey }) {
         <p
           style={{ color: "#374151", fontSize: 13, margin: 0, lineHeight: 1.6 }}
         >
-          Based on snapshots created per day.
+          Based on commits grouped by day for the selected project.
         </p>
         <p
           style={{
@@ -111,7 +129,7 @@ export default function ActivityHeatmap({ projectId, refreshKey }) {
             lineHeight: 1.6,
           }}
         >
-          No snapshot activity yet.
+          It’s a solo project or there are no matched commits yet.
         </p>
       </>
     );
@@ -127,7 +145,7 @@ export default function ActivityHeatmap({ projectId, refreshKey }) {
             lineHeight: 1.6,
           }}
         >
-          Based on snapshots created per day.
+          Based on commits grouped by day for the selected project.
         </p>
 
         <div
@@ -144,7 +162,7 @@ export default function ActivityHeatmap({ projectId, refreshKey }) {
               dark: ["#e5e7eb", "#bfdbfe", "#93c5fd", "#60a5fa", "#2563eb"],
             }}
             labels={{
-              totalCount: "{{count}} activities in {{year}}",
+              totalCount: "{{count}} commits in the last year",
             }}
           />
         </div>
@@ -179,7 +197,7 @@ export default function ActivityHeatmap({ projectId, refreshKey }) {
               margin: 0,
             }}
           >
-            Snapshot Activity Heatmap
+            Commit Activity Heatmap
           </h3>
         </div>
 
