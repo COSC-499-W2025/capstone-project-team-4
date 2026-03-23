@@ -6,6 +6,7 @@ from sqlalchemy import func, select, or_
 from sqlalchemy.orm import Session, joinedload
 
 from src.models.orm.contributor import Contributor, ContributorFile
+from src.models.orm.contributor_commit import ContributorCommit
 from src.models.orm.project import Project
 from src.repositories.base import BaseRepository
 
@@ -189,4 +190,24 @@ class ContributorRepository(BaseRepository[Contributor]):
     def get_all_with_projects(self) -> List[tuple[Contributor, Project]]:
         """Get all contributors with their projects."""
         stmt = select(Contributor, Project).join(Project, Project.id == Contributor.project_id)
+        return list(self.db.execute(stmt).all())
+    
+    def get_commit_counts_by_day_for_contributors(
+    self,
+    contributor_ids: List[int],
+) -> List[tuple]:
+        """Get commit counts grouped by day for the given contributor IDs."""
+        if not contributor_ids:
+            return []
+
+        stmt = (
+            select(
+                func.date(ContributorCommit.commit_date).label("commit_date"),
+                func.count(ContributorCommit.id).label("commit_count"),
+            )
+            .where(ContributorCommit.contributor_id.in_(contributor_ids))
+            .group_by(func.date(ContributorCommit.commit_date))
+            .order_by(func.date(ContributorCommit.commit_date))
+        )
+
         return list(self.db.execute(stmt).all())
