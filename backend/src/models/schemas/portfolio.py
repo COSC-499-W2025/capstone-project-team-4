@@ -41,4 +41,4 @@ class PortfolioProjectCustomize(BaseModel):
     custom_name: Optional[str] = None
     description: Optional[str] = None
     live_demo_url: Optional[str] = None
-    
+    is_featured: Optional[bool] = None
