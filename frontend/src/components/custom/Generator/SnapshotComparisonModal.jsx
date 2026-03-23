@@ -157,9 +157,9 @@ const RangeSliderControl = ({ fromPct, toPct, onChange, commitTimeline, timeline
     : `${fromPct}%`;
 
   const toLabel = timelineLoading
-    ? toPct >= 100 ? 'Current HEAD (Loading…)' : `${toPct}% (Loading…)`
+    ? toPct >= 100 ? 'Latest HEAD (Loading…)' : `${toPct}% (Loading…)`
     : toPct >= 100
-    ? (toDateStr ? `${formatCommitDate(toDateStr)} (Current)` : 'Current HEAD')
+    ? (toDateStr ? `${formatCommitDate(toDateStr)} (Latest)` : 'Latest HEAD')
     : toDateStr
     ? `${formatCommitDate(toDateStr)} (${toPct}%)`
     : `${toPct}%`;
