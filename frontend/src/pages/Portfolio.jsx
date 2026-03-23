@@ -299,7 +299,9 @@ export default function PortfolioPage() {
                   },
                   {
                     label: "Skills",
-                    value: portfolio.content?.skills?.length ?? "—",
+                    value: portfolio.content?.aggregated_skills
+                      ? Object.values(portfolio.content.aggregated_skills).flat().length
+                      : "—",
                   },
                   {
                     label: "Languages",
