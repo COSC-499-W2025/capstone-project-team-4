@@ -64,6 +64,21 @@ export default function ActivityHeatmap({ projectId, contributorIdentity }) {
     fetchHeatmap();
   }, [projectId, contributorIdentity]);
 
+  function formatTooltip(activity) {
+    const formattedDate = new Date(
+      `${activity.date}T00:00:00`,
+    ).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    const commitText =
+      activity.count === 1 ? "1 commit" : `${activity.count} commits`;
+
+    return `${commitText} on ${formattedDate}`;
+  }
+
   const calendarData = useMemo(() => {
     const today = new Date();
     const start = new Date(today);
@@ -163,6 +178,12 @@ export default function ActivityHeatmap({ projectId, contributorIdentity }) {
             }}
             labels={{
               totalCount: "{{count}} commits in the last year",
+            }}
+            tooltips={{
+              activity: {
+                text: (activity) => formatTooltip(activity),
+                placement: "right",
+              },
             }}
           />
         </div>
