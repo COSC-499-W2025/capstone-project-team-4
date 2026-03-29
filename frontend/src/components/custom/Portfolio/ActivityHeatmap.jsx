@@ -129,28 +129,20 @@ export default function ActivityHeatmap({ projectId, contributorIdentity }) {
 
   if (!projectId) {
     content = (
-      <p style={{ color: "#374151", fontSize: 13, margin: 0, lineHeight: 1.6 }}>
+      <p className="text-gray-500 text-sm/1.6 m-0">
         Select a project to view commit activity.
       </p>
     );
   } else if (loading) {
     content = (
-      <p style={{ color: "#374151", fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-        Loading activity...
-      </p>
+      <p className="text-gray-500 text-sm/1.6 m-0">Loading activity...</p>
     );
   } else if (error) {
-    content = (
-      <p style={{ color: "#b91c1c", fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-        {error}
-      </p>
-    );
+    content = <p className="text-red-500 text-sm/1.6 m-0">{error}</p>;
   } else if (heatmapData.length === 0) {
     content = (
       <>
-        <p
-          style={{ color: "#374151", fontSize: 13, margin: 0, lineHeight: 1.6 }}
-        >
+        <p className="text-gray-500 text-sm/1.6 m-0">
           Based on commits grouped by day for the selected project.
         </p>
         <strong className="font-bold">
@@ -162,21 +154,11 @@ export default function ActivityHeatmap({ projectId, contributorIdentity }) {
     content = (
       <>
         <strong>Viewing Project: {projectName}</strong>
-        <p
-          style={{
-            color: "#374151",
-            fontSize: 13,
-            marginTop: 0,
-            marginBottom: 12,
-            lineHeight: 1.6,
-          }}
-        >
+        <p className="text-gray-500 text-sm/1.6 mt-0 mb-8">
           Based on commits grouped by day for the selected project.
         </p>
 
-        <div
-          style={{ display: "flex", justifyContent: "center", marginTop: 12 }}
-        >
+        <div className="flex justify-center">
           <ActivityCalendar
             data={calendarData}
             maxLevel={4}
@@ -207,30 +189,10 @@ export default function ActivityHeatmap({ projectId, contributorIdentity }) {
       <h2 className="pf-section-title">Activity</h2>
       <div className="pf-divider" />
 
-      <div
-        className="pf-placeholder"
-        style={{ marginTop: 32, textAlign: "center" }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-            marginBottom: 12,
-          }}
-        >
-          <Activity style={{ width: 20, height: 20, color: "#4b5563" }} />
-          <h3
-            style={{
-              color: "#4b5563",
-              fontSize: 15,
-              fontWeight: 600,
-              margin: 0,
-            }}
-          >
-            Commit Activity Heatmap
-          </h3>
+      <div className="pf-placeholder mt-8 text-center">
+        <div className="flex items-center justify-center gap-4 mb-2">
+          <Activity height={20} width={20} />
+          <h3 className="gray-800 font-medium">Commit Activity Heatmap</h3>
         </div>
 
         {content}
