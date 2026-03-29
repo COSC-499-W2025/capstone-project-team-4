@@ -22,6 +22,7 @@ export default function ActivityHeatmap({ projectId, contributorIdentity }) {
   const [heatmapData, setHeatmapData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [projectName, setProjectName] = useState("");
 
   useEffect(() => {
     async function fetchHeatmap() {
@@ -61,7 +62,24 @@ export default function ActivityHeatmap({ projectId, contributorIdentity }) {
       }
     }
 
+    async function getProjectName() {
+      if (!projectId) {
+        setError("");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/projects/${projectId}`);
+        const project = await response.json();
+        setProjectName(project.name);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
     fetchHeatmap();
+    getProjectName();
   }, [projectId, contributorIdentity]);
 
   function formatTooltip(activity) {
@@ -135,22 +153,15 @@ export default function ActivityHeatmap({ projectId, contributorIdentity }) {
         >
           Based on commits grouped by day for the selected project.
         </p>
-        <p
-          style={{
-            color: "#6b7280",
-            fontSize: 13,
-            marginTop: 8,
-            marginBottom: 0,
-            lineHeight: 1.6,
-          }}
-        >
-          It’s a solo project or there are no matched commits yet.
-        </p>
+        <strong className="font-bold">
+          It's a solo project or there are no matched commits yet.
+        </strong>
       </>
     );
   } else {
     content = (
       <>
+        <strong>Viewing Project: {projectName}</strong>
         <p
           style={{
             color: "#374151",
