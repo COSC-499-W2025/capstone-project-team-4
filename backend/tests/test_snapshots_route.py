@@ -1,7 +1,9 @@
 import asyncio
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 from src.api.routes import snapshots as snapshots_route
+from src.services.project_service import ProjectService
 
 
 def test_create_current_and_midpoint_snapshots_route_calls_service(monkeypatch):
@@ -39,7 +41,14 @@ def test_create_current_and_midpoint_snapshots_route_calls_service(monkeypatch):
             return expected
 
     monkeypatch.setattr(snapshots_route, "SnapshotService", FakeSnapshotService)
-    result = asyncio.run(snapshots_route.create_current_and_midpoint_snapshots(project_id=7, db=object()))
+    monkeypatch.setattr(ProjectService, "user_owns_project", lambda *_: True)
+    result = asyncio.run(
+        snapshots_route.create_current_and_midpoint_snapshots(
+            project_id=7,
+            db=object(),
+            current_user=SimpleNamespace(id=1),
+        )
+    )
 
     assert result == expected
 
@@ -57,7 +66,15 @@ def test_delete_snapshot_route_calls_service(monkeypatch):
             return expected
 
     monkeypatch.setattr(snapshots_route, "SnapshotService", FakeSnapshotService)
-    result = asyncio.run(snapshots_route.delete_snapshot(project_id=7, snapshot_id=10, db=object()))
+    monkeypatch.setattr(ProjectService, "user_owns_project", lambda *_: True)
+    result = asyncio.run(
+        snapshots_route.delete_snapshot(
+            project_id=7,
+            snapshot_id=10,
+            db=object(),
+            current_user=SimpleNamespace(id=1),
+        )
+    )
 
     assert result == expected
 
@@ -102,5 +119,12 @@ def test_compare_current_and_midpoint_snapshots_route_calls_service(monkeypatch)
             return expected
 
     monkeypatch.setattr(snapshots_route, "SnapshotService", FakeSnapshotService)
-    result = asyncio.run(snapshots_route.compare_current_and_midpoint_snapshots(project_id=7, db=object()))
+    monkeypatch.setattr(ProjectService, "user_owns_project", lambda *_: True)
+    result = asyncio.run(
+        snapshots_route.compare_current_and_midpoint_snapshots(
+            project_id=7,
+            db=object(),
+            current_user=SimpleNamespace(id=1),
+        )
+    )
     assert result == expected

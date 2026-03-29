@@ -45,6 +45,11 @@ class ProjectService:
         self.complexity_repo = ComplexityRepository(db)
         self.skill_repo = SkillRepository(db)
 
+    def user_owns_project(self, project_id: int, user_id: int) -> bool:
+        """Return True only when the project exists and belongs to the user."""
+        project = self.project_repo.get(project_id)
+        return bool(project and project.user_id == user_id)
+
     @staticmethod
     def _get_domain_mapping_path() -> Path:
         """Return path to domain mapping config file."""

@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import app
+from src.api.dependencies import get_current_user
 from src.models.database import get_db
 from src.services.project_service import ProjectService
 
@@ -25,6 +26,7 @@ def client() -> Iterator[TestClient]:
         yield SimpleNamespace()
 
     app.dependency_overrides[get_db] = _get_db_override
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id=1, is_active=True)
     try:
         with TestClient(app) as test_client:
             yield test_client
@@ -34,6 +36,7 @@ def client() -> Iterator[TestClient]:
 
 
 def test_delete_thumbnail_404_when_missing(client, monkeypatch):
+    monkeypatch.setattr(ProjectService, "user_owns_project", lambda *_: True)
     monkeypatch.setattr(ProjectService, "project_exists", lambda *_: True)
     monkeypatch.setattr(ProjectService, "delete_thumbnail", lambda *_: False)
 
@@ -42,6 +45,7 @@ def test_delete_thumbnail_404_when_missing(client, monkeypatch):
 
 
 def test_delete_thumbnail_204_when_deleted(client, monkeypatch):
+    monkeypatch.setattr(ProjectService, "user_owns_project", lambda *_: True)
     monkeypatch.setattr(ProjectService, "project_exists", lambda *_: True)
     monkeypatch.setattr(ProjectService, "delete_thumbnail", lambda *_: True)
 

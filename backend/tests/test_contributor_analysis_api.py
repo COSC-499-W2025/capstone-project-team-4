@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
+from src.api.dependencies import get_current_user
 from src.api.main import app
 from src.models.schemas.contributor import (
     AreaShareSchema,
@@ -21,7 +22,12 @@ from src.models.schemas.contributor import (
 @pytest.fixture
 def client():
     """Create test client."""
-    return TestClient(app)
+    app.dependency_overrides[get_current_user] = lambda: Mock(id=1, is_active=True)
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture
@@ -74,6 +80,7 @@ def test_get_contributor_analysis_success(client, mock_db_session, sample_analys
         # Mock project exists
         mock_project = Mock()
         mock_project.id = 1
+        mock_project.user_id = 1
         mock_project_repo.return_value.get.return_value = mock_project
         
         # Mock contributor exists and belongs to project
@@ -125,6 +132,7 @@ def test_get_contributor_analysis_contributor_not_found(client, mock_db_session)
         # Project exists
         mock_project = Mock()
         mock_project.id = 1
+        mock_project.user_id = 1
         mock_project_repo.return_value.get.return_value = mock_project
         
         # Contributor does not exist
@@ -148,6 +156,7 @@ def test_get_contributor_analysis_contributor_wrong_project(client, mock_db_sess
         # Project exists
         mock_project = Mock()
         mock_project.id = 1
+        mock_project.user_id = 1
         mock_project_repo.return_value.get.return_value = mock_project
         
         # Contributor exists but belongs to different project
@@ -174,6 +183,7 @@ def test_get_contributor_analysis_with_branch_parameter(client, mock_db_session,
         # Setup mocks
         mock_project = Mock()
         mock_project.id = 1
+        mock_project.user_id = 1
         mock_project_repo.return_value.get.return_value = mock_project
         
         mock_contributor = Mock()
@@ -208,6 +218,7 @@ def test_get_contributor_analysis_service_returns_none(client, mock_db_session):
         # Setup mocks
         mock_project = Mock()
         mock_project.id = 1
+        mock_project.user_id = 1
         mock_project_repo.return_value.get.return_value = mock_project
         
         mock_contributor = Mock()
@@ -236,6 +247,7 @@ def test_get_contributor_analysis_service_raises_exception(client, mock_db_sessi
         # Setup mocks
         mock_project = Mock()
         mock_project.id = 1
+        mock_project.user_id = 1
         mock_project_repo.return_value.get.return_value = mock_project
         
         mock_contributor = Mock()
@@ -263,6 +275,7 @@ def test_get_contributor_analysis_invalid_branch_returns_400(client, mock_db_ses
 
         mock_project = Mock()
         mock_project.id = 1
+        mock_project.user_id = 1
         mock_project_repo.return_value.get.return_value = mock_project
 
         mock_contributor = Mock()
@@ -320,6 +333,7 @@ def test_get_contributor_directories_success(client, mock_db_session, sample_dir
 
         mock_project = Mock()
         mock_project.id = 1
+        mock_project.user_id = 1
         mock_project_repo.return_value.get.return_value = mock_project
 
         mock_contributor = Mock()
@@ -358,6 +372,7 @@ def test_get_contributor_directories_invalid_branch_returns_400(client, mock_db_
 
         mock_project = Mock()
         mock_project.id = 1
+        mock_project.user_id = 1
         mock_project_repo.return_value.get.return_value = mock_project
 
         mock_contributor = Mock()
