@@ -147,9 +147,17 @@ export default function ActivityHeatmap({ projectId, contributorIdentity }) {
         <p className="text-gray-500 text-sm/1.6 m-0">
           Based on commits grouped by day for the selected project.
         </p>
-        <strong className="font-bold">
-          It's a solo project or there are no matched commits yet.
-        </strong>
+        <p>
+          <strong className="font-bold">{projectName}</strong>{" "}
+          <span className="text-gray-500 text-sm/1.6 m-0">
+            is a solo project or there are no commits for it!
+          </span>
+        </p>
+
+        <p className="text-gray-500 text-sm/1.6 mt-2">
+          <strong className="font-bold">Note:</strong> Commit Activities are
+          matched according to your registered email on GitHub.
+        </p>
       </>
     );
   } else {

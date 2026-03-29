@@ -480,7 +480,7 @@ export default function TopProjects({
                   background: "#ffffff",
                   border:
                     selectedProjectId === project.id
-                      ? "2px solid #2563eb"
+                      ? "4px solid #2563eb"
                       : "1px solid #e2e8f0",
                   borderRadius: 14,
                   borderLeft: `4px solid ${colors.leftBar}`,
