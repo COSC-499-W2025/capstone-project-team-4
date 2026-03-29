@@ -1,6 +1,8 @@
 import { Activity } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityCalendar } from "react-activity-calendar";
+import "./activityheatmap.css";
+import "react-activity-calendar/tooltips.css";
 
 function toDateString(value) {
   const date = new Date(value);
