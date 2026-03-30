@@ -1,6 +1,6 @@
 import axios from "axios";
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, User, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, User, Loader2, Trash2, FileCode2, ArrowLeft } from "lucide-react";
 
 import { Switch } from "@/components/ui/switch";
 import {
@@ -49,6 +49,14 @@ export default function AccountPage() {
     error: "",
     success: "",
   });
+
+  // Manage Projects state
+  const [projectsView, setProjectsView] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectsError, setProjectsError] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
+  const [confirmId, setConfirmId] = useState(null);
 
   const authHeader = useMemo(() => {
     const token = getAccessToken();
@@ -136,7 +144,35 @@ export default function AccountPage() {
 
   const handleOpenManageData = () => {
     if (user) fetchPrivacy(user.id);
+    setProjectsView(false);
     setManageDataOpen(true);
+  };
+
+  const handleOpenProjects = async () => {
+    setProjectsView(true);
+    setProjectsLoading(true);
+    setProjectsError("");
+    try {
+      const res = await axios.get("/api/projects?page=1&page_size=100", { headers: authHeader });
+      setProjects(res.data.items ?? []);
+    } catch (err) {
+      setProjectsError(err?.response?.data?.detail || err?.message || "Failed to load projects.");
+    } finally {
+      setProjectsLoading(false);
+    }
+  };
+
+  const handleDeleteProject = async (projectId) => {
+    setDeletingId(projectId);
+    try {
+      await axios.delete(`/api/projects/${projectId}`, { headers: authHeader });
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    } catch (err) {
+      setProjectsError(err?.response?.data?.detail || err?.message || "Failed to delete project.");
+    } finally {
+      setDeletingId(null);
+      setConfirmId(null);
+    }
   };
 
   // Guys why don't we just use functions or something that's the standard :(
@@ -322,7 +358,7 @@ export default function AccountPage() {
                 Data Controls
               </p>
               <p className="mt-1 text-xs text-slate-600">
-                Privacy, export, and account deletion options.
+                Privacy settings and manage your uploaded projects.
               </p>
               <Button
                 className="mt-3 w-full hover:cursor-pointer"
@@ -340,83 +376,170 @@ export default function AccountPage() {
         />
 
         {/* Dialog things */}
-        <Dialog open={manageDataOpen} onOpenChange={setManageDataOpen}>
+        <Dialog open={manageDataOpen} onOpenChange={(open) => { setManageDataOpen(open); if (!open) setProjectsView(false); }}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Manage Data</DialogTitle>
-              <DialogDescription>
-                Control your privacy and AI preferences.
-              </DialogDescription>
+              {projectsView ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setProjectsView(false)}
+                      className="text-slate-400 hover:text-slate-700 transition-colors"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
+                    <DialogTitle>Manage Projects</DialogTitle>
+                  </div>
+                  <DialogDescription>
+                    View and delete your uploaded projects.
+                  </DialogDescription>
+                </>
+              ) : (
+                <>
+                  <DialogTitle>Manage Data</DialogTitle>
+                  <DialogDescription>
+                    Control your privacy and AI preferences.
+                  </DialogDescription>
+                </>
+              )}
             </DialogHeader>
 
-            <div className="space-y-4 mt-2">
-              {privacyLoading ? (
-                <div className="flex items-center gap-2 text-sm text-slate-500">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Loading...
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">
-                        Allow data collection
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        Allow anonymized usage data to be collected
-                      </p>
-                    </div>
-                    <Switch
-                      checked={privacy.allow_data_collection}
-                      onCheckedChange={(val) =>
-                        setPrivacy((p) => ({
-                          ...p,
-                          allow_data_collection: val,
-                        }))
-                      }
-                    />
+            {/* Privacy settings view */}
+            {!projectsView && (
+              <div className="space-y-4 mt-2">
+                {privacyLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Loading...
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">
-                        Allow AI generation
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        Let AI generate your resume and portfolio summary
-                      </p>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">
+                          Allow data collection
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Allow anonymized usage data to be collected
+                        </p>
+                      </div>
+                      <Switch
+                        checked={privacy.allow_data_collection}
+                        onCheckedChange={(val) =>
+                          setPrivacy((p) => ({
+                            ...p,
+                            allow_data_collection: val,
+                          }))
+                        }
+                      />
                     </div>
-                    <Switch
-                      checked={privacy.allow_ai_resume_generation}
-                      onCheckedChange={(val) =>
-                        setPrivacy((p) => ({
-                          ...p,
-                          allow_ai_resume_generation: val,
-                        }))
-                      }
-                    />
-                  </div>
-                  {privacyError && (
-                    <p className="text-xs text-red-500">{privacyError}</p>
-                  )}
-                  <Button
-                    onClick={handleSavePrivacy}
-                    disabled={privacySaving}
-                    size="sm"
-                    className="w-full"
-                  >
-                    {privacySaving ? (
-                      <>
-                        <Loader2 className="h-3 w-3 animate-spin mr-2" />
-                        Saving...
-                      </>
-                    ) : privacySaved ? (
-                      "✓ Saved"
-                    ) : (
-                      "Save Settings"
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">
+                          Allow AI generation
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Let AI generate your resume and portfolio summary
+                        </p>
+                      </div>
+                      <Switch
+                        checked={privacy.allow_ai_resume_generation}
+                        onCheckedChange={(val) =>
+                          setPrivacy((p) => ({
+                            ...p,
+                            allow_ai_resume_generation: val,
+                          }))
+                        }
+                      />
+                    </div>
+                    {privacyError && (
+                      <p className="text-xs text-red-500">{privacyError}</p>
                     )}
-                  </Button>
-                </div>
-              )}
-            </div>
+
+                    <div className="border-t border-slate-100 pt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full hover:cursor-pointer"
+                        onClick={handleOpenProjects}
+                      >
+                        Manage Projects
+                      </Button>
+                    </div>
+
+                    <Button
+                      onClick={handleSavePrivacy}
+                      disabled={privacySaving}
+                      size="sm"
+                      className="w-full"
+                    >
+                      {privacySaving ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                          Saving...
+                        </>
+                      ) : privacySaved ? (
+                        "✓ Saved"
+                      ) : (
+                        "Save Settings"
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Projects view */}
+            {projectsView && (
+              <div className="mt-2 space-y-3 max-h-96 overflow-y-auto">
+                {projectsLoading && (
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Loading projects...
+                  </div>
+                )}
+
+                {!projectsLoading && projectsError && (
+                  <div className="flex items-center gap-2 text-sm text-red-600">
+                    <AlertCircle className="h-4 w-4" />
+                    {projectsError}
+                  </div>
+                )}
+
+                {!projectsLoading && !projectsError && projects.length === 0 && (
+                  <div className="flex flex-col items-center gap-2 py-8 text-slate-400">
+                    <FileCode2 className="h-8 w-8" />
+                    <p className="text-sm">No projects found.</p>
+                  </div>
+                )}
+
+                {!projectsLoading && !projectsError && projects.map((project) => (
+                  <div key={project.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-3 gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-slate-900 truncate">{project.name}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{project.file_count} files · {project.language_count} languages</p>
+                    </div>
+                    <div className="flex-shrink-0">
+                      {confirmId === project.id ? (
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setConfirmId(null)}>Cancel</Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteProject(project.id)}
+                            disabled={deletingId === project.id}
+                          >
+                            {deletingId === project.id ? "Deleting..." : "Confirm"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button size="sm" variant="ghost" onClick={() => setConfirmId(project.id)}>
+                          <Trash2 className="h-4 w-4 text-slate-400 hover:text-red-500" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </DialogContent>
         </Dialog>
 
