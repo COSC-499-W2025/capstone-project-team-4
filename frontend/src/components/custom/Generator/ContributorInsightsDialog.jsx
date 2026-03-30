@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { getAccessToken } from "@/lib/auth";
 import {
   Dialog,
   DialogContent,
@@ -57,8 +58,10 @@ const ContributorInsightsDialog = ({ open, onOpenChange, project }) => {
       resetDetailState();
 
       try {
+        const token = getAccessToken();
         const response = await axios.get(
           `/api/projects/${project.projectId}/contributors`,
+          { headers: { Authorization: `Bearer ${token}` } },
         );
 
         if (!active) {
@@ -109,10 +112,12 @@ const ContributorInsightsDialog = ({ open, onOpenChange, project }) => {
       setDirectoriesData(null);
 
       const baseUrl = `/api/projects/${project.projectId}/contributors/${selectedContributorId}`;
+      const token = getAccessToken();
+      const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
 
       const [analysisResult, directoriesResult] = await Promise.allSettled([
-        axios.get(`${baseUrl}/analysis`),
-        axios.get(`${baseUrl}/directories`),
+        axios.get(`${baseUrl}/analysis`, authHeaders),
+        axios.get(`${baseUrl}/directories`, authHeaders),
       ]);
 
       if (!active) {

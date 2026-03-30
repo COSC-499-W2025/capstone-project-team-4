@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { getAccessToken } from '@/lib/auth';
 import {
   Select,
   SelectContent,
@@ -146,8 +147,10 @@ const ProjectSummary = ({ projects, onUpdateProject, onDeleteProject }) => {
 
     try {
       // Fetch contributor details using THIS project's specific projectId
+      const token = getAccessToken();
       const response = await axios.get(
-        `/api/projects/${project.projectId}/contributors/default-branch-stats`
+        `/api/projects/${project.projectId}/contributors/default-branch-stats`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setContributorData(response.data);
     } catch (error) {
