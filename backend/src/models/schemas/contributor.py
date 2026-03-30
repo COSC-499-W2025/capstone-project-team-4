@@ -1,6 +1,6 @@
 """Pydantic schemas for contributors."""
 
-from datetime import datetime
+from datetime import datetime, date
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -206,4 +206,16 @@ class ContributorProjectsByUsernameResponseSchema(BaseModel):
     total_projects: int = 0
     projects: List[ContributorProjectLinesSchema] = []
 
+class ContributorActivityDaySchema(BaseModel):
+    """One day in the contributor activity heatmap."""
 
+    date: date
+    count: int = 0
+
+
+class ContributorProjectHeatmapResponseSchema(BaseModel):
+    """Schema for contributor project commit heatmap."""
+
+    project_id: int
+    metric: str = "commits_per_day"
+    data: List[ContributorActivityDaySchema] = []

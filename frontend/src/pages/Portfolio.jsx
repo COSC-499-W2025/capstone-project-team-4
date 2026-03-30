@@ -20,7 +20,7 @@ export default function PortfolioPage() {
   // To make the Heatmap (and maybe the skills thing) work well, make the user
   // view it based on the currently clicked on project
   const [selectedProjectId, setSelectedProjectId] = useState(null);
-  const [heatmapRefreshKey, setHeatmapRefreshKey] = useState(0);
+  const [user, setUser] = useState(null);
 
   const authHeader = useMemo(() => {
     const token = getAccessToken();
@@ -47,21 +47,35 @@ export default function PortfolioPage() {
         console.log("Auth header:", authHeader);
         setPortfolio(res.data);
         const featured = new Set(
-          (res.data.content?.projects ?? []).filter(p => p.is_featured).map(p => p.id)
+          (res.data.content?.projects ?? [])
+            .filter((p) => p.is_featured)
+            .map((p) => p.id),
         );
         setFeaturedIds(featured);
         setPinnedIds(new Set(featured));
       } catch (err) {
         setError(
           err?.response?.data?.detail ||
-          err?.message ||
-          "Failed to generate portfolio.",
+            err?.message ||
+            "Failed to generate portfolio.",
         );
       } finally {
         setIsLoading(false);
       }
     }
     generateOrFetchPortfolio();
+    // Lol sorry for this but I gotta set the user state some how
+    axios
+      .get("/api/auth/me", {
+        headers: authHeader,
+      })
+      .then((response) => {
+        setUser(response.data);
+      })
+      .catch((err) => {
+        console.error("Failed to load current user", err);
+        setUser(null);
+      });
   }, [authHeader]);
 
   return (
@@ -250,7 +264,14 @@ export default function PortfolioPage() {
                   </p>
                 )}
                 {/* Mode toggle */}
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                    justifyContent: "center",
+                  }}
+                >
                   <button
                     className={`pf-mode-btn ${mode === "public" ? "active" : ""}`}
                     onClick={() => setMode("public")}
@@ -269,15 +290,25 @@ export default function PortfolioPage() {
                       setIsLoading(true);
                       setError("");
                       try {
-                        const res = await axios.post("/api/portfolio/generate", {}, { headers: authHeader });
+                        const res = await axios.post(
+                          "/api/portfolio/generate",
+                          {},
+                          { headers: authHeader },
+                        );
                         setPortfolio(res.data);
                         const featured = new Set(
-                          (res.data.content?.projects ?? []).filter(p => p.is_featured).map(p => p.id)
+                          (res.data.content?.projects ?? [])
+                            .filter((p) => p.is_featured)
+                            .map((p) => p.id),
                         );
                         setFeaturedIds(featured);
                         setPinnedIds(new Set(featured));
                       } catch (err) {
-                        setError(err?.response?.data?.detail || err?.message || "Failed to regenerate portfolio.");
+                        setError(
+                          err?.response?.data?.detail ||
+                            err?.message ||
+                            "Failed to regenerate portfolio.",
+                        );
                       } finally {
                         setIsLoading(false);
                       }
@@ -307,12 +338,12 @@ export default function PortfolioPage() {
                     label: "Languages",
                     value: portfolio.content?.projects
                       ? [
-                        ...new Set(
-                          portfolio.content.projects.flatMap(
-                            (p) => p.languages ?? [],
+                          ...new Set(
+                            portfolio.content.projects.flatMap(
+                              (p) => p.languages ?? [],
+                            ),
                           ),
-                        ),
-                      ].length
+                        ].length
                       : "—",
                   },
                 ].map(({ label, value }) => (
@@ -388,22 +419,25 @@ export default function PortfolioPage() {
                 onPinnedIdsChange={setPinnedIds}
                 selectedProjectId={selectedProjectId}
                 onSelectProject={setSelectedProjectId}
-                onSnapshotCreated={(projectId) => {
-                  setSelectedProjectId(projectId);
-                  setHeatmapRefreshKey((prev) => prev + 1);
-                }}
                 onPortfolioUpdate={setPortfolio}
               />
               <SkillTimeline />
               <ActivityHeatmap
                 projectId={selectedProjectId}
-                refreshKey={heatmapRefreshKey}
+                contributorIdentity={user?.email ?? ""}
               />
               <PrivateModeEditor />
             </div>
           ) : (
             <div
-              style={{ maxWidth: 1000, margin: "0 auto", padding: "64px 24px", display: "flex", flexDirection: "column", gap: 72 }}
+              style={{
+                maxWidth: 1000,
+                margin: "0 auto",
+                padding: "64px 24px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 72,
+              }}
             >
               <TopProjects
                 portfolio={portfolio}
@@ -412,11 +446,13 @@ export default function PortfolioPage() {
                 onFeaturedIdsChange={setFeaturedIds}
                 pinnedIds={pinnedIds}
                 onPinnedIdsChange={setPinnedIds}
+                selectedProjectId={selectedProjectId}
+                onSelectProject={setSelectedProjectId}
               />
               <SkillTimeline />
               <ActivityHeatmap
                 projectId={selectedProjectId}
-                refreshKey={heatmapRefreshKey}
+                contributorIdentity={user?.email ?? ""}
               />
             </div>
           )}

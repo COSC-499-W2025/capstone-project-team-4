@@ -10,6 +10,8 @@ from src.models.schemas.contributor import (
     ContributorIdentityMatchSchema,
     ContributorProjectLinesSchema,
     ContributorProjectsByUsernameResponseSchema,
+    ContributorActivityDaySchema,
+    ContributorProjectHeatmapResponseSchema
 )
 from src.repositories.contributor_repository import ContributorRepository
 from src.utils.contributor_dedup import identity_matches, normalize_identity
@@ -114,4 +116,50 @@ class ContributorProjectsService:
             github_username=github_username,
             total_projects=len(projects),
             projects=projects,
+        )
+
+    def get_project_activity_heatmap(
+        self, github_username: str, project_id: int
+    ) -> ContributorProjectHeatmapResponseSchema:
+        """Return commit counts grouped by day for a contributor identity within one project."""
+        username = github_username.strip()
+        if not username:
+            raise HTTPException(status_code=400, detail="GitHub username is required")
+
+        records = self.contributor_repo.get_all_with_projects()
+
+        normalized = normalize_identity(username)
+        matched_contributor_ids: set[int] = set()
+
+        for contributor, project in records:
+            if project.id != project_id:
+                continue
+
+            if identity_matches(
+                normalized,
+                name=contributor.name,
+                email=contributor.email,
+                github_username=contributor.github_username,
+                github_email=contributor.github_email,
+            ):
+                matched_contributor_ids.add(contributor.id)
+
+        if not matched_contributor_ids:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No contributor activity found for {github_username} in project {project_id}",
+            )
+
+        rows = self.contributor_repo.get_commit_counts_by_day_for_contributors(
+            contributor_ids=list(matched_contributor_ids)
+        )
+
+        data = [
+            ContributorActivityDaySchema(date=commit_date, count=count)
+            for commit_date, count in rows
+        ]
+
+        return ContributorProjectHeatmapResponseSchema(
+            project_id=project_id,
+            data=data,
         )
