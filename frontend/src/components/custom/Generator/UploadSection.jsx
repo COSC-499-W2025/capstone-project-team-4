@@ -1,5 +1,5 @@
-import React from 'react';
-import Dropzone from '@/components/custom/Home/Dropzone';
+import React from "react";
+import Dropzone from "@/components/custom/Home/Dropzone";
 
 const UploadSection = ({ onFileDrop }) => {
   return (
@@ -7,7 +7,7 @@ const UploadSection = ({ onFileDrop }) => {
       <h2 className="text-xl font-semibold mb-4">Step 1: Upload Projects</h2>
       <Dropzone
         onDrop={onFileDrop}
-        accept={{ 'application/zip': ['.zip'] }}
+        accept={{ "application/zip": [".zip"] }}
         multiple={true}
       />
     </div>

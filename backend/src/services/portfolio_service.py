@@ -84,6 +84,10 @@ class PortfolioService:
                 "frameworks": frameworks,
                 "skills": skill_categories,
                 "resume_highlights": highlights or [],
+                "file_count": len(project.files),
+                "contributor_count": len(project.contributors),
+                "skill_count": sum(len(v) for v in skill_categories.values()),
+                "total_lines_of_code": sum(f.lines_of_code for f in project.files if f.lines_of_code),
             })
 
         # Deduplicate aggregated skills
@@ -276,6 +280,8 @@ class PortfolioService:
                     proj["description"] = update_data.description
                 if update_data.live_demo_url is not None:
                     proj["live_demo_url"] = update_data.live_demo_url
+                if update_data.is_featured is not None:
+                    proj["is_featured"] = update_data.is_featured
                 break
 
         if not project_found:

@@ -41,6 +41,7 @@ export const useFileUpload = () => {
   });
 
   const [error, setError] = useState(null);
+  const [customProjectNames, setCustomProjectNames] = useState([]);
 
   // Save to localStorage whenever state changes
   useEffect(() => {
@@ -132,15 +133,18 @@ export const useFileUpload = () => {
     }
 
     setUploadedFiles((prev) => [...prev, ...zipFiles]);
+    setCustomProjectNames((prev) => [...prev, ...zipFiles.map(() => "")]);
   };
 
   const handleDeleteFile = (index) => {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+    setCustomProjectNames((prev) => prev.filter((_, i) => i !== index));
   };
 
   function handleDeleteAll() {
     if (confirm("Are you sure you want to delete all files?")) {
       setUploadedFiles([]);
+      setCustomProjectNames([]);
     }
   }
 
@@ -165,9 +169,13 @@ export const useFileUpload = () => {
     try {
       const results = [];
 
-      for (const file of uploadedFiles) {
+      for (const [index, file] of uploadedFiles.entries()) {
         const formData = new FormData();
         formData.append("file", file);
+        const trimmedProjectName = (customProjectNames[index] || "").trim();
+        if (trimmedProjectName) {
+          formData.append("project_name", trimmedProjectName);
+        }
 
         const response = await axios.post("/api/projects/analyze/upload", formData, {
           headers: {
@@ -241,6 +249,7 @@ export const useFileUpload = () => {
 
       setProjectData((prev) => [...results, ...(prev || [])]);
       setUploadedFiles([]);
+        setCustomProjectNames([]);
     } catch (error) {
       console.error("Error processing files:", error);
       setError(error.message);
@@ -325,21 +334,31 @@ export const useFileUpload = () => {
     setUploadedFiles([]);
     setProjectData(null);
     setConsentGiven(false);
+    setCustomProjectNames([]);
     localStorage.removeItem("uploadedFiles");
     localStorage.removeItem("projectData");
     localStorage.removeItem("consentGiven");
   };
 
   const recentProjectData = projectData ? projectData.slice(0, 4) : null;
+  const handleProjectNameChange = (index, value) => {
+    setCustomProjectNames((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  };
 
   return {
     uploadedFiles,
+    customProjectNames,
     projectData,
     recentProjectData,
     isLoading,
     showConsent,
     setShowConsent,
     handleFileDrop,
+    handleProjectNameChange,
     handleDeleteFile,
     handleSubmit,
     handleConsentAccept,
