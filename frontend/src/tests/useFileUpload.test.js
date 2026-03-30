@@ -99,6 +99,45 @@ describe('useFileUpload', () => {
     expect(result.current.uploadedFiles).toHaveLength(0);
   });
 
+  it('sends custom project_name when provided', async () => {
+    localStorageMock.setItem('consentGiven', 'true');
+
+    const { result } = renderHook(() => useFileUpload());
+
+    act(() => {
+      result.current.handleFileDrop([
+        new File(['content'], 'test.zip', { type: 'application/zip' }),
+      ]);
+      result.current.handleProjectNameChange(0, 'Custom Project Name');
+    });
+
+    await act(async () => {
+      await result.current.processFiles();
+    });
+
+    const [, sentFormData] = axios.post.mock.calls[0];
+    expect(sentFormData.get('project_name')).toBe('Custom Project Name');
+  });
+
+  it('clears custom project name after successful upload', async () => {
+    localStorageMock.setItem('consentGiven', 'true');
+
+    const { result } = renderHook(() => useFileUpload());
+
+    act(() => {
+      result.current.handleFileDrop([
+        new File(['content'], 'test.zip', { type: 'application/zip' }),
+      ]);
+      result.current.handleProjectNameChange(0, 'My Upload');
+    });
+
+    await act(async () => {
+      await result.current.processFiles();
+    });
+
+    expect(result.current.customProjectNames).toEqual([]);
+  });
+
   it('does not clear uploadedFiles if the analysis fails', async () => {
     localStorageMock.setItem('consentGiven', 'true');
     axios.post.mockRejectedValue(new Error('Network error'));

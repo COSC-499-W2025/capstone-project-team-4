@@ -12,11 +12,13 @@ import DataPrivacyConsent from "@/components/custom/Generator/DataPrivacyConsent
 const Generator = () => {
   const {
     uploadedFiles,
+    customProjectNames,
     projectData,
     isLoading,
     showConsent,
     setShowConsent,
     handleFileDrop,
+    handleProjectNameChange,
     handleDeleteFile,
     handleSubmit,
     handleConsentAccept,
@@ -63,6 +65,8 @@ const Generator = () => {
 
           <ConfirmFilesSection
             files={uploadedFiles}
+            projectNames={customProjectNames}
+            onProjectNameChange={handleProjectNameChange}
             onDelete={handleDeleteFile}
             onDeleteAll={handleDeleteAll}
             onSubmit={() => handleSubmit(processFiles)}
