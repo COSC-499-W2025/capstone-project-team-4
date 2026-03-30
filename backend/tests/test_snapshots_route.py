@@ -36,8 +36,15 @@ def test_create_current_and_midpoint_snapshots_route_calls_service(monkeypatch):
         def __init__(self, db):
             self.db = db
 
-        def create_current_and_midpoint_snapshots(self, project_id: int):
+        def create_current_and_midpoint_snapshots(
+            self,
+            project_id: int,
+            percentage: int,
+            end_percentage: int,
+        ):
             assert project_id == 7
+            assert percentage == 50
+            assert end_percentage == 100
             return expected
 
     monkeypatch.setattr(snapshots_route, "SnapshotService", FakeSnapshotService)
@@ -45,6 +52,8 @@ def test_create_current_and_midpoint_snapshots_route_calls_service(monkeypatch):
     result = asyncio.run(
         snapshots_route.create_current_and_midpoint_snapshots(
             project_id=7,
+            percentage=50,
+            end_percentage=100,
             db=object(),
             current_user=SimpleNamespace(id=1),
         )

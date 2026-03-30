@@ -1,5 +1,6 @@
 """Tests for contributor analysis API endpoints."""
 
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch, MagicMock
 
@@ -22,12 +23,19 @@ from src.models.schemas.contributor import (
 @pytest.fixture
 def client():
     """Create test client."""
+    @asynccontextmanager
+    async def no_lifespan(_app):
+        yield
+
+    original_lifespan = app.router.lifespan_context
+    app.router.lifespan_context = no_lifespan
     app.dependency_overrides[get_current_user] = lambda: Mock(id=1, is_active=True)
     try:
         with TestClient(app) as test_client:
             yield test_client
     finally:
         app.dependency_overrides.pop(get_current_user, None)
+        app.router.lifespan_context = original_lifespan
 
 
 @pytest.fixture
