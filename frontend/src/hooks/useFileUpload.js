@@ -47,6 +47,72 @@ export const useFileUpload = () => {
     localStorage.setItem("uploadedFiles", JSON.stringify(uploadedFiles));
   }, [uploadedFiles]);
 
+  // On mount, load previously analyzed projects from the server
+  useEffect(() => {
+    const loadPreviousProjects = async () => {
+      const token = getAccessToken();
+      if (!token) return;
+
+      try {
+        const listRes = await axios.get("/api/projects?page=1&page_size=100", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const serverProjects = listRes.data.items ?? [];
+
+        if (serverProjects.length === 0) return;
+
+        // Fetch full detail for each project in parallel
+        const detailPromises = serverProjects.map((p) =>
+          axios
+            .get(`/api/projects/${p.id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((r) => r.data)
+            .catch(() => null)
+        );
+        const details = await Promise.all(detailPromises);
+
+        const mapped = details.filter(Boolean).map((d) => ({
+          name: d.name,
+          contributions: d.file_count || 0,
+          date: d.zip_uploaded_at || d.created_at,
+          projectStartedAt: d.project_started_at || null,
+          firstCommitDate: d.first_commit_date || null,
+          firstFileCreated: d.first_file_created || null,
+          description: `Languages: ${d.languages?.join(", ") || "N/A"}`,
+          languages: d.languages || [],
+          frameworks: d.frameworks || [],
+          skills: [],
+          complexity: {
+            avg_complexity: d.avg_complexity || 0,
+            max_complexity: d.max_complexity || 0,
+          },
+          contributorCount: d.contributor_count || 0,
+          contributorDetails: null,
+          projectId: d.id,
+          totalLinesOfCode: d.total_lines_of_code || 0,
+          libraryCount: d.library_count || 0,
+          toolCount: d.tool_count || 0,
+          libraries: d.libraries || [],
+          toolsAndTechnologies: d.tools || [],
+        }));
+
+        setProjectData((prev) => {
+          const existingIds = new Set(
+            (prev || []).map((p) => p.projectId).filter(Boolean)
+          );
+          const newOnes = mapped.filter((p) => !existingIds.has(p.projectId));
+          if (newOnes.length === 0) return prev;
+          return [...newOnes, ...(prev || [])];
+        });
+      } catch (err) {
+        console.warn("Could not load previous projects:", err);
+      }
+    };
+
+    loadPreviousProjects();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     localStorage.setItem("projectData", JSON.stringify(projectData));
   }, [projectData]);
@@ -173,7 +239,7 @@ export const useFileUpload = () => {
         }
       }
 
-      setProjectData((prev) => [...(prev || []), ...results]);
+      setProjectData((prev) => [...results, ...(prev || [])]);
       setUploadedFiles([]);
     } catch (error) {
       console.error("Error processing files:", error);
@@ -237,6 +303,23 @@ export const useFileUpload = () => {
     });
   };
 
+  const handleDeleteProject = async (projectId) => {
+    const token = getAccessToken();
+    try {
+      await axios.delete(`/api/projects/${projectId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      setProjectData((prev) =>
+        (prev || []).filter((p) => p.projectId !== projectId)
+      );
+    } catch (err) {
+      console.error("Failed to delete project:", err);
+      alert(
+        err?.response?.data?.detail || err?.message || "Failed to delete project."
+      );
+    }
+  };
+
   // Clear all data (optional - call this when user wants to start fresh)
   const clearAllData = () => {
     setUploadedFiles([]);
@@ -247,9 +330,12 @@ export const useFileUpload = () => {
     localStorage.removeItem("consentGiven");
   };
 
+  const recentProjectData = projectData ? projectData.slice(0, 4) : null;
+
   return {
     uploadedFiles,
     projectData,
+    recentProjectData,
     isLoading,
     showConsent,
     setShowConsent,
@@ -262,5 +348,6 @@ export const useFileUpload = () => {
     clearAllData,
     handleUpdateProject,
     handleDeleteAll,
+    handleDeleteProject,
   };
 };

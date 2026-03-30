@@ -13,6 +13,7 @@ const Generator = () => {
   const {
     uploadedFiles,
     projectData,
+    recentProjectData,
     isLoading,
     showConsent,
     setShowConsent,
@@ -24,7 +25,11 @@ const Generator = () => {
     clearAllData,
     handleUpdateProject,
     handleDeleteAll,
+    handleDeleteProject,
   } = useFileUpload();
+
+  const totalProjectCount = projectData?.length ?? 0;
+  const hasMore = totalProjectCount > 4;
 
   const handleReset = () => {
     if (confirm("Are you sure you want to clear all data and restart?")) {
@@ -70,8 +75,11 @@ const Generator = () => {
           />
 
           <SummarySection
-            projectData={projectData}
+            projectData={recentProjectData}
             onUpdateProject={handleUpdateProject}
+            onDeleteProject={handleDeleteProject}
+            hasMore={hasMore}
+            totalCount={totalProjectCount}
           />
 
           <DataPrivacyConsent

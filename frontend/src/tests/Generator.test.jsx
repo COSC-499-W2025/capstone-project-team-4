@@ -46,10 +46,11 @@ vi.mock('@/components/custom/Generator/ConfirmFilesSection', () => ({
 }));
 
 vi.mock('@/components/custom/Generator/SummarySection', () => ({
-  default: ({ projectData, onUpdateProject }) =>
+  default: ({ projectData, onUpdateProject, hasMore, totalCount }) =>
     projectData ? (
       <div data-testid="summary-section">
         <p>Projects: {projectData.length}</p>
+        {hasMore && <p data-testid="has-more">Showing 4 of {totalCount}</p>}
         <button onClick={() => onUpdateProject(0, { name: 'Updated' })}>
           Edit Project
         </button>
@@ -82,8 +83,11 @@ describe('Generator Page', () => {
     mockState = {
       uploadedFiles: [],
       projectData: null,
+      recentProjectData: null,
       isLoading: false,
       showConsent: false,
+      hasMore: false,
+      totalProjectCount: 0,
       setShowConsent: vi.fn(),
       handleFileDrop: vi.fn(files => {
         mockState.uploadedFiles = files;
@@ -94,11 +98,13 @@ describe('Generator Page', () => {
       handleSubmit: vi.fn(cb => cb()),
       handleConsentAccept: vi.fn(() => {
         mockState.projectData = [{}];
+        mockState.recentProjectData = [{}];
         mockState.showConsent = false;
       }),
       processFiles: vi.fn(),
       clearAllData: vi.fn(),
       handleUpdateProject: vi.fn(),
+      handleDeleteProject: vi.fn(),
     };
 
     useFileUpload.mockImplementation(() => mockState);
@@ -142,6 +148,15 @@ describe('Generator Page', () => {
     fireEvent.click(screen.getByText('Accept'));
     renderPage();
     expect(screen.getByTestId('summary-section')).toBeInTheDocument();
+  });
+
+  it('passes hasMore and totalCount to SummarySection when there are more than 4 projects', () => {
+    mockState.recentProjectData = Array.from({ length: 4 }, (_, i) => ({ name: `P${i}` }));
+    mockState.hasMore = true;
+    mockState.totalProjectCount = 7;
+    renderPage();
+    expect(screen.getByTestId('has-more')).toBeInTheDocument();
+    expect(screen.getByText('Showing 4 of 7')).toBeInTheDocument();
   });
 
   it('calls clearAllData on restart confirm', () => {
