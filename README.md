@@ -149,6 +149,7 @@ make shell-frontend  # Open a shell in the frontend container
 - [🚩 Milestones](docs/plan/milestone.md) - Project milestone checklist
 - [🎬 Video Walkthrough](https://drive.google.com/file/d/1TPrGsPx4YZjotcAfZ3IeY_N2DZDhcE03/view?usp=sharing) - Video walkthrough of features (milestone 1 only)
 - [🎬 Video Walkthrough 2](https://www.youtube.com/watch?v=YXy_0Tv4YdM)- Video walkthrough for milestone 2
+- [🎬 Video Walkthrough 3](https://www.youtube.com/watch?v=X6gb9IzkOyA)- Video walkthrough for milestone 3
 - [📝 Individual Logs](docs/logs/) - Weekly individual progress logs
 - [👥 Team Logs](docs/logs/Team/) - Weekly team progress logs
 
