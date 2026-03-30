@@ -40,8 +40,8 @@ const Generator = () => {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
             <PageHeader
-              title="Resume Generator"
-              subtitle="Upload your project ZIP files to generate a comprehensive resume"
+              title="Coding Project Analyzer"
+              subtitle="Upload your project ZIP files to analyze your coding projects"
             />
 
             {/* Reset Button - Shows only if there's data */}

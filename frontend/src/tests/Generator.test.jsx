@@ -106,24 +106,24 @@ describe('Generator Page', () => {
 
   it('renders header and navigation', () => {
     renderPage();
-    expect(screen.getByText('Resume Generator')).toBeInTheDocument();
+    expect(screen.getByText('Coding Project Analyzer')).toBeInTheDocument();
     expect(screen.getByTestId('navigation')).toBeInTheDocument();
   });
 
   it('shows confirm section after upload', () => {
-  const { rerender } = renderPage();
+    const { rerender } = renderPage();
 
-  fireEvent.click(screen.getByText('Upload File'));
+    fireEvent.click(screen.getByText('Upload File'));
 
-  // re-render so Generator reads updated mockState.uploadedFiles
-  rerender(
-    <BrowserRouter>
-      <Generator />
-    </BrowserRouter>
-  );
+    // re-render so Generator reads updated mockState.uploadedFiles
+    rerender(
+      <BrowserRouter>
+        <Generator />
+      </BrowserRouter>
+    );
 
-  expect(screen.getByTestId('confirm-section')).toBeInTheDocument();
-});
+    expect(screen.getByTestId('confirm-section')).toBeInTheDocument();
+  });
 
 
   it('shows privacy modal on submit', () => {
