@@ -40,6 +40,7 @@ ALL_OPTIONAL_FIELDS = {
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def db_session():
     """Create an in-memory SQLite session for testing."""
@@ -86,6 +87,7 @@ def _create_via_repo(repo, user_id, **overrides):
 # ORM model tests
 # ---------------------------------------------------------------------------
 
+
 class TestEducationModel:
     """Tests for the Education ORM model."""
 
@@ -97,7 +99,14 @@ class TestEducationModel:
         assert edu.start_date == REQUIRED_FIELDS["start_date"]
 
     def test_optional_fields_default_to_none(self, persisted_education):
-        for field in ("end_date", "gpa", "location", "description", "honors", "activities"):
+        for field in (
+            "end_date",
+            "gpa",
+            "location",
+            "description",
+            "honors",
+            "activities",
+        ):
             assert getattr(persisted_education, field) is None
         assert persisted_education.is_current is False
 
@@ -151,6 +160,7 @@ class TestEducationModel:
 # Pydantic schema tests
 # ---------------------------------------------------------------------------
 
+
 class TestEducationSchemas:
     """Tests for Education Pydantic schemas."""
 
@@ -171,7 +181,9 @@ class TestEducationSchemas:
 
     def test_create_missing_required_field_raises(self):
         with pytest.raises(Exception):
-            EducationCreate(institution="UBC", field_of_study="CS", start_date=date(2020, 9, 1))
+            EducationCreate(
+                institution="UBC", field_of_study="CS", start_date=date(2020, 9, 1)
+            )
 
     @pytest.mark.parametrize("field", ["institution", "degree", "field_of_study"])
     def test_create_empty_string_rejected(self, field):
@@ -198,11 +210,18 @@ class TestEducationSchemas:
     def test_response_from_attributes(self):
         now = datetime.now(timezone.utc)
         obj = SimpleNamespace(
-            id=1, user_id=10, **REQUIRED_FIELDS,
-            end_date=None, is_current=True, gpa=3.7,
-            location="Vancouver, BC", description=None,
-            honors=None, activities=None,
-            created_at=now, updated_at=now,
+            id=1,
+            user_id=10,
+            **REQUIRED_FIELDS,
+            end_date=None,
+            is_current=True,
+            gpa=3.7,
+            location="Vancouver, BC",
+            description=None,
+            honors=None,
+            activities=None,
+            created_at=now,
+            updated_at=now,
         )
         response = EducationResponse.model_validate(obj, from_attributes=True)
         assert response.id == 1
@@ -214,6 +233,7 @@ class TestEducationSchemas:
 # ---------------------------------------------------------------------------
 # Repository tests
 # ---------------------------------------------------------------------------
+
 
 class TestEducationRepository:
     """Tests for EducationRepository."""
@@ -231,8 +251,12 @@ class TestEducationRepository:
         assert edu.honors == "Magna Cum Laude, Dean's List"
 
     def test_get_by_user_ordered_desc(self, education_repo, test_user):
-        _create_via_repo(education_repo, test_user.id, institution="UBC", start_date=date(2018, 9, 1))
-        _create_via_repo(education_repo, test_user.id, institution="MIT", start_date=date(2022, 9, 1))
+        _create_via_repo(
+            education_repo, test_user.id, institution="UBC", start_date=date(2018, 9, 1)
+        )
+        _create_via_repo(
+            education_repo, test_user.id, institution="MIT", start_date=date(2022, 9, 1)
+        )
 
         results = education_repo.get_by_user(test_user.id)
         assert len(results) == 2

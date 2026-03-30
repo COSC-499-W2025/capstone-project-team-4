@@ -61,5 +61,6 @@ class BaseRepository(Generic[ModelType]):
     def count(self) -> int:
         """Count total records."""
         from sqlalchemy import func
+
         stmt = select(func.count()).select_from(self.model)
         return self.db.scalar(stmt) or 0

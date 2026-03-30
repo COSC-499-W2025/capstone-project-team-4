@@ -12,7 +12,9 @@ class SnapshotRepository(BaseRepository[ProjectSnapshot]):
     def __init__(self, db):
         super().__init__(ProjectSnapshot, db)
 
-    def get_latest_for_project(self, project_id: int, snapshot_type: str = "midpoint") -> ProjectSnapshot | None:
+    def get_latest_for_project(
+        self, project_id: int, snapshot_type: str = "midpoint"
+    ) -> ProjectSnapshot | None:
         stmt = (
             select(ProjectSnapshot)
             .where(ProjectSnapshot.project_id == project_id)
@@ -21,13 +23,11 @@ class SnapshotRepository(BaseRepository[ProjectSnapshot]):
             .limit(1)
         )
         return self.db.scalar(stmt)
-    
+
     def get_all_for_project(self, project_id: int) -> list[ProjectSnapshot]:
         stmt = (
-        select(ProjectSnapshot)
-        .where(ProjectSnapshot.project_id == project_id)
-        .order_by(ProjectSnapshot.created_at)
+            select(ProjectSnapshot)
+            .where(ProjectSnapshot.project_id == project_id)
+            .order_by(ProjectSnapshot.created_at)
         )
         return list(self.db.scalars(stmt).all())
-
-

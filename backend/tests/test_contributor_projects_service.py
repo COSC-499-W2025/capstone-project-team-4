@@ -146,6 +146,7 @@ def test_list_projects_by_github_username_not_found():
     assert exc.value.status_code == 404
     assert "No contributor records found" in exc.value.detail
 
+
 def test_get_project_activity_heatmap_returns_grouped_days_for_matching_project():
     """Service returns commit counts by day for matching identities in one project only."""
     records = [
@@ -184,7 +185,9 @@ def test_get_project_activity_heatmap_returns_grouped_days_for_matching_project(
     ]
 
     service = ContributorProjectsService(db=None)
-    service.contributor_repo = MockContributorRepository(records, commit_rows=commit_rows)
+    service.contributor_repo = MockContributorRepository(
+        records, commit_rows=commit_rows
+    )
 
     result = service.get_project_activity_heatmap("jaidenlo", 10)
 

@@ -18,7 +18,11 @@ def test_create_current_and_midpoint_snapshots_route_calls_service(monkeypatch):
             "commit_index": 4,
             "total_commits": 5,
             "created_at": now,
-            "summary": {"total_files": 10, "total_lines": 50, "file_type_distribution": [(".py", 5)]},
+            "summary": {
+                "total_files": 10,
+                "total_lines": 50,
+                "file_type_distribution": [(".py", 5)],
+            },
         },
         "midpoint_snapshot": {
             "snapshot_id": 21,
@@ -28,7 +32,11 @@ def test_create_current_and_midpoint_snapshots_route_calls_service(monkeypatch):
             "commit_index": 2,
             "total_commits": 5,
             "created_at": now,
-            "summary": {"total_files": 8, "total_lines": 30, "file_type_distribution": [(".py", 4)]},
+            "summary": {
+                "total_files": 8,
+                "total_lines": 30,
+                "file_type_distribution": [(".py", 4)],
+            },
         },
     }
 

@@ -25,7 +25,10 @@ const ContributorInsightsDialog = ({ open, onOpenChange, project }) => {
   const [directoriesLoading, setDirectoriesLoading] = useState(false);
   const [directoriesError, setDirectoriesError] = useState(null);
 
-  const contributors = contributorsData?.contributors ?? [];
+  const contributors = useMemo(
+    () => contributorsData?.contributors ?? [],
+    [contributorsData],
+  );
 
   const selectedContributor = useMemo(() => {
     return (

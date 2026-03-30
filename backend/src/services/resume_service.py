@@ -58,13 +58,15 @@ class ResumeService:
 
         items = []
         for item in resume_items:
-            items.append(ResumeItemSchema(
-                id=item.id,
-                project_id=item.project_id,
-                title=item.title,
-                highlights=item.highlights or [],
-                created_at=item.created_at,
-            ))
+            items.append(
+                ResumeItemSchema(
+                    id=item.id,
+                    project_id=item.project_id,
+                    title=item.title,
+                    highlights=item.highlights or [],
+                    created_at=item.created_at,
+                )
+            )
 
         return ProjectResumeResponse(
             project_id=project_id,
@@ -196,15 +198,17 @@ class ResumeService:
                 for f in contrib_with_files.files_modified:
                     files_modified[f.filename] = f.modifications
 
-            result.append({
-                "name": c.name,
-                "email": c.email,
-                "commits": c.commits,
-                "commit_percent": c.commit_percent,
-                "total_lines_added": c.total_lines_added,
-                "total_lines_deleted": c.total_lines_deleted,
-                "files_modified": files_modified,
-            })
+            result.append(
+                {
+                    "name": c.name,
+                    "email": c.email,
+                    "commits": c.commits,
+                    "commit_percent": c.commit_percent,
+                    "total_lines_added": c.total_lines_added,
+                    "total_lines_deleted": c.total_lines_deleted,
+                    "files_modified": files_modified,
+                }
+            )
         return result
 
     def _get_project_stats(self, project_id: int) -> dict:
@@ -232,13 +236,15 @@ class ResumeService:
 
         functions = []
         for c in complexities:
-            functions.append({
-                "file_path": c.file_path,
-                "function_name": c.function_name,
-                "cyclomatic_complexity": c.cyclomatic_complexity,
-                "start_line": c.start_line,
-                "end_line": c.end_line,
-            })
+            functions.append(
+                {
+                    "file_path": c.file_path,
+                    "function_name": c.function_name,
+                    "cyclomatic_complexity": c.cyclomatic_complexity,
+                    "start_line": c.start_line,
+                    "end_line": c.end_line,
+                }
+            )
 
         return {
             "functions": functions,

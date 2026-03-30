@@ -112,7 +112,7 @@ export const useFileUpload = () => {
     };
 
     loadPreviousProjects();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  
 
   useEffect(() => {
     localStorage.setItem("projectData", JSON.stringify(projectData));

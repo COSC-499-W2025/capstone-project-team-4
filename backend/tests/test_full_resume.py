@@ -243,23 +243,17 @@ class TestComposeResume:
         assert data.contact.linkedin_url is None
         assert data.summary is None
 
-    def test_compose_resume_no_education(
-        self, db_session, test_user, test_profile
-    ):
+    def test_compose_resume_no_education(self, db_session, test_user, test_profile):
         svc = make_service(db_session)
         data = svc.compose_resume(test_user.id)
         assert data.education == []
 
-    def test_compose_resume_no_experience(
-        self, db_session, test_user, test_profile
-    ):
+    def test_compose_resume_no_experience(self, db_session, test_user, test_profile):
         svc = make_service(db_session)
         data = svc.compose_resume(test_user.id)
         assert data.experience == []
 
-    def test_compose_resume_no_projects(
-        self, db_session, test_user, test_profile
-    ):
+    def test_compose_resume_no_projects(self, db_session, test_user, test_profile):
         svc = make_service(db_session)
         data = svc.compose_resume(test_user.id)
         assert data.projects == []
@@ -326,17 +320,13 @@ class TestExportMarkdown:
         assert "## Technical Skills" not in md
         assert "## Summary" not in md
 
-    def test_export_markdown_contains_name(
-        self, db_session, test_user, test_profile
-    ):
+    def test_export_markdown_contains_name(self, db_session, test_user, test_profile):
         svc = make_service(db_session)
         data = svc.compose_resume(test_user.id)
         md = svc.export_markdown(data)
         assert "Jane Doe" in md
 
-    def test_export_markdown_contact_row(
-        self, db_session, test_user, test_profile
-    ):
+    def test_export_markdown_contact_row(self, db_session, test_user, test_profile):
         svc = make_service(db_session)
         data = svc.compose_resume(test_user.id)
         md = svc.export_markdown(data)

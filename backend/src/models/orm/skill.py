@@ -19,7 +19,9 @@ class Skill(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    category: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    category: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True, index=True
+    )
 
     # Relationships
     project_skills: Mapped[list["ProjectSkill"]] = relationship(
@@ -41,7 +43,10 @@ class ProjectSkill(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     project_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer,
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     skill_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("skills.id", ondelete="CASCADE"), nullable=False, index=True
@@ -71,14 +76,19 @@ class ProjectSkillTimeline(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     project_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer,
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     skill: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     date: Mapped[date_type] = mapped_column(Date, nullable=False, index=True)
     count: Mapped[int] = mapped_column(Integer, default=0)
 
     # Relationships
-    project: Mapped["Project"] = relationship("Project", back_populates="skill_timeline")
+    project: Mapped["Project"] = relationship(
+        "Project", back_populates="skill_timeline"
+    )
 
     __table_args__ = (
         UniqueConstraint("project_id", "skill", "date", name="uq_project_skill_date"),

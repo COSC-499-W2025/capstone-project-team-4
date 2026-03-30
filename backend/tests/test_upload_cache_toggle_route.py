@@ -74,7 +74,9 @@ def test_upload_endpoint_passes_reuse_cached_analysis_false(client, monkeypatch)
     assert captured["use_cache"] is False
 
 
-def test_upload_endpoint_passes_reuse_cached_analysis_true_by_default(client, monkeypatch):
+def test_upload_endpoint_passes_reuse_cached_analysis_true_by_default(
+    client, monkeypatch
+):
     captured = {}
 
     def fake_analyze_from_zip(self, zip_path, project_name, use_cache=True, **kwargs):

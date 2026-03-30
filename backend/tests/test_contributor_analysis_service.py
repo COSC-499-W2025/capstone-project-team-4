@@ -56,6 +56,7 @@ def _commit_file(
 
 class MockContributorFile:
     """Mock object for contributor file."""
+
     def __init__(self, filename: str, modifications: int = 1):
         self.filename = filename
         self.modifications = modifications
@@ -63,6 +64,7 @@ class MockContributorFile:
 
 class MockContributor:
     """Mock object for contributor."""
+
     def __init__(self, id: int, name: str, email: str, project_id: int):
         self.id = id
         self.name = name
@@ -72,13 +74,22 @@ class MockContributor:
 
 class MockContributorWithFiles(MockContributor):
     """Mock contributor with files_modified."""
-    def __init__(self, id: int, name: str, email: str, project_id: int, files_modified: list = None):
+
+    def __init__(
+        self,
+        id: int,
+        name: str,
+        email: str,
+        project_id: int,
+        files_modified: list = None,
+    ):
         super().__init__(id, name, email, project_id)
         self.files_modified = files_modified or []
 
 
 class MockProject:
     """Mock object for project."""
+
     def __init__(self, id: int, name: str, root_path: str):
         self.id = id
         self.name = name
@@ -87,27 +98,30 @@ class MockProject:
 
 class MockContributorRepository:
     """Mock contributor repository."""
+
     def __init__(self, contributors: dict):
         self.contributors = contributors
-    
+
     def get(self, contributor_id: int):
         return self.contributors.get(contributor_id)
-    
+
     def get_with_files(self, contributor_id: int):
         return self.contributors.get(contributor_id)
 
 
 class MockProjectRepository:
     """Mock project repository."""
+
     def __init__(self, projects: dict):
         self.projects = projects
-    
+
     def get(self, project_id: int):
         return self.projects.get(project_id)
 
 
 class MockDB:
     """Mock database session."""
+
     pass
 
 
@@ -116,7 +130,7 @@ def git_repo():
     """Create a temporary git repository with test files."""
     with TemporaryDirectory() as tmp_dir:
         _run_git(tmp_dir, ["init", "-b", "main"])
-        
+
         # Create backend files
         _commit_file(
             tmp_dir,
@@ -126,7 +140,7 @@ def git_repo():
             "test@example.com",
             "backend commit",
         )
-        
+
         # Create frontend files
         _commit_file(
             tmp_dir,
@@ -136,7 +150,7 @@ def git_repo():
             "test@example.com",
             "frontend commit",
         )
-        
+
         # Create other area files
         _commit_file(
             tmp_dir,
@@ -146,7 +160,7 @@ def git_repo():
             "test@example.com",
             "docs commit",
         )
-        
+
         yield tmp_dir
 
 
@@ -154,16 +168,18 @@ def test_classify_file_to_area(git_repo):
     """Test file classification into backend/frontend areas."""
     db = MockDB()
     service = ContributorAnalysisService(db)
-    
+
     # Backend files
     assert service._classify_file_to_area("backend/src/main.py") == "backend"
     assert service._classify_file_to_area("backend/api/routes.py") == "backend"
     assert service._classify_file_to_area("src/api/main.py") in ["backend", None]
-    
+
     # Frontend files
     assert service._classify_file_to_area("frontend/src/App.jsx") == "frontend"
-    assert service._classify_file_to_area("frontend/components/Button.jsx") == "frontend"
-    
+    assert (
+        service._classify_file_to_area("frontend/components/Button.jsx") == "frontend"
+    )
+
     # Other areas (should return None or configured area)
     service._classify_file_to_area("docs/README.md")
     # Could be "docs" or None depending on domain_mapping.yaml
@@ -172,7 +188,7 @@ def test_classify_file_to_area(git_repo):
 def test_calculate_top_areas_backend_frontend_only(git_repo):
     """Test that top areas returns only backend and frontend."""
     db = MockDB()
-    
+
     # Mock repositories
     contributor = MockContributorWithFiles(
         id=1,
@@ -184,26 +200,27 @@ def test_calculate_top_areas_backend_frontend_only(git_repo):
             MockContributorFile("frontend/src/App.jsx"),
         ],
     )
-    
+
     contrib_repo = MockContributorRepository({1: contributor})
     proj_repo = MockProjectRepository({1: MockProject(1, "Test", git_repo)})
-    
+
     service = ContributorAnalysisService(db)
     service.contributor_repo = contrib_repo
     service.project_repo = proj_repo
-    
+
     # Calculate areas
     areas = service.calculate_top_areas(
         contributor_id=1,
         repo_path=git_repo,
         branch="main",
     )
-    
+
     # Verify only backend/frontend are returned
     area_names = {area.area for area in areas}
-    assert area_names.issubset({"backend", "frontend"}), \
+    assert area_names.issubset({"backend", "frontend"}), (
         f"Unexpected areas: {area_names}"
-    
+    )
+
     # Verify share is between 0 and 1
     for area in areas:
         assert 0 <= area.share <= 1, f"Invalid share: {area.share}"
@@ -212,7 +229,7 @@ def test_calculate_top_areas_backend_frontend_only(git_repo):
 def test_calculate_top_files_returns_sorted_list(git_repo):
     """Test that top files are sorted by lines changed descending."""
     db = MockDB()
-    
+
     contributor = MockContributorWithFiles(
         id=1,
         name="Test User",
@@ -223,14 +240,14 @@ def test_calculate_top_files_returns_sorted_list(git_repo):
             MockContributorFile("frontend/src/App.jsx"),
         ],
     )
-    
+
     contrib_repo = MockContributorRepository({1: contributor})
     proj_repo = MockProjectRepository({1: MockProject(1, "Test", git_repo)})
-    
+
     service = ContributorAnalysisService(db)
     service.contributor_repo = contrib_repo
     service.project_repo = proj_repo
-    
+
     # Calculate top files
     top_files = service.calculate_top_files(
         contributor_id=1,
@@ -238,10 +255,10 @@ def test_calculate_top_files_returns_sorted_list(git_repo):
         branch="main",
         top_n=10,
     )
-    
+
     # Verify results are TopFileItemSchema
     assert all(isinstance(f, TopFileItemSchema) for f in top_files)
-    
+
     # Verify sorted descending by lines_changed
     if len(top_files) > 1:
         for i in range(len(top_files) - 1):
@@ -251,7 +268,7 @@ def test_calculate_top_files_returns_sorted_list(git_repo):
 def test_get_contributor_analysis_returns_valid_schema(git_repo):
     """Test get_contributor_analysis returns proper schema."""
     db = MockDB()
-    
+
     contributor = MockContributorWithFiles(
         id=1,
         name="Test User",
@@ -261,23 +278,23 @@ def test_get_contributor_analysis_returns_valid_schema(git_repo):
             MockContributorFile("backend/src/main.py"),
         ],
     )
-    
+
     project = MockProject(1, "Test Project", git_repo)
-    
+
     contrib_repo = MockContributorRepository({1: contributor})
     proj_repo = MockProjectRepository({1: project})
-    
+
     service = ContributorAnalysisService(db)
     service.contributor_repo = contrib_repo
     service.project_repo = proj_repo
-    
+
     # Get analysis
     result = service.get_contributor_analysis(
         project_id=1,
         contributor_id=1,
         branch="main",
     )
-    
+
     # Verify result structure (if not None)
     if result:
         assert result.project_id == 1
@@ -289,21 +306,21 @@ def test_get_contributor_analysis_returns_valid_schema(git_repo):
 def test_get_contributor_analysis_handles_missing_contributor(git_repo):
     """Test get_contributor_analysis returns None for missing contributor."""
     db = MockDB()
-    
+
     contrib_repo = MockContributorRepository({})
     project = MockProject(1, "Test Project", git_repo)
     proj_repo = MockProjectRepository({1: project})
-    
+
     service = ContributorAnalysisService(db)
     service.contributor_repo = contrib_repo
     service.project_repo = proj_repo
-    
+
     result = service.get_contributor_analysis(
         project_id=1,
         contributor_id=999,  # Non-existent
         branch="main",
     )
-    
+
     assert result is None
 
 

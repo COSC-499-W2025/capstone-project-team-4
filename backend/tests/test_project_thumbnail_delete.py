@@ -26,7 +26,9 @@ def client() -> Iterator[TestClient]:
         yield SimpleNamespace()
 
     app.dependency_overrides[get_db] = _get_db_override
-    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id=1, is_active=True)
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id=1, is_active=True
+    )
     try:
         with TestClient(app) as test_client:
             yield test_client

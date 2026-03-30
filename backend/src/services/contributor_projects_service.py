@@ -11,7 +11,7 @@ from src.models.schemas.contributor import (
     ContributorProjectLinesSchema,
     ContributorProjectsByUsernameResponseSchema,
     ContributorActivityDaySchema,
-    ContributorProjectHeatmapResponseSchema
+    ContributorProjectHeatmapResponseSchema,
 )
 from src.repositories.contributor_repository import ContributorRepository
 from src.utils.contributor_dedup import identity_matches, normalize_identity

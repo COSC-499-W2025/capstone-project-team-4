@@ -13,6 +13,7 @@ from src.models.schemas.analysis import (
     ComplexitySummary,
 )
 
+
 # --- Minimal "service" interface we need for the route ---
 class _FakeProjectService:
     def __init__(self) -> None:
@@ -54,7 +55,9 @@ def app_and_service():
     ):
         if not svc.project_exists(project_id):
             # mimic your consistent not-found outcome (status code matters most)
-            raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Project {project_id} not found"
+            )
 
         result = svc.get_textual_project_showcase(project_id)
         if result is None:

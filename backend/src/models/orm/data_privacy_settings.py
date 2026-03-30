@@ -19,7 +19,11 @@ class DataPrivacySettings(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
     )
 
     # AI consent settings
@@ -28,11 +32,17 @@ class DataPrivacySettings(Base):
     allow_data_collection: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Consent tracking
-    consent_given_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    consent_given_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="privacy_settings")

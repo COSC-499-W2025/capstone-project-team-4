@@ -74,7 +74,9 @@ def get_file_type_safe(file_path: str, timeout: float = MAGIC_TIMEOUT_SECONDS) -
     except FuturesTimeoutError:
         logger.warning("magic.from_file() timed out for %s, using fallback", file_path)
     except Exception as e:
-        logger.warning("magic.from_file() failed for %s: %s, using fallback", file_path, e)
+        logger.warning(
+            "magic.from_file() failed for %s: %s, using fallback", file_path, e
+        )
 
     # Fallback to mimetypes module
     try:
@@ -226,10 +228,14 @@ def parse_metadata(
 
                     # Calculate lines of code using FileAnalyzer's count_lines_of_code method
                     try:
-                        file_stats = file_analyzer.count_lines_of_code(file_path, language)
+                        file_stats = file_analyzer.count_lines_of_code(
+                            file_path, language
+                        )
                         lines_of_code = file_stats.code_lines if file_stats else None
                     except Exception as loc_error:
-                        logger.warning("Could not calculate LOC for %s: %s", file_path, loc_error)
+                        logger.warning(
+                            "Could not calculate LOC for %s: %s", file_path, loc_error
+                        )
                         lines_of_code = None
 
                     # Convert absolute path to relative path from extracted directory
@@ -381,7 +387,9 @@ def save_metadata_json(
     filtered_files = [r for r in cleaned_data if r["status"] == "filtered"]
     error_files = [r for r in cleaned_data if r["status"] == "error"]
 
-    total_size = sum(r["file_size"] for r in successful_files) if successful_files else 0
+    total_size = (
+        sum(r["file_size"] for r in successful_files) if successful_files else 0
+    )
     avg_size = total_size / len(successful_files) if successful_files else 0
 
     # Calculate total LOC

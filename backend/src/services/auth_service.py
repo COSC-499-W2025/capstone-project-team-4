@@ -221,4 +221,3 @@ class AuthService:
         except SQLAlchemyError:
             self.db.rollback()
             return False, "Failed to change password."
-
