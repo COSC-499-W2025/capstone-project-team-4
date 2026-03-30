@@ -13,6 +13,7 @@ Wrote and updated tests across History.test.jsx and useFileUpload.test.js to cov
 ### Reviewing and Collaboration Tasks
 - https://github.com/COSC-499-W2025/capstone-project-team-4/pull/278
 - https://github.com/COSC-499-W2025/capstone-project-team-4/pull/279
+- https://github.com/COSC-499-W2025/capstone-project-team-4/pull/284
 
 ### Connection to Previous Week
 Last week, we received a lot of feedback from the peer testing session, so this week we focused on implementing and updating our system based on those comments.
