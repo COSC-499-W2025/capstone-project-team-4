@@ -57,6 +57,23 @@ describe('useFileUpload', () => {
     axios.get.mockResolvedValue({ data: { items: [] } });
   });
 
+  it('ignores non-zip files and does not add custom name slots', () => {
+    vi.stubGlobal('alert', vi.fn());
+    const { result } = renderHook(() => useFileUpload());
+
+    act(() => {
+      result.current.handleFileDrop([
+        new File(['{}'], 'package.json', { type: 'application/json' }),
+      ]);
+    });
+
+    expect(result.current.uploadedFiles).toHaveLength(0);
+    expect(result.current.customProjectNames).toEqual([]);
+    expect(alert).toHaveBeenCalledWith(
+      'Only ZIP files are allowed. Other files have been filtered out.'
+    );
+  });
+
   it('appends new results to existing projectData instead of replacing', async () => {
     const existing = [{ name: 'ExistingProject', projectId: 1 }];
     localStorageMock.setItem('projectData', JSON.stringify(existing));
@@ -119,6 +136,25 @@ describe('useFileUpload', () => {
     expect(sentFormData.get('project_name')).toBe('Custom Project Name');
   });
 
+  it('does not send project_name when custom name is blank or whitespace', async () => {
+    localStorageMock.setItem('consentGiven', 'true');
+    const { result } = renderHook(() => useFileUpload());
+
+    act(() => {
+      result.current.handleFileDrop([
+        new File(['content'], 'test.zip', { type: 'application/zip' }),
+      ]);
+      result.current.handleProjectNameChange(0, '   ');
+    });
+
+    await act(async () => {
+      await result.current.processFiles();
+    });
+
+    const [, sentFormData] = axios.post.mock.calls[0];
+    expect(sentFormData.get('project_name')).toBeNull();
+  });
+
   it('clears custom project name after successful upload', async () => {
     localStorageMock.setItem('consentGiven', 'true');
 
@@ -156,6 +192,27 @@ describe('useFileUpload', () => {
     });
 
     expect(result.current.uploadedFiles).toHaveLength(1);
+  });
+
+  it('does not clear custom project names if the analysis fails', async () => {
+    localStorageMock.setItem('consentGiven', 'true');
+    axios.post.mockRejectedValue(new Error('Network error'));
+    vi.stubGlobal('alert', vi.fn());
+
+    const { result } = renderHook(() => useFileUpload());
+
+    act(() => {
+      result.current.handleFileDrop([
+        new File(['content'], 'test.zip', { type: 'application/zip' }),
+      ]);
+      result.current.handleProjectNameChange(0, 'Failed Upload Name');
+    });
+
+    await act(async () => {
+      await result.current.processFiles();
+    });
+
+    expect(result.current.customProjectNames).toEqual(['Failed Upload Name']);
   });
 
   it('starts with no projectData when localStorage is empty', () => {
