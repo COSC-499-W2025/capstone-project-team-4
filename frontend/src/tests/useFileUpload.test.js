@@ -306,10 +306,16 @@ describe('useFileUpload', () => {
   });
 
   it('handleConsentAccept calls PUT privacy-settings with allow_data_collection true', async () => {
-    axios.get.mockResolvedValueOnce({ data: { id: 42, items: [] } });
-    axios.put = vi.fn().mockResolvedValue({});
-
     const { result } = renderHook(() => useFileUpload());
+
+    // Let the loadPreviousProjects mount effect settle first so it consumes
+    // the default mock, not the one we're about to set up for /api/auth/me
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    axios.get.mockResolvedValueOnce({ data: { id: 42 } });
+    axios.put = vi.fn().mockResolvedValue({});
 
     await act(async () => {
       await result.current.handleConsentAccept();
