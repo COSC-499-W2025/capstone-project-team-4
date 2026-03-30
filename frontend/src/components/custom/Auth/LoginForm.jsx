@@ -99,7 +99,7 @@ export default function LoginForm() {
 
       {banner ? (
         <Alert className="border-slate-200 bg-white text-slate-900">
-          <AlertDescription className="text-sm text-slate-700">
+          <AlertDescription className="text-sm text-red-600 font-semibold">
             {banner}
           </AlertDescription>
         </Alert>
@@ -126,7 +126,7 @@ export default function LoginForm() {
             <p className="text-xs text-red-600">{errors.email}</p>
           ) : (
             <p className="text-xs text-slate-500">
-              Use the email you’ll attach to uploads and exports.
+              Use the email you'll attach to uploads and exports.
             </p>
           )}
         </div>
