@@ -24,7 +24,6 @@ import re
 import xml.etree.ElementTree as ET
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
 
 import yaml
 
@@ -40,6 +39,7 @@ except ModuleNotFoundError:  # pragma: no cover
 # =============================================================================
 # File IO helpers (reuse from framework.py pattern)
 # =============================================================================
+
 
 def read_text_safe(path: Path) -> str | None:
     """Read text file safely, returning None on error."""
@@ -99,6 +99,7 @@ def path_in_excludes(path: Path, excludes: set[str]) -> bool:
 # Rules loading
 # =============================================================================
 
+
 @lru_cache(maxsize=16)
 def _load_library_rules(rules_path: str) -> dict:
     """Load YAML rules from file with caching."""
@@ -118,6 +119,7 @@ def get_default_rules_path() -> Path:
 # Package parsers
 # =============================================================================
 
+
 def parse_package_json(path: Path) -> list[dict]:
     """
     Parse package.json to extract npm dependencies.
@@ -132,30 +134,36 @@ def parse_package_json(path: Path) -> list[dict]:
 
     # Production dependencies
     for name, version in (data.get("dependencies") or {}).items():
-        libraries.append({
-            "name": name,
-            "version": _clean_version(version),
-            "ecosystem": "npm",
-            "is_dev_dependency": False,
-        })
+        libraries.append(
+            {
+                "name": name,
+                "version": _clean_version(version),
+                "ecosystem": "npm",
+                "is_dev_dependency": False,
+            }
+        )
 
     # Development dependencies
     for name, version in (data.get("devDependencies") or {}).items():
-        libraries.append({
-            "name": name,
-            "version": _clean_version(version),
-            "ecosystem": "npm",
-            "is_dev_dependency": True,
-        })
+        libraries.append(
+            {
+                "name": name,
+                "version": _clean_version(version),
+                "ecosystem": "npm",
+                "is_dev_dependency": True,
+            }
+        )
 
     # Peer dependencies (optional, treat as prod)
     for name, version in (data.get("peerDependencies") or {}).items():
-        libraries.append({
-            "name": name,
-            "version": _clean_version(version),
-            "ecosystem": "npm",
-            "is_dev_dependency": False,
-        })
+        libraries.append(
+            {
+                "name": name,
+                "version": _clean_version(version),
+                "ecosystem": "npm",
+                "is_dev_dependency": False,
+            }
+        )
 
     return libraries
 
@@ -178,28 +186,38 @@ def parse_package_lock(path: Path) -> list[dict]:
                 parts = pkg_path.split("/")
                 if len(parts) >= 2:
                     if parts[1].startswith("@"):
-                        pkg_name = f"{parts[1]}/{parts[2]}" if len(parts) > 2 else parts[1]
+                        pkg_name = (
+                            f"{parts[1]}/{parts[2]}" if len(parts) > 2 else parts[1]
+                        )
                     else:
                         pkg_name = parts[1]
-                    libraries.append({
-                        "name": pkg_name,
-                        "version": pkg_data.get("version", ""),
-                        "ecosystem": "npm",
-                        "is_dev_dependency": pkg_data.get("dev", False),
-                    })
+                    libraries.append(
+                        {
+                            "name": pkg_name,
+                            "version": pkg_data.get("version", ""),
+                            "ecosystem": "npm",
+                            "is_dev_dependency": pkg_data.get("dev", False),
+                        }
+                    )
 
         # Fallback for older format
         if not libraries:
             dependencies = data.get("dependencies", {})
             for name, dep_data in dependencies.items():
-                version = dep_data.get("version", "") if isinstance(dep_data, dict) else ""
-                is_dev = dep_data.get("dev", False) if isinstance(dep_data, dict) else False
-                libraries.append({
-                    "name": name,
-                    "version": version,
-                    "ecosystem": "npm",
-                    "is_dev_dependency": is_dev,
-                })
+                version = (
+                    dep_data.get("version", "") if isinstance(dep_data, dict) else ""
+                )
+                is_dev = (
+                    dep_data.get("dev", False) if isinstance(dep_data, dict) else False
+                )
+                libraries.append(
+                    {
+                        "name": name,
+                        "version": version,
+                        "ecosystem": "npm",
+                        "is_dev_dependency": is_dev,
+                    }
+                )
 
         return libraries
     except Exception as e:
@@ -235,12 +253,14 @@ def parse_yarn_lock(path: Path) -> list[dict]:
                 if match and current_pkg:
                     current_version = match.group(1)
                     if current_pkg not in seen:
-                        libraries.append({
-                            "name": current_pkg,
-                            "version": current_version,
-                            "ecosystem": "npm",
-                            "is_dev_dependency": False,  # yarn.lock doesn't distinguish
-                        })
+                        libraries.append(
+                            {
+                                "name": current_pkg,
+                                "version": current_version,
+                                "ecosystem": "npm",
+                                "is_dev_dependency": False,  # yarn.lock doesn't distinguish
+                            }
+                        )
                         seen.add(current_pkg)
                     current_pkg = None
                     current_version = None
@@ -275,16 +295,18 @@ def parse_requirements_txt(path: Path) -> list[dict]:
 
         # Parse package name and version
         # Formats: package, package==1.0, package>=1.0, package[extra]==1.0
-        match = re.match(r'^([a-zA-Z0-9_-]+(?:\[[^\]]+\])?)\s*([<>=!~]+.+)?', line)
+        match = re.match(r"^([a-zA-Z0-9_-]+(?:\[[^\]]+\])?)\s*([<>=!~]+.+)?", line)
         if match:
             name = match.group(1).split("[")[0]  # Remove extras
             version = _clean_version(match.group(2)) if match.group(2) else ""
-            libraries.append({
-                "name": name,
-                "version": version,
-                "ecosystem": "pip",
-                "is_dev_dependency": is_dev,
-            })
+            libraries.append(
+                {
+                    "name": name,
+                    "version": version,
+                    "ecosystem": "pip",
+                    "is_dev_dependency": is_dev,
+                }
+            )
 
     return libraries
 
@@ -307,12 +329,14 @@ def parse_pyproject_toml(path: Path) -> list[dict]:
         for dep in project_deps:
             name, version = _parse_pep508_dependency(dep)
             if name:
-                libraries.append({
-                    "name": name,
-                    "version": version,
-                    "ecosystem": "pyproject",
-                    "is_dev_dependency": False,
-                })
+                libraries.append(
+                    {
+                        "name": name,
+                        "version": version,
+                        "ecosystem": "pyproject",
+                        "is_dev_dependency": False,
+                    }
+                )
 
     # PEP 621: optional-dependencies (often dev deps)
     optional_deps = data.get("project", {}).get("optional-dependencies", {})
@@ -322,12 +346,14 @@ def parse_pyproject_toml(path: Path) -> list[dict]:
             for dep in deps:
                 name, version = _parse_pep508_dependency(dep)
                 if name:
-                    libraries.append({
-                        "name": name,
-                        "version": version,
-                        "ecosystem": "pyproject",
-                        "is_dev_dependency": is_dev,
-                    })
+                    libraries.append(
+                        {
+                            "name": name,
+                            "version": version,
+                            "ecosystem": "pyproject",
+                            "is_dev_dependency": is_dev,
+                        }
+                    )
 
     # Poetry format: tool.poetry.dependencies
     poetry_deps = data.get("tool", {}).get("poetry", {}).get("dependencies", {})
@@ -340,12 +366,14 @@ def parse_pyproject_toml(path: Path) -> list[dict]:
                 version = _clean_version(spec)
             elif isinstance(spec, dict):
                 version = _clean_version(spec.get("version", ""))
-            libraries.append({
-                "name": name,
-                "version": version,
-                "ecosystem": "poetry",
-                "is_dev_dependency": False,
-            })
+            libraries.append(
+                {
+                    "name": name,
+                    "version": version,
+                    "ecosystem": "poetry",
+                    "is_dev_dependency": False,
+                }
+            )
 
     # Poetry: dev-dependencies (older format)
     poetry_dev = data.get("tool", {}).get("poetry", {}).get("dev-dependencies", {})
@@ -356,30 +384,36 @@ def parse_pyproject_toml(path: Path) -> list[dict]:
                 version = _clean_version(spec)
             elif isinstance(spec, dict):
                 version = _clean_version(spec.get("version", ""))
-            libraries.append({
-                "name": name,
-                "version": version,
-                "ecosystem": "poetry",
-                "is_dev_dependency": True,
-            })
+            libraries.append(
+                {
+                    "name": name,
+                    "version": version,
+                    "ecosystem": "poetry",
+                    "is_dev_dependency": True,
+                }
+            )
 
     # Poetry: group dependencies (newer format)
     poetry_groups = data.get("tool", {}).get("poetry", {}).get("group", {})
     for group_name, group_data in poetry_groups.items():
         is_dev = group_name.lower() in {"dev", "development", "test", "testing", "docs"}
-        group_deps = group_data.get("dependencies", {}) if isinstance(group_data, dict) else {}
+        group_deps = (
+            group_data.get("dependencies", {}) if isinstance(group_data, dict) else {}
+        )
         for name, spec in group_deps.items():
             version = ""
             if isinstance(spec, str):
                 version = _clean_version(spec)
             elif isinstance(spec, dict):
                 version = _clean_version(spec.get("version", ""))
-            libraries.append({
-                "name": name,
-                "version": version,
-                "ecosystem": "poetry",
-                "is_dev_dependency": is_dev,
-            })
+            libraries.append(
+                {
+                    "name": name,
+                    "version": version,
+                    "ecosystem": "poetry",
+                    "is_dev_dependency": is_dev,
+                }
+            )
 
     return libraries
 
@@ -397,12 +431,14 @@ def parse_poetry_lock(path: Path) -> list[dict]:
             line = line.strip()
             if line.startswith("[[package]]"):
                 if current_name:
-                    libraries.append({
-                        "name": current_name,
-                        "version": current_version,
-                        "ecosystem": "poetry",
-                        "is_dev_dependency": False,
-                    })
+                    libraries.append(
+                        {
+                            "name": current_name,
+                            "version": current_version,
+                            "ecosystem": "poetry",
+                            "is_dev_dependency": False,
+                        }
+                    )
                 current_name = ""
                 current_version = ""
             elif line.startswith("name ="):
@@ -416,12 +452,14 @@ def parse_poetry_lock(path: Path) -> list[dict]:
 
         # Don't forget the last package
         if current_name:
-            libraries.append({
-                "name": current_name,
-                "version": current_version,
-                "ecosystem": "poetry",
-                "is_dev_dependency": False,
-            })
+            libraries.append(
+                {
+                    "name": current_name,
+                    "version": current_version,
+                    "ecosystem": "poetry",
+                    "is_dev_dependency": False,
+                }
+            )
 
         return libraries
     except Exception as e:
@@ -444,12 +482,14 @@ def parse_cargo_toml(path: Path) -> list[dict]:
             version = spec
         elif isinstance(spec, dict):
             version = spec.get("version", "")
-        libraries.append({
-            "name": name,
-            "version": version,
-            "ecosystem": "cargo",
-            "is_dev_dependency": False,
-        })
+        libraries.append(
+            {
+                "name": name,
+                "version": version,
+                "ecosystem": "cargo",
+                "is_dev_dependency": False,
+            }
+        )
 
     # Dev dependencies
     for name, spec in (data.get("dev-dependencies") or {}).items():
@@ -458,12 +498,14 @@ def parse_cargo_toml(path: Path) -> list[dict]:
             version = spec
         elif isinstance(spec, dict):
             version = spec.get("version", "")
-        libraries.append({
-            "name": name,
-            "version": version,
-            "ecosystem": "cargo",
-            "is_dev_dependency": True,
-        })
+        libraries.append(
+            {
+                "name": name,
+                "version": version,
+                "ecosystem": "cargo",
+                "is_dev_dependency": True,
+            }
+        )
 
     # Build dependencies
     for name, spec in (data.get("build-dependencies") or {}).items():
@@ -472,12 +514,14 @@ def parse_cargo_toml(path: Path) -> list[dict]:
             version = spec
         elif isinstance(spec, dict):
             version = spec.get("version", "")
-        libraries.append({
-            "name": name,
-            "version": version,
-            "ecosystem": "cargo",
-            "is_dev_dependency": False,
-        })
+        libraries.append(
+            {
+                "name": name,
+                "version": version,
+                "ecosystem": "cargo",
+                "is_dev_dependency": False,
+            }
+        )
 
     return libraries
 
@@ -504,26 +548,30 @@ def parse_go_mod(path: Path) -> list[dict]:
 
         # Handle single-line require
         if line.startswith("require "):
-            match = re.match(r'require\s+(\S+)\s+(\S+)', line)
+            match = re.match(r"require\s+(\S+)\s+(\S+)", line)
             if match:
-                libraries.append({
-                    "name": match.group(1),
-                    "version": match.group(2).lstrip("v"),
-                    "ecosystem": "go",
-                    "is_dev_dependency": False,
-                })
+                libraries.append(
+                    {
+                        "name": match.group(1),
+                        "version": match.group(2).lstrip("v"),
+                        "ecosystem": "go",
+                        "is_dev_dependency": False,
+                    }
+                )
             continue
 
         # Inside require block
         if in_require and line and not line.startswith("//"):
             parts = line.split()
             if len(parts) >= 2:
-                libraries.append({
-                    "name": parts[0],
-                    "version": parts[1].lstrip("v"),
-                    "ecosystem": "go",
-                    "is_dev_dependency": False,
-                })
+                libraries.append(
+                    {
+                        "name": parts[0],
+                        "version": parts[1].lstrip("v"),
+                        "ecosystem": "go",
+                        "is_dev_dependency": False,
+                    }
+                )
 
     return libraries
 
@@ -538,7 +586,7 @@ def parse_pom_xml(path: Path) -> list[dict]:
 
     try:
         # Remove namespace for easier parsing
-        txt = re.sub(r'\sxmlns="[^"]+"', '', txt, count=1)
+        txt = re.sub(r'\sxmlns="[^"]+"', "", txt, count=1)
         root = ET.fromstring(txt)
 
         # Find all dependency elements
@@ -549,13 +597,20 @@ def parse_pom_xml(path: Path) -> list[dict]:
             scope = dep.find("scope")
 
             if artifact_id is not None:
-                name = f"{group_id.text}:{artifact_id.text}" if group_id is not None else artifact_id.text
-                libraries.append({
-                    "name": name,
-                    "version": version.text if version is not None else "",
-                    "ecosystem": "maven",
-                    "is_dev_dependency": scope is not None and scope.text in {"test", "provided"},
-                })
+                name = (
+                    f"{group_id.text}:{artifact_id.text}"
+                    if group_id is not None
+                    else artifact_id.text
+                )
+                libraries.append(
+                    {
+                        "name": name,
+                        "version": version.text if version is not None else "",
+                        "ecosystem": "maven",
+                        "is_dev_dependency": scope is not None
+                        and scope.text in {"test", "provided"},
+                    }
+                )
     except Exception as e:
         logger.debug("Could not parse pom.xml: %s", e)
 
@@ -590,12 +645,14 @@ def parse_build_gradle(path: Path) -> list[dict]:
             is_dev = any(kw in full_match for kw in dev_keywords)
 
             if len(parts) >= 2:
-                libraries.append({
-                    "name": f"{parts[0]}:{parts[1]}",
-                    "version": parts[2] if len(parts) > 2 else "",
-                    "ecosystem": "gradle",
-                    "is_dev_dependency": is_dev,
-                })
+                libraries.append(
+                    {
+                        "name": f"{parts[0]}:{parts[1]}",
+                        "version": parts[2] if len(parts) > 2 else "",
+                        "ecosystem": "gradle",
+                        "is_dev_dependency": is_dev,
+                    }
+                )
 
     return libraries
 
@@ -621,12 +678,14 @@ def parse_gemfile(path: Path) -> list[dict]:
         # Match gem declarations
         match = re.match(r"gem\s+['\"]([^'\"]+)['\"](?:,\s*['\"]([^'\"]+)['\"])?", line)
         if match:
-            libraries.append({
-                "name": match.group(1),
-                "version": _clean_version(match.group(2)) if match.group(2) else "",
-                "ecosystem": "gem",
-                "is_dev_dependency": in_dev_group,
-            })
+            libraries.append(
+                {
+                    "name": match.group(1),
+                    "version": _clean_version(match.group(2)) if match.group(2) else "",
+                    "ecosystem": "gem",
+                    "is_dev_dependency": in_dev_group,
+                }
+            )
 
     return libraries
 
@@ -650,14 +709,16 @@ def parse_gemfile_lock(path: Path) -> list[dict]:
 
         if in_specs:
             # Match gem name and version: "    gem_name (1.2.3)"
-            match = re.match(r'^\s{4}(\S+)\s+\(([^)]+)\)', line)
+            match = re.match(r"^\s{4}(\S+)\s+\(([^)]+)\)", line)
             if match:
-                libraries.append({
-                    "name": match.group(1),
-                    "version": match.group(2),
-                    "ecosystem": "gem",
-                    "is_dev_dependency": False,
-                })
+                libraries.append(
+                    {
+                        "name": match.group(1),
+                        "version": match.group(2),
+                        "ecosystem": "gem",
+                        "is_dev_dependency": False,
+                    }
+                )
 
     return libraries
 
@@ -674,21 +735,25 @@ def parse_composer_json(path: Path) -> list[dict]:
     for name, version in (data.get("require") or {}).items():
         if name.lower() in {"php", "ext-*"} or name.startswith("ext-"):
             continue
-        libraries.append({
-            "name": name,
-            "version": _clean_version(version),
-            "ecosystem": "composer",
-            "is_dev_dependency": False,
-        })
+        libraries.append(
+            {
+                "name": name,
+                "version": _clean_version(version),
+                "ecosystem": "composer",
+                "is_dev_dependency": False,
+            }
+        )
 
     # Dev dependencies
     for name, version in (data.get("require-dev") or {}).items():
-        libraries.append({
-            "name": name,
-            "version": _clean_version(version),
-            "ecosystem": "composer",
-            "is_dev_dependency": True,
-        })
+        libraries.append(
+            {
+                "name": name,
+                "version": _clean_version(version),
+                "ecosystem": "composer",
+                "is_dev_dependency": True,
+            }
+        )
 
     return libraries
 
@@ -708,12 +773,14 @@ def parse_csproj(path: Path) -> list[dict]:
             name = ref.get("Include")
             version = ref.get("Version", "")
             if name:
-                libraries.append({
-                    "name": name,
-                    "version": version,
-                    "ecosystem": "nuget",
-                    "is_dev_dependency": False,
-                })
+                libraries.append(
+                    {
+                        "name": name,
+                        "version": version,
+                        "ecosystem": "nuget",
+                        "is_dev_dependency": False,
+                    }
+                )
     except Exception as e:
         logger.debug("Could not parse .csproj: %s", e)
 
@@ -737,12 +804,14 @@ def parse_pubspec_yaml(path: Path) -> list[dict]:
             version = spec
         elif isinstance(spec, dict):
             version = spec.get("version", "")
-        libraries.append({
-            "name": name,
-            "version": _clean_version(version) if version else "",
-            "ecosystem": "pub",
-            "is_dev_dependency": False,
-        })
+        libraries.append(
+            {
+                "name": name,
+                "version": _clean_version(version) if version else "",
+                "ecosystem": "pub",
+                "is_dev_dependency": False,
+            }
+        )
 
     # Dev dependencies
     for name, spec in (data.get("dev_dependencies") or {}).items():
@@ -751,12 +820,14 @@ def parse_pubspec_yaml(path: Path) -> list[dict]:
             version = spec
         elif isinstance(spec, dict):
             version = spec.get("version", "")
-        libraries.append({
-            "name": name,
-            "version": _clean_version(version) if version else "",
-            "ecosystem": "pub",
-            "is_dev_dependency": True,
-        })
+        libraries.append(
+            {
+                "name": name,
+                "version": _clean_version(version) if version else "",
+                "ecosystem": "pub",
+                "is_dev_dependency": True,
+            }
+        )
 
     return libraries
 
@@ -765,12 +836,13 @@ def parse_pubspec_yaml(path: Path) -> list[dict]:
 # Helper functions
 # =============================================================================
 
+
 def _clean_version(version: str | None) -> str:
     """Clean version string by removing operators."""
     if not version:
         return ""
     # Remove common version operators
-    version = re.sub(r'^[~^>=<!\s]+', '', str(version))
+    version = re.sub(r"^[~^>=<!\s]+", "", str(version))
     return version.strip()
 
 
@@ -783,7 +855,7 @@ def _parse_pep508_dependency(dep: str) -> tuple[str, str]:
     dep = dep.split(";")[0].strip()
 
     # Extract name and version
-    match = re.match(r'^([a-zA-Z0-9_-]+)(?:\[.*?\])?\s*([<>=!~].*)?$', dep)
+    match = re.match(r"^([a-zA-Z0-9_-]+)(?:\[.*?\])?\s*([<>=!~].*)?$", dep)
     if match:
         name = match.group(1)
         version = _clean_version(match.group(2)) if match.group(2) else ""
@@ -796,9 +868,9 @@ def _parse_pep508_dependency(dep: str) -> tuple[str, str]:
 # Main detection function
 # =============================================================================
 
+
 def detect_libraries_recursive(
-    project_root: Path,
-    rules_path: str | None = None
+    project_root: Path, rules_path: str | None = None
 ) -> dict:
     """
     Recursively scan project and extract all libraries from package manager files.

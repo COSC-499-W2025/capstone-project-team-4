@@ -1,8 +1,13 @@
-import React from 'react';
-import { X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import React from "react";
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-const FileList = ({ files, onDelete }) => {
+const FileList = ({
+  files,
+  projectNames = [],
+  onProjectNameChange = () => {},
+  onDelete,
+}) => {
   if (files.length === 0) return null;
 
   return (
@@ -25,6 +30,22 @@ const FileList = ({ files, onDelete }) => {
                 <p className="text-xs text-gray-500">
                   {(file.size / 1024).toFixed(2)} KB
                 </p>
+                <div className="mt-2">
+                  <label
+                    htmlFor={`project-name-${index}`}
+                    className="block text-xs font-medium text-gray-600 mb-1"
+                  >
+                    Project name (optional)
+                  </label>
+                  <input
+                    id={`project-name-${index}`}
+                    type="text"
+                    value={projectNames[index] || ""}
+                    onChange={(e) => onProjectNameChange(index, e.target.value)}
+                    placeholder="Use ZIP filename if left blank"
+                    className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
             </div>
             <Button

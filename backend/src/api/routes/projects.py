@@ -7,7 +7,16 @@ from datetime import datetime, date
 from typing import Optional, Set
 import hashlib
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Header, Request
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    UploadFile,
+    File,
+    Header,
+    Request,
+)
 from sqlalchemy.orm import Session
 from fastapi.responses import Response
 
@@ -22,14 +31,20 @@ from src.models.schemas.contributor import (
     ChangeStatsSchema,
 )
 
-from src.models.schemas.complexity import ComplexityReport, ComplexityByFile, ComplexitySchema, ComplexitySummary
+from src.models.schemas.complexity import (
+    ComplexityReport,
+    ComplexityByFile,
+    ComplexitySchema,
+    ComplexitySummary,
+)
 from src.models.schemas.project import ProjectThumbnailResponse
 from src.services.project_service import ProjectService
 from src.repositories.contributor_repository import ContributorRepository
 from src.repositories.project_repository import ProjectRepository
 from src.repositories.complexity_repository import ComplexityRepository
 from src.api.exceptions import ProjectNotFoundError
-from src.models.schemas.analysis import AnalysisResult
+from src.api.dependencies import get_current_user
+from src.models.orm.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -38,15 +53,16 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024
 ALLOWED_THUMBNAIL_TYPES = {"image/png", "image/jpeg", "image/webp"}
 
+
 def _find_git_root(start_path: str) -> Optional[str]:
     """Find nearest parent directory containing a .git folder.
 
     Walks up to 50 levels. Does NOT fall back to current working directory
     to avoid returning the wrong repository.
-    
+
     Args:
         start_path: The path to start searching from
-        
+
     Returns:
         The git root path if found, None otherwise
     """
@@ -54,12 +70,12 @@ def _find_git_root(start_path: str) -> Optional[str]:
         from pathlib import Path
 
         p = Path(start_path).resolve()
-        
+
         # First check if the path exists
         if not p.exists():
             logger.warning(f"Path does not exist: {start_path}")
             return None
-        
+
         # Walk up the directory tree looking for .git
         for _ in range(50):
             if (p / ".git").exists():
@@ -69,7 +85,7 @@ def _find_git_root(start_path: str) -> Optional[str]:
             p = p.parent
 
         # If we didn't find .git by walking up, try git rev-parse
-        # but ONLY within the start_path directory to avoid 
+        # but ONLY within the start_path directory to avoid
         # accidentally returning a different repository
         start_path_resolved = str(Path(start_path).resolve())
         proc = subprocess.run(
@@ -84,7 +100,7 @@ def _find_git_root(start_path: str) -> Optional[str]:
             # to prevent returning an unrelated repository
             if git_root:
                 return git_root
-        
+
         return None
     except Exception as e:
         logger.warning(f"Error finding git root from {start_path}: {e}")
@@ -105,10 +121,16 @@ def _resolve_default_branch(git_root: str) -> str:
         )
         if proc.returncode == 0:
             return candidate
-        logger.warning("DEFAULT branch not found: %s (root=%s). Falling back to origin/HEAD.", candidate, git_root)
+        logger.warning(
+            "DEFAULT branch not found: %s (root=%s). Falling back to origin/HEAD.",
+            candidate,
+            git_root,
+        )
 
     cmd_head = ["git", "-C", git_root, "symbolic-ref", "refs/remotes/origin/HEAD"]
-    proc_head = subprocess.run(cmd_head, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    proc_head = subprocess.run(
+        cmd_head, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
     if proc_head.returncode == 0:
         ref_output = proc_head.stdout.strip()
         if ref_output.startswith("ref: "):
@@ -134,39 +156,49 @@ def _resolve_default_branch(git_root: str) -> str:
 def _calculate_activity_metrics(commit_dates: list) -> ActivitySchema:
     """
     Calculate activity metrics from commit dates.
-    
+
     Args:
         commit_dates: List of datetime objects of commits
-        
+
     Returns:
         ActivitySchema with calculated metrics
     """
     if not commit_dates:
         return ActivitySchema()
-    
+
     # Sort dates
     sorted_dates = sorted(commit_dates)
-    
+
     # Unique dates (active_days)
-    unique_dates: Set[date] = set(d.date() if isinstance(d, datetime) else d for d in sorted_dates)
+    unique_dates: Set[date] = set(
+        d.date() if isinstance(d, datetime) else d for d in sorted_dates
+    )
     active_days = len(unique_dates)
-    
+
     # First and last commit dates
     first_commit_date = sorted_dates[0] if sorted_dates else None
     last_commit_date = sorted_dates[-1] if sorted_dates else None
-    
+
     # Active span (days from first to last, inclusive)
     active_span_days = 0
     if first_commit_date and last_commit_date:
-        first_date = first_commit_date.date() if isinstance(first_commit_date, datetime) else first_commit_date
-        last_date = last_commit_date.date() if isinstance(last_commit_date, datetime) else last_commit_date
+        first_date = (
+            first_commit_date.date()
+            if isinstance(first_commit_date, datetime)
+            else first_commit_date
+        )
+        last_date = (
+            last_commit_date.date()
+            if isinstance(last_commit_date, datetime)
+            else last_commit_date
+        )
         active_span_days = (last_date - first_date).days + 1
-    
+
     # Active day ratio
     active_day_ratio = 0.0
     if active_span_days > 0:
         active_day_ratio = round(active_days / active_span_days, 2)
-    
+
     # Unique weeks (ISO week)
     unique_weeks: Set[tuple] = set()
     for d in sorted_dates:
@@ -174,7 +206,7 @@ def _calculate_activity_metrics(commit_dates: list) -> ActivitySchema:
         iso_year, iso_week, _ = date_obj.isocalendar()
         unique_weeks.add((iso_year, iso_week))
     active_weeks = len(unique_weeks)
-    
+
     return ActivitySchema(
         active_days=active_days,
         first_commit_date=first_commit_date,
@@ -184,13 +216,23 @@ def _calculate_activity_metrics(commit_dates: list) -> ActivitySchema:
         active_weeks=active_weeks,
     )
 
+
+def _require_project_owner(
+    service: ProjectService, project_id: int, current_user: User
+) -> None:
+    if not service.user_owns_project(project_id, current_user.id):
+        raise ProjectNotFoundError(project_id)
+
+
 @router.get("/{project_id}", response_model=ProjectDetail)
 async def get_project(
     project_id: int,
     request: Request,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
     project = service.get_project_detail(project_id)
 
     if not project:
@@ -203,21 +245,26 @@ async def get_project(
 
     return project
 
+
 @router.put("/{project_id}/thumbnail", response_model=ProjectThumbnailResponse)
 async def put_project_thumbnail(
     project_id: int,
     request: Request,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Upload or replace a project's thumbnail image."""
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
 
     if not service.project_exists(project_id):
         raise ProjectNotFoundError(project_id)
 
     if not file.content_type or file.content_type not in ALLOWED_THUMBNAIL_TYPES:
-        raise HTTPException(status_code=415, detail="Unsupported thumbnail content type")
+        raise HTTPException(
+            status_code=415, detail="Unsupported thumbnail content type"
+        )
 
     # read at most MAX + 1 bytes
     data = await file.read(MAX_THUMBNAIL_BYTES + 1)
@@ -243,15 +290,19 @@ async def put_project_thumbnail(
 
     return result
 
+
 @router.get("", response_model=ProjectList)
 async def list_projects(
     request: Request,
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = ProjectService(db)
-    result = service.list_projects(page=page, page_size=page_size)
+    result = service.list_projects(
+        page=page, page_size=page_size, user_id=current_user.id
+    )
 
     for item in result.items:
         if item.has_thumbnail:
@@ -261,14 +312,17 @@ async def list_projects(
 
     return result
 
+
 @router.get("/{project_id}/thumbnail", name="get_project_thumbnail")
 async def get_project_thumbnail(
     project_id: int,
     if_none_match: str | None = Header(default=None, alias="If-None-Match"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Fetch project's thumbnail bytes with Content-Type and basic caching (ETag)."""
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
 
     if not service.project_exists(project_id):
         raise ProjectNotFoundError(project_id)
@@ -291,13 +345,16 @@ async def get_project_thumbnail(
 
     return Response(content=data, media_type=content_type, headers=headers)
 
+
 @router.delete("/{project_id}/thumbnail", status_code=204)
 async def delete_project_thumbnail(
     project_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Delete project's thumbnail."""
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
 
     if not service.project_exists(project_id):
         raise ProjectNotFoundError(project_id)
@@ -308,22 +365,6 @@ async def delete_project_thumbnail(
 
     return None
 
-@router.get("/{project_id}", response_model=AnalysisResult)
-async def get_project(
-    project_id: int,
-    db: Session = Depends(get_db),
-):
-    """Delete project's thumbnail."""
-    service = ProjectService(db)
-
-    if not service.project_exists(project_id):
-        raise ProjectNotFoundError(project_id)
-
-    deleted = service.delete_thumbnail(project_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Thumbnail not found")
-
-    return None
 
 @router.get(
     "/{project_id}/textual-project-showcase",
@@ -332,8 +373,10 @@ async def get_project(
 async def get_textual_project_showcase(
     project_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
 
     if not service.project_exists(project_id):
         raise ProjectNotFoundError(project_id)
@@ -347,10 +390,12 @@ async def get_textual_project_showcase(
         )
     return result
 
+
 @router.delete("/{project_id}", status_code=204)
 async def delete_project(
     project_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Delete a project and all associated data.
@@ -359,6 +404,7 @@ async def delete_project(
     - This action cannot be undone
     """
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
     deleted = service.delete_project(project_id)
 
     if not deleted:
@@ -369,6 +415,7 @@ async def delete_project(
 async def get_project_contributors(
     project_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get contributors for a project from git history analysis.
@@ -377,6 +424,7 @@ async def get_project_contributors(
     - Includes lines added/deleted and contribution percentage
     """
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
     project_detail = service.get_project(project_id)
 
     if not project_detail:
@@ -385,30 +433,40 @@ async def get_project_contributors(
     contributor_repo = ContributorRepository(db)
     contributors = contributor_repo.get_by_project(project_id)
 
-
-
     contributor_schemas = []
     total_commits = 0
 
     for c in contributors:
         # Calculate activity metrics from database commit_history
         commit_dates = [commit.commit_date for commit in c.commit_history]
-        activity = _calculate_activity_metrics(commit_dates) if commit_dates else ActivitySchema()
-        
+        activity = (
+            _calculate_activity_metrics(commit_dates)
+            if commit_dates
+            else ActivitySchema()
+        )
+
         # Filter out .json files from files_modified
         all_files = c.files_modified or []
-        non_json_files = [fm for fm in all_files if not (fm.filename or "").lower().endswith(".json")]
+        non_json_files = [
+            fm for fm in all_files if not (fm.filename or "").lower().endswith(".json")
+        ]
         json_count = len(all_files) - len(non_json_files)
-        
-        logger.debug(f"Contributor {c.name}: total={len(all_files)} files, json={json_count}, non_json={len(non_json_files)}")
+
+        logger.debug(
+            f"Contributor {c.name}: total={len(all_files)} files, json={json_count}, non_json={len(non_json_files)}"
+        )
         if json_count > 0:
-            logger.debug(f"  JSON files: {[fm.filename for fm in all_files if (fm.filename or '').lower().endswith('.json')]}")
-        
+            logger.debug(
+                f"  JSON files: {[fm.filename for fm in all_files if (fm.filename or '').lower().endswith('.json')]}"
+            )
+
         # Calculate change statistics (excluding .json files)
         total_lines_changed = c.total_lines_added + c.total_lines_deleted
-        lines_changed_per_commit = round(total_lines_changed / c.commits, 2) if c.commits > 0 else 0.0
+        lines_changed_per_commit = (
+            round(total_lines_changed / c.commits, 2) if c.commits > 0 else 0.0
+        )
         files_changed = len(non_json_files)
-        
+
         changes = ChangeStatsSchema(
             total_lines_added=c.total_lines_added,
             total_lines_deleted=c.total_lines_deleted,
@@ -416,20 +474,22 @@ async def get_project_contributors(
             lines_changed_per_commit=lines_changed_per_commit,
             files_changed=files_changed,
         )
-        
-        contributor_schemas.append(ContributorSchema(
-            id=c.id,
-            name=c.name,
-            email=c.email,
-            github_username=c.github_username,
-            github_email=c.github_email,
-            commits=c.commits,
-            commit_percent=c.percent,
-            total_lines_added=c.total_lines_added,
-            total_lines_deleted=c.total_lines_deleted,
-            activity=activity,
-            changes=changes,
-        ))
+
+        contributor_schemas.append(
+            ContributorSchema(
+                id=c.id,
+                name=c.name,
+                email=c.email,
+                github_username=c.github_username,
+                github_email=c.github_email,
+                commits=c.commits,
+                commit_percent=c.percent,
+                total_lines_added=c.total_lines_added,
+                total_lines_deleted=c.total_lines_deleted,
+                activity=activity,
+                changes=changes,
+            )
+        )
         total_commits += c.commits
 
     return ProjectContributorsResponse(
@@ -441,12 +501,16 @@ async def get_project_contributors(
     )
 
 
-@router.get("/{project_id}/contributors/analysis", response_model=ProjectContributorsAnalysisResponse)
+@router.get(
+    "/{project_id}/contributors/analysis",
+    response_model=ProjectContributorsAnalysisResponse,
+)
 async def get_contributor_analysis(
     project_id: int,
     include_merges: bool = Query(False, description="Include merge commits"),
     include_renames: bool = Query(False, description="Count renames as changes"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get detailed contribution analysis for each contributor in a project.
@@ -457,6 +521,7 @@ async def get_contributor_analysis(
     - Useful for understanding who contributed what to the project
     """
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
     result = service.get_contributor_analysis(project_id)
 
     if result is None:
@@ -471,33 +536,34 @@ async def get_default_branch_stats(
     include_merges: bool = Query(False, description="Include merge commits"),
     include_renames: bool = Query(False, description="Count renames as changes"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Return lines added/deleted per author (GitHub-like).
-    
+
     Reads from database instead of git repo to support cases where
     the original project files have been cleaned up.
     """
     project_repo = ProjectRepository(db)
     project = project_repo.get(project_id)
-    if not project:
+    if not project or project.user_id != current_user.id:
         raise ProjectNotFoundError(project_id)
 
     # Get contributors from database (stored during initial analysis)
     contributor_repo = ContributorRepository(db)
     contributors = contributor_repo.get_by_project(project_id)
-    
+
     if not contributors:
         raise HTTPException(
-            status_code=404, 
-            detail=f"No contributor data found for project {project_id}. The project may need to be re-analyzed."
+            status_code=404,
+            detail=f"No contributor data found for project {project_id}. The project may need to be re-analyzed.",
         )
 
     # Format the response to match the expected structure
     items = []
     for c in contributors:
         total_lines_changed = (c.total_lines_added or 0) + (c.total_lines_deleted or 0)
-        
+
         # Build author string in "Name <email>" format
         author_parts = []
         if c.name:
@@ -507,17 +573,19 @@ async def get_default_branch_stats(
             author_str = f"{c.name or 'Unknown'} <{email}>"
         else:
             author_str = c.name or "Unknown"
-        
-        items.append({
-            "author": author_str,
-            "display_name": c.name or "Unknown",
-            "primary_email": c.email or c.github_email or "",
-            "total_lines_changed": total_lines_changed,
-            "total_lines_added": c.total_lines_added or 0,
-            "total_lines_deleted": c.total_lines_deleted or 0,
-            "commits": c.commits or 0,
-        })
-    
+
+        items.append(
+            {
+                "author": author_str,
+                "display_name": c.name or "Unknown",
+                "primary_email": c.email or c.github_email or "",
+                "total_lines_changed": total_lines_changed,
+                "total_lines_added": c.total_lines_added or 0,
+                "total_lines_deleted": c.total_lines_deleted or 0,
+                "commits": c.commits or 0,
+            }
+        )
+
     # Sort by total lines changed (descending)
     items.sort(key=lambda x: x["total_lines_changed"], reverse=True)
 
@@ -533,6 +601,7 @@ async def get_default_branch_stats(
 async def get_project_complexity(
     project_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get code complexity metrics for a project.
@@ -541,6 +610,7 @@ async def get_project_complexity(
     - Includes high complexity functions for review
     """
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
     project = service.get_project(project_id)
 
     if not project:
@@ -566,13 +636,17 @@ async def get_project_complexity(
             for f in functions
         ]
 
-        by_file.append(ComplexityByFile(
-            file_path=file_path,
-            function_count=len(functions),
-            avg_complexity=sum(complexity_values) / len(complexity_values) if complexity_values else 0,
-            max_complexity=max(complexity_values) if complexity_values else 0,
-            functions=function_schemas,
-        ))
+        by_file.append(
+            ComplexityByFile(
+                file_path=file_path,
+                function_count=len(functions),
+                avg_complexity=sum(complexity_values) / len(complexity_values)
+                if complexity_values
+                else 0,
+                max_complexity=max(complexity_values) if complexity_values else 0,
+                functions=function_schemas,
+            )
+        )
 
     high_complexity = complexity_repo.get_high_complexity(project_id, threshold=10)
     high_complexity_schemas = [

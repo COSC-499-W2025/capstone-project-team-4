@@ -17,7 +17,12 @@ from src.models.schemas.project import (
     ProjectDetail,
     ProjectThumbnailResponse,
 )
-from src.models.schemas.analysis import AnalysisResult, AnalysisStatus, ComplexitySummary, TextualProjectShowcaseResponse
+from src.models.schemas.analysis import (
+    AnalysisResult,
+    AnalysisStatus,
+    ComplexitySummary,
+    TextualProjectShowcaseResponse,
+)
 from src.models.schemas.contributor import (
     ContributorAnalysisSchema,
     ProjectContributorsAnalysisResponse,
@@ -44,6 +49,11 @@ class ProjectService:
         self.contributor_repo = ContributorRepository(db)
         self.complexity_repo = ComplexityRepository(db)
         self.skill_repo = SkillRepository(db)
+
+    def user_owns_project(self, project_id: int, user_id: int) -> bool:
+        """Return True only when the project exists and belongs to the user."""
+        project = self.project_repo.get(project_id)
+        return bool(project and project.user_id == user_id)
 
     @staticmethod
     def _get_domain_mapping_path() -> Path:
@@ -113,12 +123,16 @@ class ProjectService:
                 return domain_index["languages"][lang_key]
         return None
 
-    def list_projects(self, page: int = 1, page_size: int = 20) -> ProjectList:
+    def list_projects(
+        self, page: int = 1, page_size: int = 20, user_id: int = None
+    ) -> ProjectList:
         skip = (page - 1) * page_size
-        total = self.project_repo.count()
+        total = self.project_repo.count(user_id=user_id)
         pages = (total + page_size - 1) // page_size
 
-        summaries = self.project_repo.get_all_summaries(skip=skip, limit=page_size)
+        summaries = self.project_repo.get_all_summaries(
+            skip=skip, limit=page_size, user_id=user_id
+        )
 
         # Populate thumbnail fields (feedback #4 / #9)
         project_ids = [s["id"] for s in summaries if s]
@@ -434,12 +448,6 @@ class ProjectService:
             normalized = self._normalize_path(f.path)
             file_lang_map[normalized] = f.language.name if f.language else None
 
-        project_frameworks = (
-            self.project_repo.get_frameworks(project_id)
-            if hasattr(self.project_repo, "get_frameworks")
-            else []
-        )
-
         # Calculate totals
         total_commits = sum(c.commits for c in contributors)
         total_lines_added = sum(c.total_lines_added for c in contributors)
@@ -469,7 +477,9 @@ class ProjectService:
             net_lines = c.total_lines_added - c.total_lines_deleted
 
             # Calculate change statistics
-            contributor_total_lines_changed = c.total_lines_added + c.total_lines_deleted
+            contributor_total_lines_changed = (
+                c.total_lines_added + c.total_lines_deleted
+            )
             lines_changed_per_commit = (
                 round(contributor_total_lines_changed / c.commits, 2)
                 if c.commits > 0
@@ -567,7 +577,7 @@ class ProjectService:
     def project_exists(self, project_id: int) -> bool:
         """Check if a project exists."""
         return self.project_repo.get(project_id) is not None
-    
+
     def get_textual_project_showcase(
         self, project_id: int
     ) -> Optional[TextualProjectShowcaseResponse]:

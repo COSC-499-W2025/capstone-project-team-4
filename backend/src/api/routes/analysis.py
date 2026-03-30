@@ -32,7 +32,9 @@ async def analyze_upload(
         True,
         description="If true, reuse previous analysis when the same project content is uploaded again.",
     ),
-    split_projects: bool = Form(False, description="If true, split upload into multiple projects"),
+    split_projects: bool = Form(
+        False, description="If true, split upload into multiple projects"
+    ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -66,6 +68,7 @@ async def analyze_upload(
         raise InvalidFileError("File must be a ZIP archive")
 
     tmp_path: Path | None = None
+    analysis_succeeded = False
 
     try:
         settings.uploads_dir.mkdir(parents=True, exist_ok=True)
@@ -93,11 +96,15 @@ async def analyze_upload(
             reuse_cached_analysis=reuse_cached_analysis,
             split_projects=split_projects,
             user_id=current_user.id,
-)
+        )
 
         # Always return list to match response_model=List[AnalysisResult]
         final_result = result if isinstance(result, list) else [result]
-        logger.info("Analysis completed successfully, returning %s project(s)", len(final_result))
+        logger.info(
+            "Analysis completed successfully, returning %s project(s)",
+            len(final_result),
+        )
+        analysis_succeeded = True
         return final_result
 
     except (FileNotFoundError, ValueError) as e:
@@ -109,11 +116,15 @@ async def analyze_upload(
         logger.exception("Analysis failed with unexpected error")
         raise AnalysisError(str(e))
     finally:
-        if tmp_path is not None:
+        # Keep the ZIP on success so the snapshot service can materialize the repo later.
+        # Only clean up if analysis failed to avoid accumulating orphaned ZIPs.
+        if tmp_path is not None and not analysis_succeeded:
             try:
                 if tmp_path.exists():
                     tmp_path.unlink()
-                    logger.info("Deleted uploaded ZIP after analysis: %s", tmp_path)
+                    logger.info(
+                        "Deleted uploaded ZIP after failed analysis: %s", tmp_path
+                    )
             except Exception as e:
                 logger.warning("Failed to delete uploaded ZIP %s: %s", tmp_path, e)
 
@@ -127,17 +138,21 @@ def analyze_project_libraries_tools(
     Analyze libraries and tools for an existing project.
     This can be called after upload to run detailed detection.
     """
-    logger.info(f"Received request to analyze libraries/tools for project: {project_id}")
-    
+    logger.info(
+        f"Received request to analyze libraries/tools for project: {project_id}"
+    )
+
     service = AnalysisService(db)
     project = service.project_repo.get(project_id)
-    
+
     if not project:
         logger.error(f"Project not found: {project_id}")
         raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
-    
+
     try:
-        result = service.analyze_libraries_and_tools(project_id, project.root_path, project.source_url)
+        result = service.analyze_libraries_and_tools(
+            project_id, project.root_path, project.source_url
+        )
         logger.info(f"Library/tool analysis completed for project {project_id}")
         return result
     except Exception as e:
@@ -155,16 +170,18 @@ def analyze_project_frameworks(
     This can be called after upload to run detailed detection.
     """
     logger.info(f"Received request to analyze frameworks for project: {project_id}")
-    
+
     service = AnalysisService(db)
     project = service.project_repo.get(project_id)
-    
+
     if not project:
         logger.error(f"Project not found: {project_id}")
         raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
-    
+
     try:
-        result = service.analyze_frameworks(project_id, project.root_path, project.source_url)
+        result = service.analyze_frameworks(
+            project_id, project.root_path, project.source_url
+        )
         logger.info(f"Framework analysis completed for project {project_id}")
         return result
     except Exception as e:
@@ -178,7 +195,9 @@ def analyze_project_tech_stack(
     db: Session = Depends(get_db),
 ):
     """Analyze project-wide libraries and frameworks in a single request."""
-    logger.info(f"Received request to analyze unified tech stack for project: {project_id}")
+    logger.info(
+        f"Received request to analyze unified tech stack for project: {project_id}"
+    )
 
     service = AnalysisService(db)
     project = service.project_repo.get(project_id)
@@ -188,7 +207,9 @@ def analyze_project_tech_stack(
         raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
 
     try:
-        result = service.analyze_tech_stack(project_id, project.root_path, project.source_url)
+        result = service.analyze_tech_stack(
+            project_id, project.root_path, project.source_url
+        )
         logger.info(f"Unified tech-stack analysis completed for project {project_id}")
         return result
     except Exception as e:
@@ -196,11 +217,15 @@ def analyze_project_tech_stack(
         raise AnalysisError(str(e))
 
 
-@router.post("/{project_id}/contributors/{contributor_id}/analyze-tech-stack", status_code=200)
+@router.post(
+    "/{project_id}/contributors/{contributor_id}/analyze-tech-stack", status_code=200
+)
 def analyze_contributor_tech_stack(
     project_id: int,
     contributor_id: int,
-    include_transitive: bool = Query(False, description="Include transitive dependencies from lockfiles"),
+    include_transitive: bool = Query(
+        False, description="Include transitive dependencies from lockfiles"
+    ),
     db: Session = Depends(get_db),
 ):
     """Analyze contributor-scoped libraries and frameworks from touched files."""
@@ -242,7 +267,11 @@ def analyze_contributor_tech_stack(
         raise AnalysisError(str(e))
 
 
-@router.post("/github", response_model=Union[AnalysisResult, List[AnalysisResult]], status_code=201)
+@router.post(
+    "/github",
+    response_model=Union[AnalysisResult, List[AnalysisResult]],
+    status_code=201,
+)
 async def analyze_github(
     request: GitHubAnalysisRequest,
     current_user: User = Depends(get_current_user),
@@ -299,10 +328,14 @@ async def analyze_directory(
     path = Path(directory_path)
 
     if not path.exists():
-        raise HTTPException(status_code=404, detail=f"Directory not found: {directory_path}")
+        raise HTTPException(
+            status_code=404, detail=f"Directory not found: {directory_path}"
+        )
 
     if not path.is_dir():
-        raise HTTPException(status_code=400, detail=f"Path is not a directory: {directory_path}")
+        raise HTTPException(
+            status_code=400, detail=f"Path is not a directory: {directory_path}"
+        )
 
     try:
         service = AnalysisService(db)

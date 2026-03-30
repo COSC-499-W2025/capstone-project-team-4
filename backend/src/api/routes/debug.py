@@ -15,10 +15,10 @@ async def debug_project(project_id: int, db: Session = Depends(get_db)):
     """Debug endpoint to check project details."""
     project_repo = ProjectRepository(db)
     project = project_repo.get(project_id)
-    
+
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     return {
         "project_id": project.id,
         "project_name": project.name,
@@ -32,16 +32,16 @@ async def debug_project(project_id: int, db: Session = Depends(get_db)):
 async def debug_contributor(contributor_id: int, db: Session = Depends(get_db)):
     """Debug endpoint to check contributor details."""
     from src.repositories.contributor_repository import ContributorRepository
-    
+
     contributor_repo = ContributorRepository(db)
     contributor = contributor_repo.get(contributor_id)
-    
+
     if not contributor:
         raise HTTPException(status_code=404, detail="Contributor not found")
-    
+
     files = contributor_repo.get_with_files(contributor_id)
     files_count = len(files.files_modified) if files and files.files_modified else 0
-    
+
     return {
         "contributor_id": contributor.id,
         "name": contributor.name,

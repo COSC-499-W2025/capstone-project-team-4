@@ -70,6 +70,7 @@ class ResumeRepository(BaseRepository[ResumeItem]):
     def delete_by_project(self, project_id: int) -> int:
         """Delete all resume items for a project."""
         from sqlalchemy import delete
+
         stmt = delete(ResumeItem).where(ResumeItem.project_id == project_id)
         result = self.db.execute(stmt)
         self.db.commit()

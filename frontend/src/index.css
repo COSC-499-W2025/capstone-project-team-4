@@ -122,3 +122,6 @@
     @apply bg-background text-foreground;
   }
 }
+.scroll-container {
+  overscroll-behavior: contain;
+}

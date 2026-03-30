@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { getAccessToken } from '@/lib/auth';
 import {
   Select,
   SelectContent,
@@ -17,32 +18,41 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { 
-  Pencil, 
-  Users, 
-  Calendar, 
-  Code, 
-  FileText, 
+import {
+  Pencil,
+  Trash2,
+  Users,
+  Calendar,
+  Code,
+  FileText,
   ChevronRight,
   Plus,
   Minus,
   Loader2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  GitCompare,
 } from 'lucide-react';
 import EditProjectModal from '@/components/custom/Generator/EditProjectModal';
+import ContributorInsightsDialog from '@/components/custom/Generator/ContributorInsightsDialog';
+import SnapshotComparisonModal from '@/components/custom/Generator/SnapshotComparisonModal';
 
-const ProjectSummary = ({ projects, onUpdateProject }) => {
-  const [sortBy, setSortBy] = useState('contributions');
+const ProjectSummary = ({ projects, onUpdateProject, onDeleteProject }) => {
+  const [sortBy, setSortBy] = useState('date');
   const [editingProject, setEditingProject] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   
   // Contributor modal state
   const [contributorModalOpen, setContributorModalOpen] = useState(false);
+  const [contributorInsightsOpen, setContributorInsightsOpen] = useState(false);
   const [selectedProjectForContributors, setSelectedProjectForContributors] = useState(null);
   const [contributorData, setContributorData] = useState(null);
   const [contributorLoading, setContributorLoading] = useState(false);
   const [contributorError, setContributorError] = useState(null);
+
+  // Snapshot comparison modal state
+  const [snapshotProject, setSnapshotProject] = useState(null);
 
   // Expanded sections state - track which project indices have expanded sections
   const [expandedSections, setExpandedSections] = useState({});
@@ -137,8 +147,10 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
 
     try {
       // Fetch contributor details using THIS project's specific projectId
+      const token = getAccessToken();
       const response = await axios.get(
-        `/api/projects/${project.projectId}/contributors/default-branch-stats`
+        `/api/projects/${project.projectId}/contributors/default-branch-stats`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setContributorData(response.data);
     } catch (error) {
@@ -151,6 +163,16 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
     } finally {
       setContributorLoading(false);
     }
+  };
+
+  const handleContributorInsightsClick = (project) => {
+    if (!project.projectId) {
+      console.error('No projectId available for this project');
+      return;
+    }
+
+    setSelectedProjectForContributors(project);
+    setContributorInsightsOpen(true);
   };
 
   // Render expandable badge list
@@ -215,15 +237,63 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
       <div className="grid gap-4 md:grid-cols-2">
         {sortedProjects.map((project, index) => (
           <Card key={project.projectId || index} className="hover:shadow-lg transition-shadow relative">
-            {/* Edit Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleEdit(project, index)}
-              className="absolute top-2 right-2 h-8 w-8 p-0 hover:bg-blue-50"
-            >
-              <Pencil className="h-4 w-4 text-gray-500 hover:text-blue-600" />
-            </Button>
+            {/* Action Buttons */}
+            <div className="absolute top-2 right-2 flex items-center gap-1">
+              {project.projectId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSnapshotProject(project)}
+                  className="h-8 w-8 p-0 hover:bg-indigo-50"
+                  title="View project progress"
+                >
+                  <GitCompare className="h-4 w-4 text-gray-500 hover:text-indigo-600" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleEdit(project, index)}
+                className="h-8 w-8 p-0 hover:bg-blue-50"
+              >
+                <Pencil className="h-4 w-4 text-gray-500 hover:text-blue-600" />
+              </Button>
+              {project.projectId && onDeleteProject && (
+                confirmDeleteId === project.projectId ? (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => {
+                        onDeleteProject(project.projectId);
+                        setConfirmDeleteId(null);
+                      }}
+                    >
+                      Delete
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setConfirmDeleteId(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setConfirmDeleteId(project.projectId)}
+                    className="h-8 w-8 p-0 hover:bg-red-50"
+                    title="Delete project"
+                  >
+                    <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                  </Button>
+                )
+              )}
+            </div>
 
             <CardHeader>
               <CardTitle className="text-lg pr-8">{project.name}</CardTitle>
@@ -242,31 +312,48 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
                   </div>
 
                   {/* Contributors - CLICKABLE */}
-                  <div 
-                    className={`flex items-center gap-2 p-2 -m-2 rounded-lg transition-all ${
-                      project.projectId 
-                        ? 'cursor-pointer hover:bg-blue-50 group' 
-                        : ''
-                    }`}
-                    onClick={() => project.projectId && handleContributorClick(project)}
-                    role={project.projectId ? "button" : undefined}
-                    tabIndex={project.projectId ? 0 : undefined}
-                    onKeyDown={(e) => {
-                      if (project.projectId && (e.key === 'Enter' || e.key === ' ')) {
-                        handleContributorClick(project);
-                      }
-                    }}
-                    title={project.projectId ? "Click to view contributor details" : undefined}
-                  >
-                    <Users className="h-4 w-4 text-blue-500" />
-                    <div className="flex-1">
-                      <span className="text-gray-600 text-xs block">Contributors</span>
-                      <span className={`font-semibold ${project.projectId ? 'text-blue-600 group-hover:underline' : 'text-blue-600'}`}>
-                        {project.contributorCount || 0}
-                      </span>
+                  <div>
+                    <div 
+                      className={`flex items-center gap-2 p-2 -m-2 rounded-lg transition-all ${
+                        project.projectId 
+                          ? 'cursor-pointer hover:bg-blue-50 group' 
+                          : ''
+                      }`}
+                      onClick={() => project.projectId && handleContributorClick(project)}
+                      role={project.projectId ? "button" : undefined}
+                      tabIndex={project.projectId ? 0 : undefined}
+                      onKeyDown={(e) => {
+                        if (project.projectId && (e.key === 'Enter' || e.key === ' ')) {
+                          handleContributorClick(project);
+                        }
+                      }}
+                      title={project.projectId ? "Click to view contributor details" : undefined}
+                    >
+                      <Users className="h-4 w-4 text-blue-500" />
+                      <div className="flex-1">
+                        <span className="text-gray-600 text-xs block">Contributors</span>
+                        <span className={`font-semibold ${project.projectId ? 'text-blue-600 group-hover:underline' : 'text-blue-600'}`}>
+                          {project.contributorCount || 0}
+                        </span>
+                      </div>
+                      {project.projectId && (
+                        <ChevronRight className="h-4 w-4 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      )}
                     </div>
+
                     {project.projectId && (
-                      <ChevronRight className="h-4 w-4 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <Button
+                        type="button"
+                        size="default"
+                        variant="outline"
+                        className="mt-3 min-h-11 w-full whitespace-normal border-2 border-gray-300 bg-gray-100 px-3 py-2 text-sm font-semibold leading-tight text-gray-800 shadow-sm transition-colors hover:bg-gray-200"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleContributorInsightsClick(project);
+                        }}
+                      >
+                        Open Contributor Insights
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -426,6 +513,13 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
         />
       )}
 
+      {/* Snapshot Comparison Modal */}
+      <SnapshotComparisonModal
+        isOpen={!!snapshotProject}
+        onClose={() => setSnapshotProject(null)}
+        project={snapshotProject}
+      />
+
       {/* Contributors Detail Modal */}
       <Dialog open={contributorModalOpen} onOpenChange={setContributorModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
@@ -500,14 +594,14 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
                       </div>
 
                       {/* Progress bar showing contribution proportion */}
-                      {contributorData.items.length > 0 && (
+                      {contributorData.items.length > 0 && contributorData.items[0].total_lines_changed > 0 && (
                         <div className="mt-2">
                           <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                            <div 
+                            <div
                               className="h-full bg-blue-500 rounded-full transition-all"
                               style={{
                                 width: `${Math.min(
-                                  (contributor.total_lines_changed / 
+                                  (contributor.total_lines_changed /
                                     contributorData.items[0].total_lines_changed) * 100,
                                   100
                                 )}%`
@@ -530,6 +624,12 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ContributorInsightsDialog
+        open={contributorInsightsOpen}
+        onOpenChange={setContributorInsightsOpen}
+        project={selectedProjectForContributors}
+      />
     </div>
   );
 };

@@ -1,21 +1,21 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import Generator from '@/pages/Generator';
+import { render, screen, fireEvent } from "@testing-library/react";
+import { BrowserRouter } from "react-router-dom";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import Generator from "@/pages/Generator";
 
 /* ------------------ mocks ------------------ */
 
-vi.mock('@/hooks/useFileUpload', () => ({
+vi.mock("@/hooks/useFileUpload", () => ({
   useFileUpload: vi.fn(),
 }));
 
-import { useFileUpload } from '@/hooks/useFileUpload';
+import { useFileUpload } from "@/hooks/useFileUpload";
 
-vi.mock('@/components/Navigation', () => ({
+vi.mock("@/components/Navigation", () => ({
   default: () => <nav data-testid="navigation">Navigation</nav>,
 }));
 
-vi.mock('@/components/custom/Generator/PageHeader', () => ({
+vi.mock("@/components/custom/Generator/PageHeader", () => ({
   default: ({ title, subtitle }) => (
     <>
       <h1>{title}</h1>
@@ -24,15 +24,15 @@ vi.mock('@/components/custom/Generator/PageHeader', () => ({
   ),
 }));
 
-vi.mock('@/components/custom/Generator/UploadSection', () => ({
+vi.mock("@/components/custom/Generator/UploadSection", () => ({
   default: ({ onFileDrop }) => (
-    <button onClick={() => onFileDrop([{ name: 'test.zip' }])}>
+    <button onClick={() => onFileDrop([{ name: "test.zip" }])}>
       Upload File
     </button>
   ),
 }));
 
-vi.mock('@/components/custom/Generator/ConfirmFilesSection', () => ({
+vi.mock("@/components/custom/Generator/ConfirmFilesSection", () => ({
   default: ({ files, onDelete, onSubmit, isLoading }) =>
     files.length ? (
       <div data-testid="confirm-section">
@@ -46,10 +46,11 @@ vi.mock('@/components/custom/Generator/ConfirmFilesSection', () => ({
 }));
 
 vi.mock('@/components/custom/Generator/SummarySection', () => ({
-  default: ({ projectData, onUpdateProject }) =>
+  default: ({ projectData, onUpdateProject, hasMore, totalCount }) =>
     projectData ? (
       <div data-testid="summary-section">
         <p>Projects: {projectData.length}</p>
+        {hasMore && <p data-testid="has-more">Showing 4 of {totalCount}</p>}
         <button onClick={() => onUpdateProject(0, { name: 'Updated' })}>
           Edit Project
         </button>
@@ -57,7 +58,7 @@ vi.mock('@/components/custom/Generator/SummarySection', () => ({
     ) : null,
 }));
 
-vi.mock('@/components/custom/Generator/DataPrivacyConsent', () => ({
+vi.mock("@/components/custom/Generator/DataPrivacyConsent", () => ({
   default: ({ isOpen, onAccept }) =>
     isOpen ? (
       <div data-testid="privacy-modal">
@@ -70,85 +71,102 @@ const renderPage = () =>
   render(
     <BrowserRouter>
       <Generator />
-    </BrowserRouter>
+    </BrowserRouter>,
   );
 
 /* ------------------ tests ------------------ */
 
-describe('Generator Page', () => {
+describe("Generator Page", () => {
   let mockState;
 
   beforeEach(() => {
     mockState = {
       uploadedFiles: [],
+      customProjectNames: [],
       projectData: null,
+      recentProjectData: null,
       isLoading: false,
       showConsent: false,
+      hasMore: false,
+      totalProjectCount: 0,
       setShowConsent: vi.fn(),
-      handleFileDrop: vi.fn(files => {
+      handleFileDrop: vi.fn((files) => {
         mockState.uploadedFiles = files;
+      }),
+      handleProjectNameChange: vi.fn((index, name) => {
+        mockState.customProjectNames[index] = name;
       }),
       handleDeleteFile: vi.fn(() => {
         mockState.uploadedFiles = [];
       }),
-      handleSubmit: vi.fn(cb => cb()),
+      handleSubmit: vi.fn((cb) => cb()),
       handleConsentAccept: vi.fn(() => {
         mockState.projectData = [{}];
+        mockState.recentProjectData = [{}];
         mockState.showConsent = false;
       }),
       processFiles: vi.fn(),
       clearAllData: vi.fn(),
       handleUpdateProject: vi.fn(),
+      handleDeleteProject: vi.fn(),
     };
 
     useFileUpload.mockImplementation(() => mockState);
   });
 
-  it('renders header and navigation', () => {
+  it("renders header and navigation", () => {
     renderPage();
-    expect(screen.getByText('Resume Generator')).toBeInTheDocument();
-    expect(screen.getByTestId('navigation')).toBeInTheDocument();
+    expect(screen.getByText("Coding Project Analyzer")).toBeInTheDocument();
+    expect(screen.getByTestId("navigation")).toBeInTheDocument();
   });
 
-  it('shows confirm section after upload', () => {
-  const { rerender } = renderPage();
+  it("shows confirm section after upload", () => {
+    const { rerender } = renderPage();
 
-  fireEvent.click(screen.getByText('Upload File'));
+    fireEvent.click(screen.getByText("Upload File"));
 
-  // re-render so Generator reads updated mockState.uploadedFiles
-  rerender(
-    <BrowserRouter>
-      <Generator />
-    </BrowserRouter>
-  );
+    // re-render so Generator reads updated mockState.uploadedFiles
+    rerender(
+      <BrowserRouter>
+        <Generator />
+      </BrowserRouter>,
+    );
 
-  expect(screen.getByTestId('confirm-section')).toBeInTheDocument();
-});
-
-
-  it('shows privacy modal on submit', () => {
-    renderPage();
-    fireEvent.click(screen.getByText('Upload File'));
-    mockState.showConsent = true;
-    renderPage();
-    expect(screen.getByTestId('privacy-modal')).toBeInTheDocument();
+    expect(screen.getByTestId("confirm-section")).toBeInTheDocument();
   });
 
-  it('shows summary after accepting consent', () => {
+  it("shows privacy modal on submit", () => {
     renderPage();
-    fireEvent.click(screen.getByText('Upload File'));
+    fireEvent.click(screen.getByText("Upload File"));
     mockState.showConsent = true;
     renderPage();
-    fireEvent.click(screen.getByText('Accept'));
+    expect(screen.getByTestId("privacy-modal")).toBeInTheDocument();
+  });
+
+  it("shows summary after accepting consent", () => {
     renderPage();
-    expect(screen.getByTestId('summary-section')).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Upload File"));
+    mockState.showConsent = true;
+    renderPage();
+    fireEvent.click(screen.getByText("Accept"));
+    renderPage();
+    expect(screen.getByTestId("summary-section")).toBeInTheDocument();
+  });
+
+  it('passes hasMore and totalCount to SummarySection when there are more than 4 projects', () => {
+    mockState.recentProjectData = Array.from({ length: 4 }, (_, i) => ({ name: `P${i}` }));
+    mockState.hasMore = true;
+    mockState.totalProjectCount = 7;
+    renderPage();
+    expect(screen.getByTestId('has-more')).toBeInTheDocument();
+    expect(screen.getByText('Showing 4 of 7')).toBeInTheDocument();
   });
 
   it('calls clearAllData on restart confirm', () => {
     global.confirm = vi.fn(() => true);
     mockState.uploadedFiles = [{}];
     renderPage();
-    fireEvent.click(screen.getByText('Restart'));
+    fireEvent.click(screen.getByText("Restart"));
     expect(mockState.clearAllData).toHaveBeenCalled();
   });
 });

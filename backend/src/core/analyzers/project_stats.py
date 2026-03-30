@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, List, Any
@@ -56,8 +55,10 @@ def _is_ignored(path: Path, root: Path = None) -> bool:
             pass
 
     # Fallback: only check directory names, excluding system paths
-    SYSTEM_DIRS = {'/', 'tmp', 'temp', 'var', 'home', 'Users', 'app'}
-    return any(part in SKIP_DIRECTORIES and part not in SYSTEM_DIRS for part in path.parts)
+    SYSTEM_DIRS = {"/", "tmp", "temp", "var", "home", "Users", "app"}
+    return any(
+        part in SKIP_DIRECTORIES and part not in SYSTEM_DIRS for part in path.parts
+    )
 
 
 def _should_analyze(path: Path, root: Path = None) -> bool:
@@ -108,7 +109,9 @@ def calculate_project_stats(
 
     # Calculate total lines of code
     total_lines = sum(
-        f.get("lines_of_code", 0) for f in file_list if f.get("lines_of_code") is not None
+        f.get("lines_of_code", 0)
+        for f in file_list
+        if f.get("lines_of_code") is not None
     )
 
     # Duration

@@ -15,8 +15,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 import yaml
 
@@ -36,48 +35,38 @@ LIBRARY_TO_FRAMEWORK_MAP: Dict[str, str] = {
     "react-router-dom": "React",
     "react-redux": "React",
     "@reduxjs/toolkit": "React",
-
     # Next.js
     "next": "Next.js",
     "@next/font": "Next.js",
     "@next/mdx": "Next.js",
-
     # Vue ecosystem
     "vue": "Vue",
     "vue-router": "Vue",
     "vuex": "Vue",
     "pinia": "Vue",
-
     # Nuxt.js
     "nuxt": "Nuxt.js",
     "@nuxt/kit": "Nuxt.js",
-
     # Angular
     "@angular/core": "Angular",
     "@angular/common": "Angular",
     "@angular/router": "Angular",
     "@angular/forms": "Angular",
-
     # Svelte ecosystem
     "svelte": "Svelte",
     "@sveltejs/kit": "SvelteKit",
-
     # Express
     "express": "Express",
-
     # Fastify
     "fastify": "Fastify",
-
     # NestJS
     "@nestjs/core": "NestJS",
     "@nestjs/common": "NestJS",
-
     # Python frameworks
     "django": "Django",
     "flask": "Flask",
     "fastapi": "FastAPI",
     "starlette": "FastAPI",
-
     # Python ML/Data
     "tensorflow": "TensorFlow",
     "tf": "TensorFlow",
@@ -90,7 +79,6 @@ LIBRARY_TO_FRAMEWORK_MAP: Dict[str, str] = {
     "numpy": "NumPy",
     "streamlit": "Streamlit",
     "gradio": "Gradio",
-
     # Testing frameworks
     "jest": "Jest",
     "vitest": "Vitest",
@@ -99,7 +87,6 @@ LIBRARY_TO_FRAMEWORK_MAP: Dict[str, str] = {
     "playwright": "Playwright",
     "@playwright/test": "Playwright",
     "mocha": "Mocha",
-
     # UI Libraries
     "@mui/material": "Material-UI",
     "@material-ui/core": "Material-UI",
@@ -107,35 +94,29 @@ LIBRARY_TO_FRAMEWORK_MAP: Dict[str, str] = {
     "@chakra-ui/react": "Chakra UI",
     "@mantine/core": "Mantine",
     "tailwindcss": "Tailwind CSS",
-
     # State management
     "redux": "Redux",
     "mobx": "MobX",
     "zustand": "Zustand",
     "recoil": "Recoil",
-
     # GraphQL
     "@apollo/client": "Apollo Client",
     "apollo-server": "Apollo Server",
     "graphql": "GraphQL",
-
     # ORM
     "prisma": "Prisma",
     "typeorm": "TypeORM",
     "sequelize": "Sequelize",
     "mongoose": "Mongoose",
     "sqlalchemy": "SQLAlchemy",
-
     # Mobile
     "react-native": "React Native",
     "expo": "Expo",
     "@ionic/core": "Ionic",
     "flutter": "Flutter",
-
     # Desktop
     "electron": "Electron",
     "@tauri-apps/api": "Tauri",
-
     # Build tools (as frameworks)
     "webpack": "Webpack",
     "vite": "Vite",
@@ -154,57 +135,44 @@ TOOL_TO_FRAMEWORK_MAP: Dict[str, str] = {
     "next.config.js": "Next.js",
     "next.config.mjs": "Next.js",
     "next.config.ts": "Next.js",
-
     # Nuxt.js
     "nuxt.config.js": "Nuxt.js",
     "nuxt.config.ts": "Nuxt.js",
-
     # Angular
     "angular.json": "Angular",
-
     # SvelteKit
     "svelte.config.js": "SvelteKit",
     "svelte.config.ts": "SvelteKit",
-
     # Vite
     "vite.config.js": "Vite",
     "vite.config.ts": "Vite",
     "vite.config.mjs": "Vite",
-
     # Webpack
     "webpack.config.js": "Webpack",
     "webpack.config.ts": "Webpack",
-
     # NestJS
     "nest-cli.json": "NestJS",
-
     # Tailwind CSS
     "tailwind.config.js": "Tailwind CSS",
     "tailwind.config.ts": "Tailwind CSS",
     "tailwind.config.cjs": "Tailwind CSS",
-
     # Jest
     "jest.config.js": "Jest",
     "jest.config.ts": "Jest",
     "jest.config.json": "Jest",
-
     # Vitest
     "vitest.config.js": "Vitest",
     "vitest.config.ts": "Vitest",
-
     # Pytest
     "pytest.ini": "Pytest",
     "conftest.py": "Pytest",
-
     # Cypress
     "cypress.json": "Cypress",
     "cypress.config.js": "Cypress",
     "cypress.config.ts": "Cypress",
-
     # Playwright
     "playwright.config.js": "Playwright",
     "playwright.config.ts": "Playwright",
-
     # Docker (as a "framework" for DevOps)
     "Dockerfile": "Docker",
     "docker-compose.yml": "Docker",
@@ -219,44 +187,52 @@ TOOL_TO_FRAMEWORK_MAP: Dict[str, str] = {
 
 LANGUAGE_FRAMEWORK_PRIORITY: Dict[str, List[str]] = {
     "TypeScript": [
-        "React", "Vue", "Angular", "Svelte", "Next.js", "NestJS",
-        "Express", "Fastify", "Vite", "Jest", "Vitest"
+        "React",
+        "Vue",
+        "Angular",
+        "Svelte",
+        "Next.js",
+        "NestJS",
+        "Express",
+        "Fastify",
+        "Vite",
+        "Jest",
+        "Vitest",
     ],
     "JavaScript": [
-        "React", "Vue", "Angular", "Svelte", "Next.js", "Express",
-        "Fastify", "Webpack", "Jest", "Mocha"
+        "React",
+        "Vue",
+        "Angular",
+        "Svelte",
+        "Next.js",
+        "Express",
+        "Fastify",
+        "Webpack",
+        "Jest",
+        "Mocha",
     ],
     "Python": [
-        "Django", "Flask", "FastAPI", "Pytest", "TensorFlow", "PyTorch",
-        "Keras", "Scikit-learn", "Pandas", "NumPy", "SQLAlchemy"
+        "Django",
+        "Flask",
+        "FastAPI",
+        "Pytest",
+        "TensorFlow",
+        "PyTorch",
+        "Keras",
+        "Scikit-learn",
+        "Pandas",
+        "NumPy",
+        "SQLAlchemy",
     ],
-    "Java": [
-        "Spring Boot", "Spring", "JUnit", "Hibernate", "Maven", "Gradle"
-    ],
-    "Kotlin": [
-        "Spring Boot", "Ktor", "Gradle"
-    ],
-    "Ruby": [
-        "Rails", "Sinatra", "RSpec"
-    ],
-    "PHP": [
-        "Laravel", "Symfony", "PHPUnit"
-    ],
-    "Go": [
-        "Gin", "Echo", "Fiber", "GORM"
-    ],
-    "Rust": [
-        "Actix", "Rocket", "Axum", "Tokio"
-    ],
-    "C#": [
-        "ASP.NET Core", "Entity Framework", "xUnit", "NUnit"
-    ],
-    "Swift": [
-        "SwiftUI", "UIKit"
-    ],
-    "Dart": [
-        "Flutter"
-    ],
+    "Java": ["Spring Boot", "Spring", "JUnit", "Hibernate", "Maven", "Gradle"],
+    "Kotlin": ["Spring Boot", "Ktor", "Gradle"],
+    "Ruby": ["Rails", "Sinatra", "RSpec"],
+    "PHP": ["Laravel", "Symfony", "PHPUnit"],
+    "Go": ["Gin", "Echo", "Fiber", "GORM"],
+    "Rust": ["Actix", "Rocket", "Axum", "Tokio"],
+    "C#": ["ASP.NET Core", "Entity Framework", "xUnit", "NUnit"],
+    "Swift": ["SwiftUI", "UIKit"],
+    "Dart": ["Flutter"],
 }
 
 
@@ -380,9 +356,7 @@ class CrossValidator:
         return results
 
     def _validate_single_framework(
-        self,
-        fw_name: str,
-        original_confidence: float
+        self, fw_name: str, original_confidence: float
     ) -> CrossValidationResult:
         """
         Validate a single framework against libraries and tools.
@@ -467,9 +441,7 @@ class CrossValidator:
                 if expected_fw not in self._framework_names:
                     # Found a library that suggests a framework we didn't detect
                     gap_fill = self._create_gap_fill(
-                        expected_fw,
-                        source_type="library",
-                        source_name=lib_name
+                        expected_fw, source_type="library", source_name=lib_name
                     )
                     if gap_fill:
                         gap_fills.append(gap_fill)
@@ -480,9 +452,7 @@ class CrossValidator:
             if config_file.lower() in self._tool_configs:
                 if expected_fw not in self._framework_names:
                     gap_fill = self._create_gap_fill(
-                        expected_fw,
-                        source_type="tool",
-                        source_name=config_file
+                        expected_fw, source_type="tool", source_name=config_file
                     )
                     if gap_fill:
                         gap_fills.append(gap_fill)
@@ -492,10 +462,7 @@ class CrossValidator:
         return gap_fills
 
     def _create_gap_fill(
-        self,
-        fw_name: str,
-        source_type: str,
-        source_name: str
+        self, fw_name: str, source_type: str, source_name: str
     ) -> Optional[Dict[str, Any]]:
         """Create a gap-filled framework entry."""
         # Calculate confidence based on supporting evidence
@@ -584,24 +551,29 @@ class CrossValidator:
             "original_frameworks": len(self.frameworks),
             "gap_filled_frameworks": len(gap_fills),
             "frameworks_boosted": sum(
-                1 for r in self._validation_results.values()
+                1
+                for r in self._validation_results.values()
                 if r.boosted_confidence > r.original_confidence and not r.is_gap_filled
             ),
             "frameworks_penalized": sum(
-                1 for r in self._validation_results.values()
+                1
+                for r in self._validation_results.values()
                 if r.boosted_confidence < r.original_confidence
             ),
             "validation_sources_used": {
                 "library": sum(
-                    1 for r in self._validation_results.values()
+                    1
+                    for r in self._validation_results.values()
                     if any("library:" in s for s in r.validation_sources)
                 ),
                 "tool": sum(
-                    1 for r in self._validation_results.values()
+                    1
+                    for r in self._validation_results.values()
                     if any("tool:" in s for s in r.validation_sources)
                 ),
                 "language": sum(
-                    1 for r in self._validation_results.values()
+                    1
+                    for r in self._validation_results.values()
                     if any("language:" in s for s in r.validation_sources)
                 ),
             },
@@ -637,6 +609,7 @@ class CrossValidator:
 # =============================================================================
 # Convenience functions
 # =============================================================================
+
 
 def cross_validate_detections(
     languages: List[str],

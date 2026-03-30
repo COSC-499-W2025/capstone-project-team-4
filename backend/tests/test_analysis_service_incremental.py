@@ -9,8 +9,8 @@ import src.services.analysis_service as analysis_service_mod
 from src.services.analysis_service import AnalysisService
 
 from dataclasses import dataclass
-from typing import Optional
 from datetime import datetime, timezone
+
 
 @pytest.fixture(autouse=True)
 def _patch_analysis_result(monkeypatch):
@@ -22,16 +22,20 @@ def _patch_analysis_result(monkeypatch):
             super().__init__(**kwargs)
 
     # Replace the Pydantic model with our dummy for tests
-    monkeypatch.setattr(analysis_service_mod, "AnalysisResult", DummyAnalysisResult, raising=True)
+    monkeypatch.setattr(
+        analysis_service_mod, "AnalysisResult", DummyAnalysisResult, raising=True
+    )
+
 
 @dataclass
 class ProjectStub:
     id: int
     name: str = "proj"
     source_type: str = "zip"
-    source_url: str = ""         
+    source_url: str = ""
     analysis_key: str = "analysiskey"
     content_hash: str = "treehash"
+
 
 # ---------- Settings patch (do NOT mutate pydantic settings) ----------
 class SettingsProxy:
@@ -64,6 +68,7 @@ def call_run_pipeline(svc, **kwargs):
     filtered = {k: v for k, v in kwargs.items() if k in sig.parameters}
     return svc._run_analysis_pipeline(**filtered)
 
+
 def sha256_file(p: Path) -> str:
     h = hashlib.sha256()
     h.update(p.read_bytes())
@@ -88,14 +93,31 @@ class FI:
 
 def stub_heavy_pipeline(monkeypatch, svc: AnalysisService):
     """Make the pipeline fast and predictable."""
-    monkeypatch.setattr("src.services.analysis_service.git_analyze_contributors", lambda *a, **k: [])
-    monkeypatch.setattr("src.services.analysis_service.project_analysis_to_dict", lambda x: x)
-    monkeypatch.setattr("src.services.analysis_service.detect_libraries_recursive", lambda *a, **k: {"libraries": []})
-    monkeypatch.setattr("src.services.analysis_service.detect_tools_recursive", lambda *a, **k: {"tools": []})
-    monkeypatch.setattr("src.services.analysis_service.ProjectAnalyzer.analyze_project_languages", lambda *a, **k: [])
-    monkeypatch.setattr(svc, "_detect_frameworks_best", lambda *a, **k: [], raising=False)
+    monkeypatch.setattr(
+        "src.services.analysis_service.git_analyze_contributors", lambda *a, **k: []
+    )
+    monkeypatch.setattr(
+        "src.services.analysis_service.project_analysis_to_dict", lambda x: x
+    )
+    monkeypatch.setattr(
+        "src.services.analysis_service.detect_libraries_recursive",
+        lambda *a, **k: {"libraries": []},
+    )
+    monkeypatch.setattr(
+        "src.services.analysis_service.detect_tools_recursive",
+        lambda *a, **k: {"tools": []},
+    )
+    monkeypatch.setattr(
+        "src.services.analysis_service.ProjectAnalyzer.analyze_project_languages",
+        lambda *a, **k: [],
+    )
+    monkeypatch.setattr(
+        svc, "_detect_frameworks_best", lambda *a, **k: [], raising=False
+    )
 
-    monkeypatch.setattr(svc, "_detect_skills", lambda *a, **k: {"skill_categories": {}}, raising=False)
+    monkeypatch.setattr(
+        svc, "_detect_skills", lambda *a, **k: {"skill_categories": {}}, raising=False
+    )
     monkeypatch.setattr(svc, "_enhance_frameworks", lambda *a, **k: [], raising=False)
 
     # DB saves stubbed
@@ -108,10 +130,16 @@ def stub_heavy_pipeline(monkeypatch, svc: AnalysisService):
     monkeypatch.setattr(svc, "_save_tools", MagicMock(), raising=False)
 
     # Hash helper (name varies; patch safely)
-    monkeypatch.setattr(svc, "_compute_project_tree_hash", lambda *a, **k: ("treehash", "analysiskey"), raising=False)
-    
+    monkeypatch.setattr(
+        svc,
+        "_compute_project_tree_hash",
+        lambda *a, **k: ("treehash", "analysiskey"),
+        raising=False,
+    )
+
     svc.project_repo.get_latest_by_analysis_key = MagicMock(return_value=None)
     svc.project_repo.create_project = MagicMock(return_value=ProjectStub(id=999))
+
 
 # ---------- Tests ----------
 def test_incremental_disabled_when_use_cache_false(tmp_path, monkeypatch):
@@ -125,7 +153,10 @@ def test_incremental_disabled_when_use_cache_false(tmp_path, monkeypatch):
     # real file exists
     (tmp_path / "a.txt").write_text("hello")
     file_info_list = [FI("a.txt", tmp_path / "a.txt")]
-    monkeypatch.setattr("src.services.analysis_service.collect_all_file_info", lambda *a, **k: file_info_list)
+    monkeypatch.setattr(
+        "src.services.analysis_service.collect_all_file_info",
+        lambda *a, **k: file_info_list,
+    )
 
     call_run_pipeline(
         svc,
@@ -152,7 +183,10 @@ def test_no_base_project_no_clone(tmp_path, monkeypatch):
 
     (tmp_path / "a.txt").write_text("hello")
     file_info_list = [FI("a.txt", tmp_path / "a.txt")]
-    monkeypatch.setattr("src.services.analysis_service.collect_all_file_info", lambda *a, **k: file_info_list)
+    monkeypatch.setattr(
+        "src.services.analysis_service.collect_all_file_info",
+        lambda *a, **k: file_info_list,
+    )
 
     svc.project_repo.get_latest_by_name = MagicMock(return_value=None)
 
@@ -185,13 +219,16 @@ def test_base_rejected_when_overlap_too_small(tmp_path, monkeypatch):
         p.write_text(f"content-{i}")
         file_info_list.append(FI(f"f{i}.txt", p))
 
-    monkeypatch.setattr("src.services.analysis_service.collect_all_file_info", lambda *a, **k: file_info_list)
+    monkeypatch.setattr(
+        "src.services.analysis_service.collect_all_file_info",
+        lambda *a, **k: file_info_list,
+    )
 
-    svc.project_repo.get_latest_by_name = MagicMock(
-    return_value=ProjectStub(id=99)
-)
-    
-    svc.file_repo.get_path_hash_map = MagicMock(return_value={})  # overlap 0.0 => reject
+    svc.project_repo.get_latest_by_name = MagicMock(return_value=ProjectStub(id=99))
+
+    svc.file_repo.get_path_hash_map = MagicMock(
+        return_value={}
+    )  # overlap 0.0 => reject
 
     call_run_pipeline(
         svc,
@@ -227,12 +264,14 @@ def test_clone_called_when_overlap_sufficient(tmp_path, monkeypatch):
         FI("c.txt", tmp_path / "c.txt"),
         FI("d.txt", tmp_path / "d.txt"),
     ]
-    monkeypatch.setattr("src.services.analysis_service.collect_all_file_info", lambda *a, **k: file_info_list)
+    monkeypatch.setattr(
+        "src.services.analysis_service.collect_all_file_info",
+        lambda *a, **k: file_info_list,
+    )
 
     svc.project_repo.get_latest_by_name = MagicMock(
-    return_value=ProjectStub(id=42, name="proj", source_type="zip", source_url="")
+        return_value=ProjectStub(id=42, name="proj", source_type="zip", source_url="")
     )
-    
 
     base_map = {
         "a.txt": sha256_file(tmp_path / "a.txt"),
@@ -241,8 +280,8 @@ def test_clone_called_when_overlap_sufficient(tmp_path, monkeypatch):
     svc.file_repo.get_path_hash_map = MagicMock(return_value=base_map)
 
     svc.project_repo.create_project = MagicMock(
-    return_value=ProjectStub(id=99, name="proj", source_type="zip", source_url="")
-)
+        return_value=ProjectStub(id=99, name="proj", source_type="zip", source_url="")
+    )
 
     call_run_pipeline(
         svc,
@@ -277,16 +316,19 @@ def test_complexity_only_runs_on_delta_paths(tmp_path, monkeypatch):
         FI("same.py", tmp_path / "same.py"),
         FI("changed.py", tmp_path / "changed.py"),
     ]
-    monkeypatch.setattr("src.services.analysis_service.collect_all_file_info", lambda *a, **k: file_info_list)
-
-    svc.project_repo.create_project = MagicMock(
-    return_value=ProjectStub(id=1, name="proj", source_type="zip", source_url="")
-)
-    svc.file_repo.get_path_hash_map = MagicMock(return_value={"same.py": sha256_file(tmp_path / "same.py")})
-
-    svc.project_repo.create_project = MagicMock(
-    return_value=ProjectStub(id=2)
+    monkeypatch.setattr(
+        "src.services.analysis_service.collect_all_file_info",
+        lambda *a, **k: file_info_list,
     )
+
+    svc.project_repo.create_project = MagicMock(
+        return_value=ProjectStub(id=1, name="proj", source_type="zip", source_url="")
+    )
+    svc.file_repo.get_path_hash_map = MagicMock(
+        return_value={"same.py": sha256_file(tmp_path / "same.py")}
+    )
+
+    svc.project_repo.create_project = MagicMock(return_value=ProjectStub(id=2))
 
     captured = {}
 
@@ -294,7 +336,9 @@ def test_complexity_only_runs_on_delta_paths(tmp_path, monkeypatch):
         captured["paths"] = list(paths)
         return {"functions": []}
 
-    monkeypatch.setattr("src.services.analysis_service.analyze_project", fake_analyze_project)
+    monkeypatch.setattr(
+        "src.services.analysis_service.analyze_project", fake_analyze_project
+    )
 
     call_run_pipeline(
         svc,
@@ -326,15 +370,16 @@ def test_save_files_only_saves_delta(tmp_path, monkeypatch):
         FI("same.txt", tmp_path / "same.txt"),
         FI("new.txt", tmp_path / "new.txt"),
     ]
-    monkeypatch.setattr("src.services.analysis_service.collect_all_file_info", lambda *a, **k: file_info_list)
+    monkeypatch.setattr(
+        "src.services.analysis_service.collect_all_file_info",
+        lambda *a, **k: file_info_list,
+    )
 
-    svc.project_repo.get_latest_by_name = MagicMock(
-    return_value=ProjectStub(id=10)
+    svc.project_repo.get_latest_by_name = MagicMock(return_value=ProjectStub(id=10))
+    svc.file_repo.get_path_hash_map = MagicMock(
+        return_value={"same.txt": sha256_file(tmp_path / "same.txt")}
     )
-    svc.file_repo.get_path_hash_map = MagicMock(return_value={"same.txt": sha256_file(tmp_path / "same.txt")})
-    svc.project_repo.create_project = MagicMock(
-    return_value=ProjectStub(id=11)
-    )
+    svc.project_repo.create_project = MagicMock(return_value=ProjectStub(id=11))
 
     save_files = MagicMock()
     monkeypatch.setattr(svc, "_save_files", save_files, raising=False)

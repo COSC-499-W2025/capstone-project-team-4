@@ -20,7 +20,10 @@ class SnapshotComparison(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     project_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer,
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     current_snapshot_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("project_snapshots.id", ondelete="CASCADE"), nullable=False
@@ -29,7 +32,9 @@ class SnapshotComparison(Base):
         Integer, ForeignKey("project_snapshots.id", ondelete="CASCADE"), nullable=False
     )
     payload_json: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, index=True
+    )
 
     project: Mapped["Project"] = relationship("Project")
     current_snapshot: Mapped["ProjectSnapshot"] = relationship(

@@ -16,7 +16,9 @@ class ComplexityRepository(BaseRepository[Complexity]):
         """Initialize complexity repository."""
         super().__init__(Complexity, db)
 
-    def get_by_project(self, project_id: int, skip: int = 0, limit: int = 1000) -> List[Complexity]:
+    def get_by_project(
+        self, project_id: int, skip: int = 0, limit: int = 1000
+    ) -> List[Complexity]:
         """Get all complexity records for a project."""
         stmt = (
             select(Complexity)
@@ -27,7 +29,9 @@ class ComplexityRepository(BaseRepository[Complexity]):
         )
         return list(self.db.scalars(stmt).all())
 
-    def get_high_complexity(self, project_id: int, threshold: int = 10) -> List[Complexity]:
+    def get_high_complexity(
+        self, project_id: int, threshold: int = 10
+    ) -> List[Complexity]:
         """Get functions with high complexity."""
         stmt = (
             select(Complexity)
@@ -71,7 +75,9 @@ class ComplexityRepository(BaseRepository[Complexity]):
             "max_complexity": max(complexity_values),
             "min_complexity": min(complexity_values),
             "high_complexity_count": len([c for c in complexity_values if c > 10]),
-            "medium_complexity_count": len([c for c in complexity_values if 5 <= c <= 10]),
+            "medium_complexity_count": len(
+                [c for c in complexity_values if 5 <= c <= 10]
+            ),
             "low_complexity_count": len([c for c in complexity_values if c < 5]),
         }
 
@@ -105,8 +111,9 @@ class ComplexityRepository(BaseRepository[Complexity]):
         )
         return self.create(complexity)
 
-    def create_complexities_bulk(self, project_id: int, complexity_data: List[dict]) -> List[Complexity]:
-
+    def create_complexities_bulk(
+        self, project_id: int, complexity_data: List[dict]
+    ) -> List[Complexity]:
         """Create multiple complexity records efficiently."""
         complexities = []
         for data in complexity_data:
@@ -123,10 +130,23 @@ class ComplexityRepository(BaseRepository[Complexity]):
 
     def count_by_project(self, project_id: int) -> int:
         """Count complexity records in a project."""
-        stmt = select(func.count(Complexity.id)).where(Complexity.project_id == project_id)
+        stmt = select(func.count(Complexity.id)).where(
+            Complexity.project_id == project_id
+        )
         return self.db.scalar(stmt) or 0
 
-    def get_by_project_and_paths(self, project_id: int, paths: set[str]) -> list[Complexity]:
+    def delete_by_project(self, project_id: int) -> int:
+        """Delete all complexity rows for a project."""
+        from sqlalchemy import delete
+
+        stmt = delete(Complexity).where(Complexity.project_id == project_id)
+        result = self.db.execute(stmt)
+        self.db.commit()
+        return result.rowcount
+
+    def get_by_project_and_paths(
+        self, project_id: int, paths: set[str]
+    ) -> list[Complexity]:
         if not paths:
             return []
         stmt = (

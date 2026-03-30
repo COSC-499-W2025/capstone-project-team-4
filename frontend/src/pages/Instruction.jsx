@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import InstructionHeader from '@/components/custom/Instruction/InstructionHeader';
 import StepsGrid from '@/components/custom/Instruction/StepsGrid';
+import { isAuthenticated } from '@/lib/auth';
 
 const Main = () => {
   const navigate = useNavigate();
 
   const handleGetStarted = () => {
-    navigate('/generate');
+    navigate(isAuthenticated() ? '/generate' : '/login');
   };
 
   return (

@@ -2,7 +2,6 @@ from __future__ import annotations
 from pathlib import Path
 import zipfile
 import os
-import sys
 import platform
 import pytest
 
@@ -14,6 +13,7 @@ def make_zip_with_entries(path: Path, entries: dict[str, bytes]) -> None:
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name, data in entries.items():
             zf.writestr(name, data)
+
 
 def make_empty_zip(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -59,7 +59,9 @@ def test_validate_zip_crc_error(tmp_path: Path):
     assert ok is False
     assert any(("crc error" in e) or ("bad zip file" in e) for e in errs)
 
+
 # adding extra test cases below
+
 
 def test_empty_zip_is_invalid_or_warn(tmp_path: Path):
     """An empty ZIP should be detected as an error or at least produce a warning."""
@@ -90,8 +92,6 @@ def test_absolute_path_entry_is_rejected(tmp_path: Path):
     assert any("absolute path" in e.lower() for e in errs)
 
 
-
-
 def test_empty_file_detection(tmp_path: Path):
     """Empty files should at least be detected (policy may treat as ERROR or WARN)."""
     z = tmp_path / "empty_file.zip"
@@ -100,7 +100,6 @@ def test_empty_file_detection(tmp_path: Path):
     # TDD: Initially treat as ERROR; change here if policy later allows WARN.
     assert ok is False
     assert any("empty file" in e.lower() for e in errs)
-
 
 
 def test_too_many_files_limit(tmp_path: Path):
@@ -123,14 +122,19 @@ def test_deep_nesting_limit(tmp_path: Path):
     assert any("depth" in e.lower() or "too deep" in e.lower() for e in errs)
 
 
-@pytest.mark.skipif(platform.system().lower() == "linux", reason="Case collision mainly relevant on case-insensitive FS")
+@pytest.mark.skipif(
+    platform.system().lower() == "linux",
+    reason="Case collision mainly relevant on case-insensitive FS",
+)
 def test_case_insensitive_name_collision(tmp_path: Path):
     """On case-insensitive file systems, names like A.txt and a.txt should be treated as duplicates."""
     z = tmp_path / "case_collision.zip"
     make_zip_with_entries(z, {"A.txt": b"x", "a.txt": b"y"})
     ok, errs = validate_zip(z)
     assert ok is False
-    assert any("name collision" in e.lower() or "duplicate name" in e.lower() for e in errs)
+    assert any(
+        "name collision" in e.lower() or "duplicate name" in e.lower() for e in errs
+    )
 
 
 def test_validate_dir_mixes_valid_and_invalid(tmp_path: Path):
@@ -139,7 +143,9 @@ def test_validate_dir_mixes_valid_and_invalid(tmp_path: Path):
     bad = tmp_path / "bad.zip"
     other = tmp_path / "note.txt"
     make_zip_with_entries(good, {"ok.txt": b"hello"})
-    make_zip_with_entries(bad, {"../evil.txt": b"no"})  # Expected to fail Zip Slip check
+    make_zip_with_entries(
+        bad, {"../evil.txt": b"no"}
+    )  # Expected to fail Zip Slip check
     other.write_text("not a zip")
 
     results = validate_dir(tmp_path)
@@ -147,7 +153,10 @@ def test_validate_dir_mixes_valid_and_invalid(tmp_path: Path):
     d = {p.name: (ok, errs) for p, ok, errs in results}
 
     assert d["good.zip"][0] is True and d["good.zip"][1] == []
-    assert d["bad.zip"][0] is False and any("zip slip" in e.lower() or "path traversal" in e.lower() for e in d["bad.zip"][1])
+    assert d["bad.zip"][0] is False and any(
+        "zip slip" in e.lower() or "path traversal" in e.lower()
+        for e in d["bad.zip"][1]
+    )
     # note.txt behavior depends on validate_dir policy:
     # if “only validate .zip files”, it won’t appear in results.
     # if “validate all files”, it should appear as invalid.

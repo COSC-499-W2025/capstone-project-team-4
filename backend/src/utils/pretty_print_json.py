@@ -12,7 +12,7 @@ def readable_size(num_bytes):
         elif num_bytes >= 1_000:
             return f"{num_bytes / 1_000:.2f} KB"
         return f"{num_bytes} bytes"
-    except:
+    except Exception:
         return "?"
 
 
@@ -30,6 +30,7 @@ def pretty_print_json(file_name: str, data: dict, raw: bool = False):
     if str(file_name).endswith("skills_extracted.json"):
         try:
             from pathlib import Path
+
             typer.echo(Path(file_name).read_text())
             return
         except Exception:
@@ -50,10 +51,9 @@ def pretty_print_json(file_name: str, data: dict, raw: bool = False):
 
         typer.secho("Highlights:", fg=typer.colors.GREEN, bold=True)
         for h in highlights:
-            typer.echo(f"  {h}")   # each on new line
+            typer.echo(f"  {h}")  # each on new line
         typer.echo("")  # final line break
         return
-
 
     # Pretty print: skill_extract.json
     if file_name == "skill_extract.json":

@@ -9,7 +9,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.config.settings import settings
 from src.models.database import init_db
 
-from src.api.routes import analysis, projects, skills, resume, user_profiles, auth, privacy_settings, experience, snapshots, contributor_analysis, contributors, debug, full_resume, portfolio
+from src.api.routes import (
+    analysis,
+    projects,
+    skills,
+    resume,
+    user_profiles,
+    auth,
+    privacy_settings,
+    experience,
+    snapshots,
+    contributor_analysis,
+    contributors,
+    debug,
+    full_resume,
+    portfolio,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -115,6 +130,7 @@ async def health_check():
 # For running with uvicorn directly
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "src.api.main:app",
         host="0.0.0.0",

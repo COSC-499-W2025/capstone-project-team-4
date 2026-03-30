@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl
 
 
 class AnalysisStatus(str, Enum):
@@ -66,10 +66,11 @@ class AnalysisResult(BaseModel):
     project_started_at: datetime
     error_message: Optional[str] = None
 
+
 class TextualProjectShowcaseResponse(BaseModel):
     """Lightweight, portfolio-ready textual showcase for a project.
     This is a thin view-model over AnalysisResult, with short_description
-    reserved for future manual input (kept null for now). 
+    reserved for future manual input (kept null for now).
     """
 
     project_id: int

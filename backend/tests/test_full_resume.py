@@ -243,23 +243,17 @@ class TestComposeResume:
         assert data.contact.linkedin_url is None
         assert data.summary is None
 
-    def test_compose_resume_no_education(
-        self, db_session, test_user, test_profile
-    ):
+    def test_compose_resume_no_education(self, db_session, test_user, test_profile):
         svc = make_service(db_session)
         data = svc.compose_resume(test_user.id)
         assert data.education == []
 
-    def test_compose_resume_no_experience(
-        self, db_session, test_user, test_profile
-    ):
+    def test_compose_resume_no_experience(self, db_session, test_user, test_profile):
         svc = make_service(db_session)
         data = svc.compose_resume(test_user.id)
         assert data.experience == []
 
-    def test_compose_resume_no_projects(
-        self, db_session, test_user, test_profile
-    ):
+    def test_compose_resume_no_projects(self, db_session, test_user, test_profile):
         svc = make_service(db_session)
         data = svc.compose_resume(test_user.id)
         assert data.projects == []
@@ -326,17 +320,13 @@ class TestExportMarkdown:
         assert "## Technical Skills" not in md
         assert "## Summary" not in md
 
-    def test_export_markdown_contains_name(
-        self, db_session, test_user, test_profile
-    ):
+    def test_export_markdown_contains_name(self, db_session, test_user, test_profile):
         svc = make_service(db_session)
         data = svc.compose_resume(test_user.id)
         md = svc.export_markdown(data)
         assert "Jane Doe" in md
 
-    def test_export_markdown_contact_row(
-        self, db_session, test_user, test_profile
-    ):
+    def test_export_markdown_contact_row(self, db_session, test_user, test_profile):
         svc = make_service(db_session)
         data = svc.compose_resume(test_user.id)
         md = svc.export_markdown(data)
@@ -408,14 +398,19 @@ class TestExportPDF:
 
 
 @pytest.fixture
-def api_client(db_session):
-    """TestClient with the DB session overridden to use in-memory SQLite."""
+def api_client(db_session, test_user):
+    """TestClient with the DB session and auth overridden to use in-memory SQLite."""
     from src.api.main import app
+    from src.api.dependencies import get_current_user
 
     def override_get_db():
         yield db_session
 
+    def override_get_current_user():
+        return test_user
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
     client = TestClient(app)
     yield client
     app.dependency_overrides.clear()

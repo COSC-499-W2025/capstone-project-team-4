@@ -17,13 +17,12 @@ class FileRepository(BaseRepository[File]):
         """Initialize file repository."""
         super().__init__(File, db)
 
-    def get_by_project(self, project_id: int, skip: int = 0, limit: int = 1000) -> List[File]:
+    def get_by_project(
+        self, project_id: int, skip: int = 0, limit: int = 1000
+    ) -> List[File]:
         """Get all files for a project."""
         stmt = (
-            select(File)
-            .where(File.project_id == project_id)
-            .offset(skip)
-            .limit(limit)
+            select(File).where(File.project_id == project_id).offset(skip).limit(limit)
         )
         return list(self.db.scalars(stmt).all())
 
@@ -84,7 +83,9 @@ class FileRepository(BaseRepository[File]):
     def create_files_bulk(self, files_data: List[dict]) -> List[File]:
         """Create multiple file records efficiently."""
         # First, ensure all languages exist
-        language_names = set(f.get("language_name") for f in files_data if f.get("language_name"))
+        language_names = set(
+            f.get("language_name") for f in files_data if f.get("language_name")
+        )
         language_map = {}
         for name in language_names:
             language = self.get_or_create_language(name)
@@ -110,15 +111,11 @@ class FileRepository(BaseRepository[File]):
 
         return self.create_many(files)
 
-
     def get_path_hash_map(self, project_id: int) -> dict[str, str]:
 
-        stmt = (
-            select(File.path, File.content_hash)
-            .where(
-                File.project_id == project_id,
-                File.content_hash.isnot(None),
-            )
+        stmt = select(File.path, File.content_hash).where(
+            File.project_id == project_id,
+            File.content_hash.isnot(None),
         )
         rows = self.db.execute(stmt).all()
 
@@ -136,7 +133,9 @@ class FileRepository(BaseRepository[File]):
     def get_earliest_file_date(self, project_id: int) -> Optional[datetime]:
         """Return earliest created_timestamp for a project's files as datetime."""
         ts = self.db.scalar(
-            select(func.min(File.created_timestamp)).where(File.project_id == project_id)
+            select(func.min(File.created_timestamp)).where(
+                File.project_id == project_id
+            )
         )
         if ts is None:
             return None
@@ -148,13 +147,16 @@ class FileRepository(BaseRepository[File]):
     def delete_by_project(self, project_id: int) -> int:
         """Delete all files for a project."""
         from sqlalchemy import delete
+
         stmt = delete(File).where(File.project_id == project_id)
         result = self.db.execute(stmt)
         self.db.commit()
         return result.rowcount
 
     def get_files_by_paths(self, project_id: int, paths: set[str]) -> list[File]:
-        stmt = select(File).where(File.project_id == project_id, File.path.in_(list(paths)))
+        stmt = select(File).where(
+            File.project_id == project_id, File.path.in_(list(paths))
+        )
         return list(self.db.scalars(stmt).all())
 
     def bulk_create_from_dicts(self, rows: list[dict]) -> None:

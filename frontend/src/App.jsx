@@ -1,25 +1,74 @@
-/*import MainPage from "@/pages/Home/Home.jsx";
-import LoginPage from "@/pages/auth/login.jsx";
-import SignupPage from "@/pages/auth/signup.jsx";
-import { Route, Routes } from "react-router-dom";
+import React from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
+import Main from "@/pages/Instruction";
+import Generator from "@/pages/Generator";
+import AccountPage from "@/pages/Account";
+import ResumeBuilder from "@/pages/ResumeBuilder";
+import LoginPage from "@/pages/auth/login";
+import SignupPage from "@/pages/auth/signup";
+import { isAuthenticated } from "@/lib/auth";
+import PortfolioPage from "@/pages/Portfolio";
+import HistoryPage from "@/pages/History";
 import "./App.css";
-*/
 
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Main from '@/pages/Instruction';
-import Generator from '@/pages/Generator';
-import "./App.css";
+function ProtectedRoute({ children }) {
+  if (!isAuthenticated()) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
 
 function App() {
-    return (
-        <main>
-        <Routes>
-            <Route path="/" element={<Main />} />
-            <Route path="/generate" element={<Generator />} />
-        </Routes>
-        </main>
-    );
+  return (
+    <main>
+      <Routes>
+        <Route path="/" element={<Main />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route
+          path="/generate"
+          element={
+            <ProtectedRoute>
+              <Generator />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/account"
+          element={
+            <ProtectedRoute>
+              <AccountPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/resume-builder"
+          element={
+            <ProtectedRoute>
+              <ResumeBuilder />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/portfolio"
+          element={
+            <ProtectedRoute>
+              <PortfolioPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/history"
+          element={
+            <ProtectedRoute>
+              <HistoryPage />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </main>
+  );
 }
 
 export default App;

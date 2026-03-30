@@ -1,16 +1,36 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { getAccessToken } from "@/lib/auth";
+
+function getAuthHeaders() {
+  const token = getAccessToken();
+  if (!token) {
+    return {};
+  }
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}
 
 export const useFileUpload = () => {
   // Initialize state from localStorage if available
   const [uploadedFiles, setUploadedFiles] = useState(() => {
-    const saved = localStorage.getItem("uploadedFiles");
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem("uploadedFiles");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
 
   const [projectData, setProjectData] = useState(() => {
-    const saved = localStorage.getItem("projectData");
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem("projectData");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -21,11 +41,78 @@ export const useFileUpload = () => {
   });
 
   const [error, setError] = useState(null);
+  const [customProjectNames, setCustomProjectNames] = useState([]);
 
   // Save to localStorage whenever state changes
   useEffect(() => {
     localStorage.setItem("uploadedFiles", JSON.stringify(uploadedFiles));
   }, [uploadedFiles]);
+
+  // On mount, load previously analyzed projects from the server
+  useEffect(() => {
+    const loadPreviousProjects = async () => {
+      const token = getAccessToken();
+      if (!token) return;
+
+      try {
+        const listRes = await axios.get("/api/projects?page=1&page_size=100", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const serverProjects = listRes.data.items ?? [];
+
+        if (serverProjects.length === 0) return;
+
+        // Fetch full detail for each project in parallel
+        const detailPromises = serverProjects.map((p) =>
+          axios
+            .get(`/api/projects/${p.id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((r) => r.data)
+            .catch(() => null)
+        );
+        const details = await Promise.all(detailPromises);
+
+        const mapped = details.filter(Boolean).map((d) => ({
+          name: d.name,
+          contributions: d.file_count || 0,
+          date: d.zip_uploaded_at || d.created_at,
+          projectStartedAt: d.project_started_at || null,
+          firstCommitDate: d.first_commit_date || null,
+          firstFileCreated: d.first_file_created || null,
+          description: `Languages: ${d.languages?.join(", ") || "N/A"}`,
+          languages: d.languages || [],
+          frameworks: d.frameworks || [],
+          skills: [],
+          complexity: {
+            avg_complexity: d.avg_complexity || 0,
+            max_complexity: d.max_complexity || 0,
+          },
+          contributorCount: d.contributor_count || 0,
+          contributorDetails: null,
+          projectId: d.id,
+          totalLinesOfCode: d.total_lines_of_code || 0,
+          libraryCount: d.library_count || 0,
+          toolCount: d.tool_count || 0,
+          libraries: d.libraries || [],
+          toolsAndTechnologies: d.tools || [],
+        }));
+
+        setProjectData((prev) => {
+          const existingIds = new Set(
+            (prev || []).map((p) => p.projectId).filter(Boolean)
+          );
+          const newOnes = mapped.filter((p) => !existingIds.has(p.projectId));
+          if (newOnes.length === 0) return prev;
+          return [...newOnes, ...(prev || [])];
+        });
+      } catch (err) {
+        console.warn("Could not load previous projects:", err);
+      }
+    };
+
+    loadPreviousProjects();
+  }, []);  
 
   useEffect(() => {
     localStorage.setItem("projectData", JSON.stringify(projectData));
@@ -46,15 +133,18 @@ export const useFileUpload = () => {
     }
 
     setUploadedFiles((prev) => [...prev, ...zipFiles]);
+    setCustomProjectNames((prev) => [...prev, ...zipFiles.map(() => "")]);
   };
 
   const handleDeleteFile = (index) => {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+    setCustomProjectNames((prev) => prev.filter((_, i) => i !== index));
   };
 
   function handleDeleteAll() {
     if (confirm("Are you sure you want to delete all files?")) {
       setUploadedFiles([]);
+      setCustomProjectNames([]);
     }
   }
 
@@ -79,11 +169,19 @@ export const useFileUpload = () => {
     try {
       const results = [];
 
-      for (const file of uploadedFiles) {
+      for (const [index, file] of uploadedFiles.entries()) {
         const formData = new FormData();
         formData.append("file", file);
+        const trimmedProjectName = (customProjectNames[index] || "").trim();
+        if (trimmedProjectName) {
+          formData.append("project_name", trimmedProjectName);
+        }
 
-        const response = await axios.post("/api/projects/analyze/upload", formData);
+        const response = await axios.post("/api/projects/analyze/upload", formData, {
+          headers: {
+            ...getAuthHeaders(),
+          },
+        });
 
         const payload = response.data;
         const items = Array.isArray(payload) ? payload : [payload];
@@ -113,6 +211,11 @@ export const useFileUpload = () => {
             try {
               const contributorResponse = await axios.get(
                 `/api/projects/${data.project_id}/contributors/default-branch-stats`,
+                {
+                  headers: {
+                    ...getAuthHeaders(),
+                  },
+                },
               );
               contributorDetails = contributorResponse.data;
             } catch (contributorError) {
@@ -121,7 +224,6 @@ export const useFileUpload = () => {
           }
 
           results.push({
-          
             name: data.project_name,
             contributions: data.file_count || 0,
             date: data.zip_uploaded_at || new Date().toISOString(),
@@ -145,20 +247,49 @@ export const useFileUpload = () => {
         }
       }
 
-      setProjectData(results);
+      setProjectData((prev) => [...results, ...(prev || [])]);
+      setUploadedFiles([]);
+        setCustomProjectNames([]);
     } catch (error) {
       console.error("Error processing files:", error);
       setError(error.message);
+      const status = error?.response?.status;
+      const details =
+        error?.response?.data?.detail || error?.response?.data?.message || error.message;
+
+      if (status === 401) {
+        alert(
+          `Error: ${details}\n\nYour session is missing or expired. Please log in and try again.`,
+        );
+        return;
+      }
+
       alert(
-        `Error: ${error.message}\n\nPlease check that your backend server is running.`,
+        `Error: ${details}\n\nPlease check that your backend server is running.`,
       );
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleConsentAccept = () => {
+  const handleConsentAccept = async () => {
     setConsentGiven(true);
+    // Saves the consent to backend privacy settings
+    try {
+      const token = getAccessToken();
+      if (token) {
+        const userRes = await axios.get("/api/auth/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        await axios.put(`/api/privacy-settings/${userRes.data.id}`, {
+          allow_data_collection: true,
+        }, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+    } catch (err) {
+    console.error("Failed to load privacy settings:", err);
+    }
     processFiles();
   };
 
@@ -181,23 +312,53 @@ export const useFileUpload = () => {
     });
   };
 
+  const handleDeleteProject = async (projectId) => {
+    const token = getAccessToken();
+    try {
+      await axios.delete(`/api/projects/${projectId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      setProjectData((prev) =>
+        (prev || []).filter((p) => p.projectId !== projectId)
+      );
+    } catch (err) {
+      console.error("Failed to delete project:", err);
+      alert(
+        err?.response?.data?.detail || err?.message || "Failed to delete project."
+      );
+    }
+  };
+
   // Clear all data (optional - call this when user wants to start fresh)
   const clearAllData = () => {
     setUploadedFiles([]);
     setProjectData(null);
     setConsentGiven(false);
+    setCustomProjectNames([]);
     localStorage.removeItem("uploadedFiles");
     localStorage.removeItem("projectData");
     localStorage.removeItem("consentGiven");
   };
 
+  const recentProjectData = projectData ? projectData.slice(0, 4) : null;
+  const handleProjectNameChange = (index, value) => {
+    setCustomProjectNames((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  };
+
   return {
     uploadedFiles,
+    customProjectNames,
     projectData,
+    recentProjectData,
     isLoading,
     showConsent,
     setShowConsent,
     handleFileDrop,
+    handleProjectNameChange,
     handleDeleteFile,
     handleSubmit,
     handleConsentAccept,
@@ -206,5 +367,6 @@ export const useFileUpload = () => {
     clearAllData,
     handleUpdateProject,
     handleDeleteAll,
+    handleDeleteProject,
   };
 };

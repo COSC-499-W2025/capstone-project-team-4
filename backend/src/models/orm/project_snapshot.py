@@ -19,14 +19,18 @@ class ProjectSnapshot(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     project_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer,
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     snapshot_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     commit_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     commit_index: Mapped[int] = mapped_column(Integer, nullable=False)
     total_commits: Mapped[int] = mapped_column(Integer, nullable=False)
     payload_json: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, index=True
+    )
 
     project: Mapped["Project"] = relationship("Project", back_populates="snapshots")
-

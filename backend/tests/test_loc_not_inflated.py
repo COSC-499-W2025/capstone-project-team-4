@@ -1,6 +1,7 @@
 from pathlib import Path
 from src.core.analyzers.language import ProjectAnalyzer
 
+
 def test_loc_does_not_count_pdf_or_images(tmp_path: Path):
     """
     Regression test: PDFs/images should be skipped and NOT inflate LOC.

@@ -1,8 +1,6 @@
 import hashlib
 from dataclasses import dataclass
-from pathlib import Path
-import time
-import pytest
+
 
 def compute_project_tree_hash(files_meta: list[dict]) -> str:
     h = hashlib.sha256()
@@ -19,6 +17,7 @@ def compute_project_tree_hash(files_meta: list[dict]) -> str:
         h.update(b"\n")
     return h.hexdigest()
 
+
 def test_analysis_key_stable_for_same_files():
     files = [
         {"path": "b.py", "content_hash": "bbb"},
@@ -30,6 +29,7 @@ def test_analysis_key_stable_for_same_files():
     key2 = hashlib.sha256(f"{tree}:1.0.0".encode("utf-8")).hexdigest()
 
     assert key1 == key2
+
 
 def test_analysis_key_changes_if_any_file_hash_changes():
     files1 = [
@@ -44,6 +44,7 @@ def test_analysis_key_changes_if_any_file_hash_changes():
 
     assert tree1 != tree2
 
+
 # ---- Fake Project model (minimal) ----
 @dataclass
 class FakeProject:
@@ -51,6 +52,7 @@ class FakeProject:
     analysis_key: str | None = None
     content_hash: str | None = None
     reused_from_project_id: int | None = None
+
 
 # ---- Fake ProjectRepository that behaves like cache storage ----
 class FakeProjectRepo:
@@ -76,16 +78,23 @@ class FakeProjectRepo:
     def update_timestamps(self, **kwargs):
         return None
 
+
 # ---- Minimal AnalysisService harness ----
 class MiniAnalysisService:
     def __init__(self, project_repo: FakeProjectRepo):
         self.project_repo = project_repo
-        self.clone_calls: list[tuple[int,int]] = []
+        self.clone_calls: list[tuple[int, int]] = []
 
     def _clone_project_analysis(self, from_project_id: int, to_project_id: int):
         self.clone_calls.append((from_project_id, to_project_id))
 
-    def run_cache_flow(self, file_list: list[dict], app_version: str = "1.0.0", *,use_cache: bool = True,):
+    def run_cache_flow(
+        self,
+        file_list: list[dict],
+        app_version: str = "1.0.0",
+        *,
+        use_cache: bool = True,
+    ):
         # compute project hash
         def _compute_project_tree_hash(files_meta: list[dict]) -> str:
             h = hashlib.sha256()
@@ -103,9 +112,15 @@ class MiniAnalysisService:
             return h.hexdigest()
 
         project_tree_hash = _compute_project_tree_hash(file_list)
-        analysis_key = hashlib.sha256(f"{project_tree_hash}:{app_version}".encode("utf-8")).hexdigest()
+        analysis_key = hashlib.sha256(
+            f"{project_tree_hash}:{app_version}".encode("utf-8")
+        ).hexdigest()
 
-        cached = self.project_repo.get_latest_by_analysis_key(analysis_key) if use_cache else None
+        cached = (
+            self.project_repo.get_latest_by_analysis_key(analysis_key)
+            if use_cache
+            else None
+        )
 
         # always create new project
         new_proj = self.project_repo.create_project(
@@ -116,9 +131,12 @@ class MiniAnalysisService:
 
         # on hit, clone + early return
         if cached:
-            self._clone_project_analysis(from_project_id=cached.id, to_project_id=new_proj.id)
+            self._clone_project_analysis(
+                from_project_id=cached.id, to_project_id=new_proj.id
+            )
 
         return new_proj, cached
+
 
 def test_cache_reuse_creates_new_project_and_clones():
     repo = FakeProjectRepo()
@@ -142,6 +160,7 @@ def test_cache_reuse_creates_new_project_and_clones():
     assert p2.analysis_key == p1.analysis_key
     assert p2.reused_from_project_id == p1.id
     assert service.clone_calls == [(p1.id, p2.id)]
+
 
 def test_cache_toggle_off_does_not_set_reused_from_project_id_or_clone():
     repo = FakeProjectRepo()

@@ -1,6 +1,6 @@
 """Framework ORM models."""
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -17,7 +17,9 @@ class Framework(Base):
     __tablename__ = "frameworks"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(
+        String(100), unique=True, nullable=False, index=True
+    )
 
     def __repr__(self) -> str:
         return f"<Framework(id={self.id}, name='{self.name}')>"
@@ -30,7 +32,10 @@ class ProjectFramework(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     project_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer,
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     framework_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("frameworks.id"), nullable=False, index=True
@@ -41,9 +46,13 @@ class ProjectFramework(Base):
     # Stores score before cross-validation boosts
     original_score: Mapped[float] = mapped_column(Float, default=1.0)
     # Stores boost amount from cross-validation
-    cross_validation_boost: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    cross_validation_boost: Mapped[Optional[float]] = mapped_column(
+        Float, nullable=True
+    )
     # JSON string listing sources that validated this framework (e.g., '["library", "tool"]')
-    validation_sources: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    validation_sources: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True
+    )
     # Whether this framework was gap-filled (detected via library/tool rather than direct detection)
     is_gap_filled: Mapped[bool] = mapped_column(Boolean, default=False)
 

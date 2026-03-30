@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import app
+from src.api.dependencies import get_current_user
 from src.models.database import get_db
 from src.services.project_service import ProjectService
 
@@ -25,6 +26,9 @@ def client() -> Iterator[TestClient]:
         yield SimpleNamespace()
 
     app.dependency_overrides[get_db] = _get_db_override
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id=1, is_active=True
+    )
     try:
         with TestClient(app) as test_client:
             yield test_client
@@ -34,6 +38,7 @@ def client() -> Iterator[TestClient]:
 
 
 def test_get_thumbnail_404_when_missing(client, monkeypatch):
+    monkeypatch.setattr(ProjectService, "user_owns_project", lambda *_: True)
     monkeypatch.setattr(ProjectService, "project_exists", lambda *_: True)
     monkeypatch.setattr(ProjectService, "get_thumbnail", lambda *_: None)
 
@@ -42,9 +47,12 @@ def test_get_thumbnail_404_when_missing(client, monkeypatch):
 
 
 def test_get_thumbnail_returns_bytes_and_headers(client, monkeypatch):
+    monkeypatch.setattr(ProjectService, "user_owns_project", lambda *_: True)
     monkeypatch.setattr(ProjectService, "project_exists", lambda *_: True)
     data = b"jpegbytes"
-    monkeypatch.setattr(ProjectService, "get_thumbnail", lambda *_: (data, "image/jpeg", "abc123"))
+    monkeypatch.setattr(
+        ProjectService, "get_thumbnail", lambda *_: (data, "image/jpeg", "abc123")
+    )
 
     resp = client.get("/api/projects/1/thumbnail")
     assert resp.status_code == 200
@@ -54,9 +62,12 @@ def test_get_thumbnail_returns_bytes_and_headers(client, monkeypatch):
 
 
 def test_get_thumbnail_304_if_etag_matches(client, monkeypatch):
+    monkeypatch.setattr(ProjectService, "user_owns_project", lambda *_: True)
     monkeypatch.setattr(ProjectService, "project_exists", lambda *_: True)
     data = b"pngbytes"
-    monkeypatch.setattr(ProjectService, "get_thumbnail", lambda *_: (data, "image/png", "etag123"))
+    monkeypatch.setattr(
+        ProjectService, "get_thumbnail", lambda *_: (data, "image/png", "etag123")
+    )
 
     resp = client.get("/api/projects/1/thumbnail", headers={"If-None-Match": "etag123"})
     assert resp.status_code == 304

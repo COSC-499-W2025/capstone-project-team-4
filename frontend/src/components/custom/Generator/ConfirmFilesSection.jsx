@@ -6,6 +6,8 @@ import { Send, Trash2 } from "lucide-react";
 
 const ConfirmFilesSection = ({
   files,
+  projectNames,
+  onProjectNameChange,
   onDelete,
   onDeleteAll,
   onSubmit,
@@ -15,8 +17,15 @@ const ConfirmFilesSection = ({
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-      <h2 className="text-xl font-semibold mb-4 text-center">Step 2: Confirm Files</h2>
-      <FileList files={files} onDelete={onDelete} />
+      <h2 className="text-xl font-semibold mb-4 text-center">
+        Step 2: Confirm Files
+      </h2>
+      <FileList
+        files={files}
+        projectNames={projectNames}
+        onProjectNameChange={onProjectNameChange}
+        onDelete={onDelete}
+      />
 
       <div className="mt-6 flex justify-center gap-8">
         <Button

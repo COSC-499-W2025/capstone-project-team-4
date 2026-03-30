@@ -1,0 +1,644 @@
+import axios from "axios";
+import { useEffect, useMemo, useState } from "react";
+import { AlertCircle, CheckCircle2, User, Loader2, Trash2, FileCode2, ArrowLeft } from "lucide-react";
+
+import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import Navigation from "@/components/Navigation";
+import ProfileDialog from "@/components/custom/ProfileDialog";
+import { Button } from "@/components/ui/button";
+import { clearAccessToken, getAccessToken } from "@/lib/auth";
+
+function formatDate(value) {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString();
+}
+
+export default function AccountPage() {
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
+  const [manageDataOpen, setManageDataOpen] = useState(false);
+  const [privacy, setPrivacy] = useState({
+    allow_data_collection: false,
+    allow_ai_resume_generation: false,
+  });
+  const [privacyLoading, setPrivacyLoading] = useState(false);
+  const [privacySaving, setPrivacySaving] = useState(false);
+  const [privacySaved, setPrivacySaved] = useState(false);
+  const [privacyError, setPrivacyError] = useState(null);
+
+  // Change password states
+  const [isSecurityDialogOpen, setIsSecurityDialogOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    old_password: "",
+    new_password: "",
+    confirm_password: "",
+  });
+  const [passwordStatus, setPasswordStatus] = useState({
+    loading: false,
+    error: "",
+    success: "",
+  });
+
+  // Manage Projects state
+  const [projectsView, setProjectsView] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectsError, setProjectsError] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
+  const [confirmId, setConfirmId] = useState(null);
+
+  const authHeader = useMemo(() => {
+    const token = getAccessToken();
+    return token ? { Authorization: `Bearer ${token}` } : null;
+  }, []);
+
+  useEffect(() => {
+    async function fetchCurrentUser() {
+      setIsLoading(true);
+      setError("");
+
+      if (!authHeader) {
+        setError("You are not signed in.");
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await axios.get("/api/auth/me", {
+          headers: authHeader,
+        });
+        setUser(response.data);
+      } catch (err) {
+        const status = err?.response?.status;
+        const detail =
+          err?.response?.data?.detail ||
+          err?.message ||
+          "Failed to load account.";
+
+        if (status === 401) {
+          clearAccessToken();
+          setError("Session expired. Please log in again.");
+        } else {
+          setError(
+            typeof detail === "string" ? detail : "Failed to load account.",
+          );
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchCurrentUser();
+  }, [authHeader]);
+
+  const fetchPrivacy = async (userId) => {
+    setPrivacyLoading(true);
+    setPrivacyError(null);
+    try {
+      const res = await axios.get(`/api/privacy-settings/${userId}`, {
+        headers: authHeader,
+      });
+      setPrivacy({
+        allow_data_collection: res.data.allow_data_collection,
+        allow_ai_resume_generation: res.data.allow_ai_resume_generation,
+      });
+    } catch {
+      setPrivacyError("Could not load privacy settings.");
+    } finally {
+      setPrivacyLoading(false);
+    }
+  };
+
+  const handleSavePrivacy = async () => {
+    if (!user) return;
+    setPrivacySaving(true);
+    setPrivacyError(null);
+    try {
+      await axios.put(`/api/privacy-settings/${user.id}`, privacy, {
+        headers: authHeader,
+      });
+
+      if (!privacy.allow_data_collection) {
+        localStorage.setItem("consentGiven", "false");
+      }
+
+      setPrivacySaved(true);
+      setTimeout(() => setPrivacySaved(false), 3000);
+    } catch {
+      setPrivacyError("Failed to save. Please try again.");
+    } finally {
+      setPrivacySaving(false);
+    }
+  };
+
+  const handleOpenManageData = () => {
+    if (user) fetchPrivacy(user.id);
+    setProjectsView(false);
+    setManageDataOpen(true);
+  };
+
+  const handleOpenProjects = async () => {
+    setProjectsView(true);
+    setProjectsLoading(true);
+    setProjectsError("");
+    try {
+      const res = await axios.get("/api/projects?page=1&page_size=100", { headers: authHeader });
+      setProjects(res.data.items ?? []);
+    } catch (err) {
+      setProjectsError(err?.response?.data?.detail || err?.message || "Failed to load projects.");
+    } finally {
+      setProjectsLoading(false);
+    }
+  };
+
+  const handleDeleteProject = async (projectId) => {
+    setDeletingId(projectId);
+    try {
+      await axios.delete(`/api/projects/${projectId}`, { headers: authHeader });
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    } catch (err) {
+      setProjectsError(err?.response?.data?.detail || err?.message || "Failed to delete project.");
+    } finally {
+      setDeletingId(null);
+      setConfirmId(null);
+    }
+  };
+
+  // Guys why don't we just use functions or something that's the standard :(
+  async function handleSecuritySettings(event) {
+    event.preventDefault();
+    setPasswordStatus({ loading: true, error: "", success: "" });
+
+    // Basic frontend validation
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      setPasswordStatus({
+        loading: false,
+        error: "New passwords do not match.",
+        success: "",
+      });
+      return;
+    }
+    if (passwordForm.new_password.length < 6) {
+      setPasswordStatus({
+        loading: false,
+        error: "Password must be at least 8 characters.",
+        success: "",
+      });
+      return;
+    }
+
+    // Send the request
+    try {
+      await axios.patch(
+        "/api/auth/change-password",
+        {
+          old_password: passwordForm.old_password,
+          new_password: passwordForm.new_password,
+        },
+        { headers: authHeader },
+      );
+
+      // Handle success
+      setPasswordStatus({
+        loading: false,
+        error: "",
+        success: "Password updated successfully!",
+      });
+      setPasswordForm({
+        old_password: "",
+        new_password: "",
+        confirm_password: "",
+      }); // clear form
+
+      // Close dialog after 2 seconds
+      setTimeout(() => {
+        setIsSecurityDialogOpen(false);
+        setPasswordStatus({ loading: false, error: "", success: "" });
+      }, 2000);
+    } catch (err) {
+      setPasswordStatus({
+        loading: false,
+        error: err?.response?.data?.detail || "Failed to change password.",
+        success: "",
+      });
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      <Navigation />
+
+      <div className="mx-auto max-w-4xl px-4 py-10">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-slate-900">Account</h1>
+          <p className="mt-2 text-sm text-slate-600">
+            Logged-in account details. This page is the foundation for future
+            profile and security settings.
+          </p>
+        </div>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-2 text-slate-900">
+            <User className="h-5 w-5" />
+            <h2 className="text-lg font-semibold">Current User</h2>
+          </div>
+
+          {isLoading ? (
+            <p className="text-sm text-slate-600">
+              Loading account information...
+            </p>
+          ) : null}
+
+          {!isLoading && error ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              <div className="flex items-center gap-2 font-medium">
+                <AlertCircle className="h-4 w-4" />
+                <span>{error}</span>
+              </div>
+            </div>
+          ) : null}
+
+          {!isLoading && !error && user ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  Email
+                </p>
+                <p className="mt-1 text-sm font-medium text-slate-900">
+                  {user.email}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  User ID
+                </p>
+                <p className="mt-1 text-sm font-medium text-slate-900">
+                  {user.id}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  Status
+                </p>
+                <p className="mt-1 flex items-center gap-2 text-sm font-medium text-emerald-700">
+                  <CheckCircle2 className="h-4 w-4" />
+                  {user.is_active ? "Active" : "Inactive"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  Created At
+                </p>
+                <p className="mt-1 text-sm font-medium text-slate-900">
+                  {formatDate(user.created_at)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-4 sm:col-span-2">
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  Last Updated
+                </p>
+                <p className="mt-1 text-sm font-medium text-slate-900">
+                  {formatDate(user.updated_at)}
+                </p>
+              </div>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">
+            Account Settings
+          </h2>
+          {/* Probably don't need this commented out section though */}
+          {/* <p className="mt-2 text-sm text-slate-600">
+            This section is intentionally prepared so profile edits can be added
+            without changing page structure.
+          </p> */}
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-xl border border-slate-200 p-4 flex flex-col justify-between">
+              <p className="text-sm font-medium text-slate-900">Profile</p>
+              <p className="mt-1 text-xs text-slate-600">
+                Name, bio, links, and resume metadata.
+              </p>
+              <Button
+                className="mt-3 w-full hover:cursor-pointer"
+                variant="outline"
+                onClick={() => setIsProfileDialogOpen(true)}
+              >
+                Edit Profile
+              </Button>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 p-4 flex flex-col justify-between">
+              <p className="text-sm font-medium text-slate-900">Security</p>
+              <p className="mt-1 text-xs text-slate-600">Password updates.</p>
+              <Button
+                className="mt-3 w-full hover:cursor-pointer"
+                variant="outline"
+                onClick={() => setIsSecurityDialogOpen(true)}
+              >
+                Change Password
+              </Button>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 p-4 flex flex-col justify-between">
+              <p className="text-sm font-medium text-slate-900">
+                Data Controls
+              </p>
+              <p className="mt-1 text-xs text-slate-600">
+                Privacy settings and manage your uploaded projects.
+              </p>
+              <Button
+                className="mt-3 w-full hover:cursor-pointer"
+                variant="outline"
+                onClick={handleOpenManageData}
+              >
+                Manage Data
+              </Button>
+            </div>
+          </div>
+        </section>
+        <ProfileDialog
+          open={isProfileDialogOpen}
+          onOpenChange={setIsProfileDialogOpen}
+        />
+
+        {/* Dialog things */}
+        <Dialog open={manageDataOpen} onOpenChange={(open) => { setManageDataOpen(open); if (!open) setProjectsView(false); }}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              {projectsView ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setProjectsView(false)}
+                      className="text-slate-400 hover:text-slate-700 transition-colors"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
+                    <DialogTitle>Manage Projects</DialogTitle>
+                  </div>
+                  <DialogDescription>
+                    View and delete your uploaded projects.
+                  </DialogDescription>
+                </>
+              ) : (
+                <>
+                  <DialogTitle>Manage Data</DialogTitle>
+                  <DialogDescription>
+                    Control your privacy and AI preferences.
+                  </DialogDescription>
+                </>
+              )}
+            </DialogHeader>
+
+            {/* Privacy settings view */}
+            {!projectsView && (
+              <div className="space-y-4 mt-2">
+                {privacyLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">
+                          Allow data collection
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Allow anonymized usage data to be collected
+                        </p>
+                      </div>
+                      <Switch
+                        checked={privacy.allow_data_collection}
+                        onCheckedChange={(val) =>
+                          setPrivacy((p) => ({
+                            ...p,
+                            allow_data_collection: val,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">
+                          Allow AI generation
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Let AI generate your resume and portfolio summary
+                        </p>
+                      </div>
+                      <Switch
+                        checked={privacy.allow_ai_resume_generation}
+                        onCheckedChange={(val) =>
+                          setPrivacy((p) => ({
+                            ...p,
+                            allow_ai_resume_generation: val,
+                          }))
+                        }
+                      />
+                    </div>
+                    {privacyError && (
+                      <p className="text-xs text-red-500">{privacyError}</p>
+                    )}
+
+                    <div className="border-t border-slate-100 pt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full hover:cursor-pointer"
+                        onClick={handleOpenProjects}
+                      >
+                        Manage Projects
+                      </Button>
+                    </div>
+
+                    <Button
+                      onClick={handleSavePrivacy}
+                      disabled={privacySaving}
+                      size="sm"
+                      className="w-full"
+                    >
+                      {privacySaving ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                          Saving...
+                        </>
+                      ) : privacySaved ? (
+                        "✓ Saved"
+                      ) : (
+                        "Save Settings"
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Projects view */}
+            {projectsView && (
+              <div className="mt-2 space-y-3 max-h-96 overflow-y-auto">
+                {projectsLoading && (
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Loading projects...
+                  </div>
+                )}
+
+                {!projectsLoading && projectsError && (
+                  <div className="flex items-center gap-2 text-sm text-red-600">
+                    <AlertCircle className="h-4 w-4" />
+                    {projectsError}
+                  </div>
+                )}
+
+                {!projectsLoading && !projectsError && projects.length === 0 && (
+                  <div className="flex flex-col items-center gap-2 py-8 text-slate-400">
+                    <FileCode2 className="h-8 w-8" />
+                    <p className="text-sm">No projects found.</p>
+                  </div>
+                )}
+
+                {!projectsLoading && !projectsError && projects.map((project) => (
+                  <div key={project.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-3 gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-slate-900 truncate">{project.name}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{project.file_count} files · {project.language_count} languages</p>
+                    </div>
+                    <div className="flex-shrink-0">
+                      {confirmId === project.id ? (
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setConfirmId(null)}>Cancel</Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteProject(project.id)}
+                            disabled={deletingId === project.id}
+                          >
+                            {deletingId === project.id ? "Deleting..." : "Confirm"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button size="sm" variant="ghost" onClick={() => setConfirmId(project.id)}>
+                          <Trash2 className="h-4 w-4 text-slate-400 hover:text-red-500" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Security Settings/Change Password Dialog */}
+        <Dialog
+          open={isSecurityDialogOpen}
+          onOpenChange={setIsSecurityDialogOpen}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Change Password</DialogTitle>
+              <DialogDescription>
+                Update your account password below.
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleSecuritySettings} className="space-y-4 mt-2">
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium text-slate-800">
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    className="mt-1 flex h-9 w-full rounded-md border border-slate-200 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950"
+                    value={passwordForm.old_password}
+                    onChange={(e) =>
+                      setPasswordForm({
+                        ...passwordForm,
+                        old_password: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-800">
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    className="mt-1 flex h-9 w-full rounded-md border border-slate-200 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950"
+                    value={passwordForm.new_password}
+                    onChange={(e) =>
+                      setPasswordForm({
+                        ...passwordForm,
+                        new_password: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-800">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    className="mt-1 flex h-9 w-full rounded-md border border-slate-200 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950"
+                    value={passwordForm.confirm_password}
+                    onChange={(e) =>
+                      setPasswordForm({
+                        ...passwordForm,
+                        confirm_password: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              {/* Status Messages */}
+              {passwordStatus.error && (
+                <p className="text-sm text-red-500">{passwordStatus.error}</p>
+              )}
+              {passwordStatus.success && (
+                <p className="text-sm text-emerald-600">
+                  {passwordStatus.success}
+                </p>
+              )}
+
+              <Button
+                type="submit"
+                disabled={passwordStatus.loading}
+                className="w-full mt-4"
+              >
+                {passwordStatus.loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
+                    Updating...
+                  </>
+                ) : (
+                  "Update Password"
+                )}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+}
