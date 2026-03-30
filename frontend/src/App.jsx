@@ -8,6 +8,7 @@ import LoginPage from "@/pages/auth/login";
 import SignupPage from "@/pages/auth/signup";
 import { isAuthenticated } from "@/lib/auth";
 import PortfolioPage from "@/pages/Portfolio";
+import HistoryPage from "@/pages/History";
 import "./App.css";
 
 function ProtectedRoute({ children }) {
@@ -54,6 +55,14 @@ function App() {
           element={
             <ProtectedRoute>
               <PortfolioPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/history"
+          element={
+            <ProtectedRoute>
+              <HistoryPage />
             </ProtectedRoute>
           }
         />

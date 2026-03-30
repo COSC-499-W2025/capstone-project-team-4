@@ -17,7 +17,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { 
+import {
   Pencil,
   Users,
   Calendar,
@@ -29,7 +29,7 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
-  GitCompare
+  GitCompare,
 } from 'lucide-react';
 import EditProjectModal from '@/components/custom/Generator/EditProjectModal';
 import ContributorInsightsDialog from '@/components/custom/Generator/ContributorInsightsDialog';
