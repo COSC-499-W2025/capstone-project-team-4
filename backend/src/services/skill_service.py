@@ -59,53 +59,29 @@ class SkillService:
         skill: Optional[str] = None,
     ) -> Optional[SkillTimelineResponse]:
         """
-        Get skill timeline for a project.
+        Get skill timeline for a project from skill occurrences.
 
         Args:
             project_id: ID of the project
             skill: Optional specific skill to filter
 
         Returns:
+            SkillTimelineResponse or None if project not found
         """
         project = self.project_repo.get(project_id)
         if not project:
             return None
 
-        timeline_entries = self.skill_repo.get_timeline(project_id, skill)
+        timeline_rows = self.skill_repo.get_timeline_from_occurrences(project_id, skill)
 
-        timeline = []
-
-        for entry in timeline_entries:
-            timeline.append(
-                SkillTimelineEntry(
-                    skill=entry.skill,
-                    date=entry.date.isoformat() if entry.date else "",
-                    count=entry.count,
-                )
+        timeline = [
+            SkillTimelineEntry(
+                skill=row.skill,
+                date=row.date.isoformat() if row.date else "",
+                count=row.count,
             )
-
-        # Fallback: if no timeline data exists, synthesize a single snapshot from current skills
-        if not timeline:
-            skills = self.skill_repo.get_by_project(project_id)
-            if skill:
-                skills = [
-                    s
-                    for s in skills
-                    if s.skill and s.skill.name.lower() == skill.lower()
-                ]
-            if skills:
-                snapshot_date = (
-                    project.created_at.date() if project.created_at else None
-                )
-                snapshot_date_str = snapshot_date.isoformat() if snapshot_date else ""
-                for s in skills:
-                    timeline.append(
-                        SkillTimelineEntry(
-                            skill=s.skill.name if s.skill else "",
-                            date=snapshot_date_str,
-                            count=s.frequency,
-                        )
-                    )
+            for row in timeline_rows
+        ]
 
         return SkillTimelineResponse(
             project_id=project_id,
@@ -189,3 +165,29 @@ class SkillService:
             skills=skill_schemas,
             total=len(skill_schemas),
         )
+    
+    def build_skill_timeline(
+        self,
+        project_id: int,
+        skill: Optional[str] = None,
+    ) -> Optional[SkillTimelineResponse]:
+        project = self.project_repo.get(project_id)
+        if not project:
+            return None
+
+        logger.info("[TIMELINE BUILD] starting project_id=%s", project_id)
+
+        from src.services.analysis_service import AnalysisService
+
+        analysis_service = AnalysisService(self.db)
+        analysis_service.rebuild_skill_occurrences_for_project(project_id)
+
+        result = self.get_skill_timeline(project_id, skill)
+
+        logger.info(
+            "[TIMELINE BUILD] returning project_id=%s entries=%d",
+            project_id,
+            len(result.timeline) if result else -1,
+        )
+
+        return result

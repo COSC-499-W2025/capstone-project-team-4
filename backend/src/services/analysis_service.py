@@ -52,7 +52,7 @@ from src.models.orm.framework import ProjectFramework
 from src.models.orm.library import ProjectLibrary
 from src.models.orm.project import ProjectAnalysisSummary
 from src.models.orm.resume import ResumeItem
-from src.models.orm.skill import ProjectSkill, ProjectSkillTimeline
+from src.models.orm.skill import ProjectSkill, ProjectSkillTimeline, SkillOccurrence
 from src.models.orm.tool import ProjectTool
 from src.models.schemas.analysis import (
     AnalysisResult,
@@ -1068,6 +1068,9 @@ class AnalysisService:
                 detected_languages=languages,
                 detected_frameworks=frameworks,
                 project_path=project_root,
+                project_upload_time=(
+                    zip_upload_time if source_type == "zip" else datetime.utcnow()
+                ),
             )
 
             self._save_frameworks(project_id, all_enhanced_frameworks)
@@ -1251,27 +1254,6 @@ class AnalysisService:
                     for s in src_skills
                 ]
             )
-
-            # Skill timeline
-            src_tl = list(
-                self.db.scalars(
-                    select(ProjectSkillTimeline).where(
-                        ProjectSkillTimeline.project_id == from_project_id
-                    )
-                ).all()
-            )
-            self.db.add_all(
-                [
-                    ProjectSkillTimeline(
-                        project_id=to_project_id,
-                        skill=t.skill,
-                        date=t.date,
-                        count=t.count,
-                    )
-                    for t in src_tl
-                ]
-            )
-
             # Frameworks / Libraries / Tools
             src_fw = list(
                 self.db.scalars(
@@ -1707,22 +1689,17 @@ class AnalysisService:
         detected_languages: Optional[List[str]] = None,
         detected_frameworks: Optional[List[str]] = None,
         project_path: Optional[str] = None,
+        project_upload_time: Optional[datetime] = None,
     ) -> None:
         """
-        Save skills to database with source tracking, frequency counts, and timeline entries.
+        Save project skills only.
 
-        Args:
-            project_id: Project ID
-            skill_categories: Dict mapping category -> list of skill names
-            skill_sources: Optional dict mapping skill name -> source type
-            skill_frequencies: Optional dict mapping skill name -> occurrence count
-            file_list: Optional list of file metadata for timeline generation
-            detected_languages: Optional list of detected language names
-            detected_frameworks: Optional list of detected framework names
-            project_path: Optional path to project for git history extraction
+        Chronological skill occurrence analysis is intentionally deferred and should
+        be triggered only from the dedicated timeline build endpoint.
         """
         skill_sources = skill_sources or {}
         skill_frequencies = skill_frequencies or {}
+
         skills_data = []
 
         for category, skills in skill_categories.items():
@@ -1737,171 +1714,270 @@ class AnalysisService:
                     }
                 )
 
+        logger.info(
+            "Preparing to save %d project skills for project %s",
+            len(skills_data),
+            project_id,
+        )
+
         if skills_data:
             self.skill_repo.create_skills_bulk(skills_data)
 
-        # Generate timeline entries from git history or file dates
-        if file_list:
-            self._save_skill_timeline(
-                project_id,
-                skill_categories,
-                file_list,
-                detected_languages=detected_languages,
-                detected_frameworks=detected_frameworks,
-                project_path=project_path,
-            )
+        logger.info(
+            "Deferred chronological occurrence analysis for project %s until timeline build endpoint is called",
+            project_id,
+        )
 
-    def _save_skill_timeline(
+    def _resolve_file_occurrence_date(
         self,
-        project_id: int,
-        skill_categories: dict,
-        file_list: List[dict],
-        detected_languages: Optional[List[str]] = None,
-        detected_frameworks: Optional[List[str]] = None,
-        contributors: Optional[List[dict]] = None,
-        project_path: Optional[str] = None,
-    ) -> None:
+        file_meta: dict,
+        file_path: str,
+        git_dates_by_path: Dict[str, datetime],
+        zip_dates_by_path: Optional[Dict[str, datetime]] = None,
+        project_upload_time: Optional[datetime] = None,
+    ) -> Tuple[datetime, str]:
         """
-        Save skill timeline entries based on git commit history or file dates.
-
-        Uses git commit history when available (more accurate), falls back to
-        file modification timestamps otherwise. Only includes skills that are
-        already in skill_categories (the meaningful, resume-worthy skills).
-
-        Args:
-            project_id: Project ID
-            skill_categories: Dict mapping category -> list of skill names (from skill detector)
-            file_list: List of file metadata with last_modified timestamps
-            detected_languages: List of detected language names
-            detected_frameworks: List of detected framework names
-            contributors: List of contributor data with commit history
-            project_path: Path to project for git history extraction
+        Resolve the best available timestamp for a file using:
+        git commit -> ZIP entry metadata -> extracted file metadata -> upload fallback
         """
+        git_dt = git_dates_by_path.get(file_path)
+        if git_dt:
+            return git_dt, "git_commit"
 
-        # Only use skills from skill_categories - these are the meaningful skills
-        # detected by the skill detector (not raw file formats like JSON, YAML, etc.)
-        all_skills = set()
-        for skills in skill_categories.values():
-            all_skills.update(skills)
+        zip_dates_by_path = zip_dates_by_path or {}
+        zip_dt = zip_dates_by_path.get(file_path)
+        if zip_dt:
+            return zip_dt, "zip_metadata"
 
-        if not all_skills:
-            logger.info("No skills to create timeline for")
-            return
+        modified_ts = file_meta.get("last_modified")
+        if modified_ts:
+            if isinstance(modified_ts, datetime):
+                return modified_ts, "file_metadata"
+            try:
+                return datetime.fromtimestamp(modified_ts), "file_metadata"
+            except (ValueError, TypeError, OSError):
+                pass
 
-        # Try to get dates from git commit history first (more accurate)
-        commit_dates = self._extract_commit_dates_from_git(project_path)
+        created_ts = file_meta.get("created_timestamp")
+        if created_ts:
+            if isinstance(created_ts, datetime):
+                return created_ts, "file_metadata"
+            try:
+                return datetime.fromtimestamp(created_ts), "file_metadata"
+            except (ValueError, TypeError, OSError):
+                pass
 
-        if commit_dates:
-            # Use git commit dates - add all skills to the date range
-            logger.info(f"Using {len(commit_dates)} git commit dates for timeline")
-            min_date = min(commit_dates)
-            max_date = max(commit_dates)
+        return (project_upload_time or datetime.utcnow()), "upload_fallback"
 
-            timeline_data = []
-            for skill in all_skills:
-                # Add entry for first occurrence
-                timeline_data.append(
-                    {
-                        "project_id": project_id,
-                        "skill": skill,
-                        "date": min_date,
-                        "count": 1,
-                    }
-                )
-                # Add entry for last occurrence if different
-                if max_date != min_date:
-                    timeline_data.append(
-                        {
-                            "project_id": project_id,
-                            "skill": skill,
-                            "date": max_date,
-                            "count": 1,
-                        }
-                    )
-        else:
-            # Fall back to file modification dates
-            logger.info("No git history available, using file modification dates")
-            file_dates = []
-            for file_meta in file_list:
-                last_modified = file_meta.get("last_modified")
-                if last_modified:
-                    try:
-                        file_date = datetime.fromtimestamp(last_modified).date()
-                        file_dates.append(file_date)
-                    except (ValueError, TypeError, OSError):
-                        continue
-
-            if not file_dates:
-                logger.info("No file dates available for timeline")
-                return
-
-            min_date = min(file_dates)
-            max_date = max(file_dates)
-
-            timeline_data = []
-            for skill in all_skills:
-                timeline_data.append(
-                    {
-                        "project_id": project_id,
-                        "skill": skill,
-                        "date": min_date,
-                        "count": 1,
-                    }
-                )
-                if max_date != min_date:
-                    timeline_data.append(
-                        {
-                            "project_id": project_id,
-                            "skill": skill,
-                            "date": max_date,
-                            "count": 1,
-                        }
-                    )
-
-        if timeline_data:
-            self.skill_repo.create_timeline_bulk(timeline_data)
-            logger.info(
-                f"Saved {len(timeline_data)} skill timeline entries for project {project_id}"
-            )
-
-    def _extract_commit_dates_from_git(self, project_path: Optional[str]) -> List:
+    def _extract_file_commit_dates_from_git(
+        self,
+        project_path: Optional[str],
+    ) -> Dict[str, datetime]:
         """
-        Extract unique commit dates from git history.
-
-        Args:
-            project_path: Path to the project directory
-
-        Returns:
-            List of date objects from git commits, or empty list if not a git repo
+        Return earliest commit datetime per file path in the repo.
+        Keys are normalized repo-relative paths using forward slashes.
         """
         if not project_path:
-            return []
+            return {}
 
         try:
-            from git import InvalidGitRepositoryError, Repo
-        except ImportError:
-            return []
+            import subprocess
 
-        try:
-            repo = Repo(project_path)
-            commit_dates = set()
+            root = Path(project_path)
+            cmd = [
+                "git",
+                "-C",
+                str(root),
+                "log",
+                "--pretty=format:%aI",
+                "--name-only",
+                "--diff-filter=AMR",
+            ]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
 
-            # Get dates from recent commits (limit to avoid slow processing)
-            for commit in repo.iter_commits(max_count=500):
-                try:
-                    commit_date = datetime.fromtimestamp(commit.committed_date).date()
-                    commit_dates.add(commit_date)
-                except (ValueError, TypeError, OSError):
+            if result.returncode != 0:
+                logger.debug("Git history extraction failed: %s", result.stderr)
+                return {}
+
+            dates_by_path: Dict[str, datetime] = {}
+            current_date: Optional[datetime] = None
+
+            for raw_line in result.stdout.splitlines():
+                line = raw_line.strip()
+
+                if not line:
                     continue
 
-            return sorted(commit_dates)
+                if "T" in line and ":" in line:
+                    try:
+                        current_date = datetime.fromisoformat(line.replace("Z", "+00:00"))
+                    except ValueError:
+                        current_date = None
+                    continue
 
-        except InvalidGitRepositoryError:
-            logger.debug(f"Not a git repository: {project_path}")
-            return []
+                if current_date is not None:
+                    normalized = line.replace("\\", "/")
+                    existing = dates_by_path.get(normalized)
+                    if existing is None or current_date < existing:
+                        dates_by_path[normalized] = current_date
+
+            return dates_by_path
+
         except Exception as e:
-            logger.debug(f"Error reading git history: {e}")
-            return []
+            logger.debug("Error extracting per-file git dates: %s", e)
+            return {}
+
+    def _match_skills_to_file(
+        self,
+        file_path: str,
+        all_skills: set,
+        detected_languages: List[str],
+        detected_frameworks: List[str],
+    ) -> List[Tuple[str, str, str]]:
+        """
+        Match likely skills to a file.
+
+        Strategy:
+        - direct language/framework matches from extension
+        - config/package/test/docs heuristics for conceptual skills
+        """
+        matches: List[Tuple[str, str, str]] = []
+
+        path_lower = file_path.lower().replace("\\", "/")
+        name_lower = Path(file_path).name.lower()
+        ext = Path(file_path).suffix.lower()
+
+        extension_to_language = {
+            ".py": "Python",
+            ".js": "JavaScript",
+            ".ts": "TypeScript",
+            ".jsx": "JavaScript",
+            ".tsx": "TypeScript",
+            ".html": "HTML",
+            ".css": "CSS",
+            ".java": "Java",
+            ".kt": "Kotlin",
+            ".c": "C",
+            ".cpp": "C++",
+            ".h": "C",
+            ".hpp": "C++",
+            ".cs": "C#",
+            ".go": "Go",
+            ".rs": "Rust",
+            ".php": "PHP",
+            ".rb": "Ruby",
+            ".swift": "Swift",
+            ".md": "Markdown",
+            ".json": "JSON",
+            ".yml": "YAML",
+            ".yaml": "YAML",
+            ".sh": "Shell",
+            ".txt": "Text",
+        }
+
+        language_ext_map = {
+            "Python": {".py"},
+            "JavaScript": {".js", ".jsx"},
+            "TypeScript": {".ts", ".tsx"},
+            "HTML": {".html"},
+            "CSS": {".css"},
+            "Java": {".java"},
+            "Kotlin": {".kt"},
+            "C": {".c", ".h"},
+            "C++": {".cpp", ".hpp"},
+            "C#": {".cs"},
+            "Go": {".go"},
+            "Rust": {".rs"},
+            "PHP": {".php"},
+            "Ruby": {".rb"},
+            "Swift": {".swift"},
+            "Markdown": {".md"},
+            "JSON": {".json"},
+            "YAML": {".yml", ".yaml"},
+            "Shell": {".sh"},
+            "Text": {".txt"},
+        }
+
+        # 1) direct language match from extension
+        primary_language = extension_to_language.get(ext)
+        if primary_language and primary_language in all_skills:
+            matches.append((primary_language, "language", primary_language))
+
+        for language in detected_languages:
+            if language in all_skills and ext in language_ext_map.get(language, set()):
+                matches.append((language, "language", language))
+
+        # 2) framework matches
+        for framework in detected_frameworks:
+            if framework not in all_skills:
+                continue
+
+            fw_lower = framework.lower()
+
+            if fw_lower in {"next.js", "next"}:
+                if ext in {".js", ".jsx", ".ts", ".tsx"}:
+                    matches.append((framework, "framework", framework))
+
+            elif fw_lower == "express":
+                if ext in {".js", ".ts"}:
+                    matches.append((framework, "framework", framework))
+
+            elif fw_lower == "mongoose":
+                if ext in {".js", ".ts"}:
+                    matches.append((framework, "framework", framework))
+
+            elif fw_lower == "mocha":
+                if "test" in path_lower and ext in {".js", ".ts"}:
+                    matches.append((framework, "framework", framework))
+
+            elif fw_lower == "playwright":
+                if "test" in path_lower and ext in {".js", ".ts"}:
+                    matches.append((framework, "framework", framework))
+
+        # 3) conceptual heuristics
+        conceptual_rules = [
+            ({"readme.md", ".md"}, ["Documentation", "Technical Writing"]),
+            ({"package.json", "package-lock.json", "yarn.lock"}, ["Package Management", "Node.js"]),
+            ({"dockerfile", "docker-compose.yml", "docker-compose.yaml"}, ["DevOps", "Cloud Infrastructure"]),
+            ({"requirements.txt", "pyproject.toml", "poetry.lock"}, ["Package Management"]),
+            ({"test", "spec"}, ["Unit Testing", "Test Automation", "Automation"]),
+            ({".github/workflows", ".yml", ".yaml"}, ["CI/CD", "CI/CD Pipeline Configuration", "Automation", "DevOps"]),
+            ({".html", ".css", ".js", ".ts", ".jsx", ".tsx"}, ["Web Design", "Full-Stack Development", "Full-Stack Web Development"]),
+            ({"/api/", "routes", "controllers"}, ["RESTful APIs", "HTTP Client"]),
+            ({".js", ".ts", "socket", "websocket"}, ["WebSockets", "Real-Time Communication", "Real-Time Applications", "Async Programming"]),
+        ]
+
+        for triggers, candidate_skills in conceptual_rules:
+            triggered = False
+            for trigger in triggers:
+                if trigger.startswith(".") and trigger in {".md", ".html", ".css", ".js", ".ts", ".jsx", ".tsx", ".yml", ".yaml"}:
+                    if ext == trigger:
+                        triggered = True
+                        break
+                elif trigger in path_lower or trigger == name_lower:
+                    triggered = True
+                    break
+
+            if triggered:
+                for skill in candidate_skills:
+                    if skill in all_skills:
+                        matches.append((skill, "skill", skill))
+
+        # dedupe
+        deduped: List[Tuple[str, str, str]] = []
+        seen = set()
+        for item in matches:
+            key = (item[0].lower(), item[1], item[2].lower())
+            if key not in seen:
+                seen.add(key)
+                deduped.append(item)
+
+        return deduped
 
     def _save_resume_item(self, project_id: int, resume_item: dict) -> None:
         """Save resume item to database."""
@@ -2402,3 +2478,289 @@ class AnalysisService:
             first_commit_date=first_commit_date,
             project_started_at=project_started_at,
         )
+    
+    def _save_skill_occurrences(
+        self,
+        project_id: int,
+        skill_categories: dict,
+        file_list: List[dict],
+        detected_languages: Optional[List[str]] = None,
+        detected_frameworks: Optional[List[str]] = None,
+        project_path: Optional[str] = None,
+        project_upload_time: Optional[datetime] = None,
+        zip_dates_by_path: Optional[Dict[str, datetime]] = None,
+    ) -> None:
+        """
+        Save file-level skill occurrences using:
+        1. Git commit date
+        2. ZIP entry metadata date
+        3. Extracted file metadata date
+        4. Project upload fallback
+        """
+        detected_languages = detected_languages or []
+        detected_frameworks = detected_frameworks or []
+        zip_dates_by_path = zip_dates_by_path or {}
+
+        all_skills = set()
+        for skills in skill_categories.values():
+            all_skills.update(skills)
+
+        logger.info(
+            "[OCCURRENCES] project=%s total_skills=%d file_count=%d languages=%s frameworks=%s",
+            project_id,
+            len(all_skills),
+            len(file_list or []),
+            detected_languages,
+            detected_frameworks,
+        )
+
+        if not all_skills or not file_list:
+            logger.info("No skills or files available for skill occurrences")
+            return
+
+        git_dates_by_path = self._extract_file_commit_dates_from_git(project_path)
+        logger.info(
+            "[OCCURRENCES] git_dates_found=%d zip_dates_found=%d for project=%s",
+            len(git_dates_by_path),
+            len(zip_dates_by_path),
+            project_id,
+        )
+
+        occurrences_data = []
+        matched_file_count = 0
+        unmatched_examples = []
+        matched_examples = []
+
+        for file_meta in file_list:
+            file_path = (file_meta.get("path") or "").replace("\\", "/")
+            if not file_path:
+                continue
+
+            matched_skills = self._match_skills_to_file(
+                file_path=file_path,
+                all_skills=all_skills,
+                detected_languages=detected_languages,
+                detected_frameworks=detected_frameworks,
+            )
+
+            if not matched_skills:
+                if len(unmatched_examples) < 10:
+                    unmatched_examples.append(file_path)
+                continue
+
+            matched_file_count += 1
+            if len(matched_examples) < 10:
+                matched_examples.append(
+                    {
+                        "file": file_path,
+                        "matches": matched_skills,
+                    }
+                )
+
+            resolved_dt, date_source = self._resolve_file_occurrence_date(
+                file_meta=file_meta,
+                file_path=file_path,
+                git_dates_by_path=git_dates_by_path,
+                zip_dates_by_path=zip_dates_by_path,
+                project_upload_time=project_upload_time,
+            )
+
+            for skill_name, evidence_type, evidence_value in matched_skills:
+                occurrences_data.append(
+                    {
+                        "project_id": project_id,
+                        "skill_name": skill_name,
+                        "file_path": file_path,
+                        "evidence_type": evidence_type,
+                        "evidence_value": evidence_value,
+                        "first_seen_at": resolved_dt,
+                        "date_source": date_source,
+                    }
+                )
+
+        logger.info(
+            "[OCCURRENCES] matched_files=%d unmatched_sample=%s",
+            matched_file_count,
+            unmatched_examples,
+        )
+        logger.info(
+            "[OCCURRENCES] matched_sample=%s",
+            matched_examples,
+        )
+
+        logger.info(
+            "Skill occurrence generation complete for project %s: %d rows",
+            project_id,
+            len(occurrences_data),
+        )
+
+        if occurrences_data:
+            self.skill_repo.create_occurrences_bulk(occurrences_data)
+            logger.info(
+                "Saved %d skill occurrences for project %d",
+                len(occurrences_data),
+                project_id,
+            )
+        else:
+            logger.info("No skill occurrences matched files for project %d", project_id)
+
+    def rebuild_skill_occurrences_for_project(self, project_id: int) -> None:
+        """
+        Rebuild skill occurrences on demand for chronological timeline analysis.
+        """
+        logger.info("[TIMELINE REBUILD] requested project_id=%s", project_id)
+
+        project = self.project_repo.get(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+
+        logger.info(
+            "[TIMELINE REBUILD] project.root_path=%s source_url=%s",
+            project.root_path,
+            project.source_url,
+        )
+
+        project_root, temp_dir = self._resolve_deferred_analysis_path(
+            project.root_path,
+            project.source_url,
+        )
+
+        logger.info("[TIMELINE REBUILD] resolved project_root=%s", project_root)
+
+        try:
+            file_info_list = collect_all_file_info(project_root, show_progress=False)
+            file_list = [file_info_to_metadata_dict(f) for f in file_info_list]
+
+            logger.info("[TIMELINE REBUILD] file_list=%d", len(file_list))
+
+            project_skills = self.skill_repo.get_by_project(project_id)
+            logger.info("[TIMELINE REBUILD] project_skills=%d", len(project_skills))
+
+            skill_categories: Dict[str, List[str]] = {}
+
+            for project_skill in project_skills:
+                skill_obj = getattr(project_skill, "skill", None)
+                if not skill_obj or not skill_obj.name:
+                    continue
+
+                category = skill_obj.category or "Other"
+                skill_categories.setdefault(category, []).append(skill_obj.name)
+
+            logger.info("[TIMELINE REBUILD] skill_categories=%s", skill_categories)
+
+            detected_languages = self.project_repo.get_languages(project_id) or []
+            detected_frameworks = self.project_repo.get_frameworks(project_id) or []
+
+            zip_dates_by_path: Dict[str, datetime] = {}
+            if project.source_type == "zip" and project.source_url:
+                zip_dates_by_path = get_zip_entry_dates(Path(project.source_url))
+            logger.info(
+                "[TIMELINE REBUILD] zip_dates_found=%d",
+                len(zip_dates_by_path),
+            )
+
+            for language in detected_languages:
+                if language and language != "Unknown":
+                    skill_categories.setdefault("Languages", [])
+                    if language not in skill_categories["Languages"]:
+                        skill_categories["Languages"].append(language)
+
+            for framework in detected_frameworks:
+                if framework:
+                    skill_categories.setdefault("Frameworks", [])
+                    if framework not in skill_categories["Frameworks"]:
+                        skill_categories["Frameworks"].append(framework)
+
+            logger.info("[TIMELINE REBUILD] detected_languages=%s", detected_languages)
+            logger.info("[TIMELINE REBUILD] detected_frameworks=%s", detected_frameworks)
+
+            deleted = self.skill_repo.delete_occurrences_by_project(project_id)
+            logger.info(
+                "[TIMELINE REBUILD] deleted old occurrences for project %s: %d",
+                project_id,
+                deleted,
+            )
+
+            self._save_skill_occurrences(
+                project_id=project_id,
+                skill_categories=skill_categories,
+                file_list=file_list,
+                detected_languages=detected_languages,
+                detected_frameworks=detected_frameworks,
+                project_path=str(project_root),
+                project_upload_time=project.zip_uploaded_at or project.created_at or datetime.utcnow(),
+                zip_dates_by_path=zip_dates_by_path,
+            )
+
+            saved_rows = len(self.skill_repo.get_occurrences_by_project(project_id))
+            logger.info(
+                "[TIMELINE REBUILD] saved occurrences for project %s: %d",
+                project_id,
+                saved_rows,
+            )
+
+            logger.info(
+                "[TIMELINE BUILD] Completed deferred skill occurrence rebuild for project %s",
+                project_id,
+            )
+        finally:
+            if temp_dir is not None:
+                temp_dir.cleanup()
+
+def get_zip_entry_dates(zip_path: Path) -> Dict[str, datetime]:
+    """
+    Build a mapping of relative file path -> ZIP entry timestamp.
+
+    Normalizes paths so that if the ZIP has a single top-level folder,
+    entries are stored relative to that folder.
+    """
+    zip_path = Path(zip_path)
+    dates: Dict[str, datetime] = {}
+
+    if not zip_path.exists() or not zipfile.is_zipfile(zip_path):
+        return dates
+
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            file_entries = []
+
+            for info in zf.infolist():
+                name = info.filename.replace("\\", "/")
+
+                if info.is_dir() or name.endswith("/"):
+                    continue
+                if _is_macos_junk_zip_name(name):
+                    continue
+
+                file_entries.append((info, name))
+
+            # detect whether ZIP has a single top-level folder
+            top_level_parts = {
+                name.split("/", 1)[0]
+                for _, name in file_entries
+                if "/" in name
+            }
+
+            strip_prefix = None
+            if len(top_level_parts) == 1:
+                candidate = next(iter(top_level_parts))
+                # only strip if every file is under that folder
+                if all(name == candidate or name.startswith(candidate + "/") for _, name in file_entries):
+                    strip_prefix = candidate + "/"
+
+            for info, name in file_entries:
+                normalized_name = name
+                if strip_prefix and normalized_name.startswith(strip_prefix):
+                    normalized_name = normalized_name[len(strip_prefix):]
+
+                try:
+                    entry_dt = datetime(*info.date_time)
+                except (ValueError, TypeError):
+                    continue
+
+                dates[normalized_name] = entry_dt
+
+    except Exception as e:
+        logger.warning("Failed to read ZIP entry dates from %s: %s", zip_path, e)
+
+    return dates

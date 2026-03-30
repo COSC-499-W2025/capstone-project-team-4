@@ -1303,18 +1303,11 @@ def analyze_project_skills(
     """
     Comprehensive project skill analysis with source tracking and frequency counts.
 
-    Args:
-        root_dir: Path to the project directory
-        libraries: Optional pre-detected list of libraries
-        tools: Optional pre-detected list of tools
-        languages: Optional pre-detected list of languages (skip detection if provided)
-        frameworks: Optional pre-detected list of frameworks (skip detection if provided)
-        include_code_patterns: If True, also run regex-based code pattern analysis
-
     Returns:
         Dictionary containing languages, frameworks, skills, skill categories,
-        skill_sources mapping each skill to its detection source, and
-        skill_frequencies mapping each skill to its occurrence count
+        skill_sources mapping each skill to its detection source,
+        skill_frequencies mapping each skill to its occurrence count,
+        and skill_occurrences mapping skills to file-level provenance.
     """
     root_path = Path(root_dir)
 
@@ -1325,8 +1318,7 @@ def analyze_project_skills(
         analyzer = ProjectAnalyzer()
         language_stats = analyzer.analyze_project_languages(str(root_path))
         languages = [
-            lang
-            for lang, count in language_stats.items()
+            lang for lang, count in language_stats.items()
             if lang != "Unknown" and count > 0
         ]
 
@@ -1347,38 +1339,91 @@ def analyze_project_skills(
                     if name not in best or conf > best[name]:
                         best[name] = conf
             frameworks = [
-                name for name, _ in sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))
+                name 
+                for name, _ in sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))
             ]
         else:
             logger.warning("Framework rules file not found at %s", rules_path)
             frameworks = []
 
-    # Extract skills from each source separately for tracking
-    skill_sources: Dict[str, str] = {}  # Maps skill name -> source
-    skill_frequencies: Dict[str, int] = {}  # Maps skill name -> occurrence count
+    # Existing aggregated outputs
+    skill_sources: Dict[str, str] = {}
+    skill_frequencies: Dict[str, int] = {}
 
-    # Skills from languages (returns Dict[str, int])
+    # New file-level provenance output
+    skill_occurrences: List[Dict[str, str]] = []
+    seen_occurrences: set[tuple[str, str]] = set()
+
+    # Skills from languages (project-level)
     lang_skills = extract_skills_from_languages(languages)
     for skill, count in lang_skills.items():
         skill_frequencies[skill] = skill_frequencies.get(skill, 0) + count
         if skill not in skill_sources:
             skill_sources[skill] = "language"
 
-    # Skills from frameworks (returns Dict[str, int])
+    # Skills from frameworks (project-level)
     fw_skills = extract_skills_from_frameworks(frameworks)
     for skill, count in fw_skills.items():
         skill_frequencies[skill] = skill_frequencies.get(skill, 0) + count
         if skill not in skill_sources:
             skill_sources[skill] = "framework"
 
-    # Skills from file types (returns Dict[str, int])
+    # Skills from file types
     file_skills = extract_skills_from_files(root_path)
     for skill, count in file_skills.items():
         skill_frequencies[skill] = skill_frequencies.get(skill, 0) + count
         if skill not in skill_sources:
             skill_sources[skill] = "file_type"
 
-    # Skills from libraries (returns Dict[str, int])
+    # NEW: build file-level occurrences from actual files
+    # This assumes file-type-based evidence for now.
+    for file_path in root_path.rglob("*"):
+        if not file_path.is_file():
+            continue
+
+        rel_path = str(file_path.relative_to(root_path)).replace("\\", "/")
+
+        # map file extension / type -> skills
+        per_file_skills = extract_skills_from_files(file_path.parent) if False else {}
+
+        # Replace this block with a proper per-file helper:
+        suffix = file_path.suffix.lower()
+
+        extension_skill_map = {
+            ".py": ["Python"],
+            ".js": ["JavaScript"],
+            ".ts": ["TypeScript"],
+            ".jsx": ["React", "JavaScript"],
+            ".tsx": ["React", "TypeScript"],
+            ".java": ["Java"],
+            ".kt": ["Kotlin"],
+            ".cs": ["C#"],
+            ".go": ["Go"],
+            ".rb": ["Ruby"],
+            ".php": ["PHP"],
+            ".swift": ["Swift"],
+            ".html": ["HTML"],
+            ".css": ["CSS"],
+            ".sql": ["SQL"],
+        }
+
+        matched_skills = extension_skill_map.get(suffix, [])
+
+        for skill in matched_skills:
+            key = (skill, rel_path)
+            if key in seen_occurrences:
+                continue
+
+            seen_occurrences.add(key)
+            skill_occurrences.append(
+                {
+                    "skill": skill,
+                    "file_path": rel_path,
+                    "source": "file_type",
+                }
+            )
+
+    # Skills from libraries (project-level)
     if libraries:
         lib_skills = extract_skills_from_libraries(libraries)
         for skill, count in lib_skills.items():
@@ -1386,7 +1431,7 @@ def analyze_project_skills(
             if skill not in skill_sources:
                 skill_sources[skill] = "library"
 
-    # Skills from tools (returns Dict[str, int])
+    # Skills from tools (project-level)
     if tools:
         tool_skills = extract_skills_from_tools(tools)
         for skill, count in tool_skills.items():
@@ -1394,55 +1439,44 @@ def analyze_project_skills(
             if skill not in skill_sources:
                 skill_sources[skill] = "tool"
 
-    # Contextual skills (inferred from combinations, returns Dict[str, int])
-    contextual_skills = _infer_contextual_skills(
-        languages, frameworks, libraries, tools
-    )
+    # Contextual skills (project-level only, do NOT add to occurrences)
+    contextual_skills = _infer_contextual_skills(languages, frameworks, libraries, tools)
     for skill, count in contextual_skills.items():
         skill_frequencies[skill] = skill_frequencies.get(skill, 0) + count
         if skill not in skill_sources:
             skill_sources[skill] = "contextual"
 
-    # All unique skills
     all_skills = sorted(skill_sources.keys())
 
-    # Categorize skills
     categories = get_skill_categories()
     categorized_skills: Dict[str, List[str]] = {}
 
     for skill in all_skills:
         placed = False
-        # First try exact match from predefined categories
+
         for category, category_skills in categories.items():
             if skill in category_skills:
-                if category not in categorized_skills:
-                    categorized_skills[category] = []
-                categorized_skills[category].append(skill)
+                categorized_skills.setdefault(category, []).append(skill)
                 placed = True
                 break
 
-        # If not found, try keyword-based categorization
         if not placed:
             keyword_category = categorize_skill_by_keywords(skill)
             if keyword_category:
-                if keyword_category not in categorized_skills:
-                    categorized_skills[keyword_category] = []
-                categorized_skills[keyword_category].append(skill)
+                categorized_skills.setdefault(keyword_category, []).append(skill)
                 placed = True
 
-        # Fall back to "Other" only if no match found
         if not placed:
-            if "Other" not in categorized_skills:
-                categorized_skills["Other"] = []
-            categorized_skills["Other"].append(skill)
+            categorized_skills.setdefault("Other", []).append(skill)
 
     return {
         "languages": languages,
         "frameworks": frameworks,
         "skills": all_skills,
         "skill_categories": categorized_skills,
-        "skill_sources": skill_sources,  # Maps skill -> source
-        "skill_frequencies": skill_frequencies,  # Maps skill -> occurrence count
+        "skill_sources": skill_sources,
+        "skill_frequencies": skill_frequencies,
+        "skill_occurrences": skill_occurrences,
         "total_skills": len(all_skills),
         "project_path": str(root_path.resolve()),
     }

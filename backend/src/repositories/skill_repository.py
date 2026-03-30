@@ -1,6 +1,6 @@
 """Skill repository for database operations."""
 
-from datetime import date
+from datetime import date, datetime
 import json
 from typing import Dict, List, Optional
 
@@ -8,7 +8,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.models.orm.project import ProjectAnalysisSummary
-from src.models.orm.skill import ProjectSkill, ProjectSkillTimeline, Skill
+from src.models.orm.skill import (
+    ProjectSkill,
+    ProjectSkillTimeline,
+    Skill,
+    SkillOccurrence,
+)
 from src.repositories.base import BaseRepository
 
 
@@ -190,6 +195,146 @@ class SkillRepository(BaseRepository[ProjectSkill]):
             ProjectSkill.project_id == project_id
         )
         return self.db.scalar(stmt) or 0
+
+    # Skill Occurrence operations
+    def create_occurrence(
+        self,
+        project_id: int,
+        skill_name: str,
+        file_path: str,
+        evidence_type: str,
+        evidence_value: str,
+        first_seen_at: datetime,
+        date_source: str,
+    ) -> SkillOccurrence:
+        """
+        Create a single skill occurrence row.
+
+        Args:
+            project_id: Project ID
+            skill_name: Name of the detected skill
+            file_path: File where the skill evidence was found
+            evidence_type: Type of evidence (language, framework, library, tool, skill)
+            evidence_value: Raw detected value
+            first_seen_at: Resolved best date for this file evidence
+            date_source: Source of resolved date (git_commit, file_metadata, upload_fallback)
+
+        Returns:
+            Created SkillOccurrence instance
+        """
+        occurrence = SkillOccurrence(
+            project_id=project_id,
+            skill_name=skill_name,
+            file_path=file_path,
+            evidence_type=evidence_type,
+            evidence_value=evidence_value,
+            first_seen_at=first_seen_at,
+            date_source=date_source,
+        )
+        self.db.add(occurrence)
+        self.db.flush()
+        return occurrence
+
+    def create_occurrences_bulk(self, occurrences_data: List[dict]) -> List[SkillOccurrence]:
+        """
+        Create multiple skill occurrence rows efficiently.
+
+        Args:
+            occurrences_data: List of dicts with keys:
+                project_id, skill_name, file_path, evidence_type,
+                evidence_value, first_seen_at, date_source
+
+        Returns:
+            List of created SkillOccurrence instances
+        """
+        occurrences = [
+            SkillOccurrence(
+                project_id=data["project_id"],
+                skill_name=data["skill_name"],
+                file_path=data["file_path"],
+                evidence_type=data["evidence_type"],
+                evidence_value=data["evidence_value"],
+                first_seen_at=data["first_seen_at"],
+                date_source=data["date_source"],
+            )
+            for data in occurrences_data
+        ]
+
+        if occurrences:
+            self.db.add_all(occurrences)
+            self.db.flush()
+
+        return occurrences
+
+    def delete_occurrences_by_project(self, project_id: int) -> int:
+        """
+        Delete all skill occurrences for a project.
+
+        Args:
+            project_id: Project ID
+
+        Returns:
+            Number of deleted rows
+        """
+        rows = self.db.query(SkillOccurrence).filter(
+            SkillOccurrence.project_id == project_id
+        )
+        deleted_count = rows.count()
+        rows.delete(synchronize_session=False)
+        self.db.flush()
+        return deleted_count
+
+    def get_occurrences_by_project(self, project_id: int) -> List[SkillOccurrence]:
+        """
+        Get all skill occurrences for a project ordered chronologically.
+
+        Args:
+            project_id: Project ID
+
+        Returns:
+            List of SkillOccurrence rows
+        """
+        stmt = (
+            select(SkillOccurrence)
+            .where(SkillOccurrence.project_id == project_id)
+            .order_by(SkillOccurrence.first_seen_at.asc(), SkillOccurrence.skill_name.asc())
+        )
+        return list(self.db.scalars(stmt).all())
+
+    def get_timeline_from_occurrences(
+        self,
+        project_id: int,
+        skill: Optional[str] = None,
+    ):
+        """
+        Aggregate skill timeline directly from skill_occurrences.
+
+        For each skill:
+        - date = earliest first_seen_at
+        - count = total number of occurrence rows for that skill
+
+        Args:
+            project_id: Project ID
+            skill: Optional case-insensitive skill filter
+
+        Returns:
+            Aggregated SQLAlchemy result rows with fields: skill, date, count
+        """
+        stmt = (
+            select(
+                SkillOccurrence.skill_name.label("skill"),
+                func.min(SkillOccurrence.first_seen_at).label("date"),
+                func.count(SkillOccurrence.id).label("count"),
+            )
+            .where(SkillOccurrence.project_id == project_id)
+            .group_by(SkillOccurrence.skill_name)
+            .order_by(func.min(SkillOccurrence.first_seen_at).asc())
+        )
+
+        if skill:
+            stmt = stmt.where(func.lower(SkillOccurrence.skill_name) == func.lower(skill))
+
+        return self.db.execute(stmt).all()
 
     # Skill Summary operations
     def get_summary(self, project_id: int) -> Optional[ProjectAnalysisSummary]:

@@ -1,4 +1,22 @@
 services:
+  db:
+    image: postgres:15
+    container_name: project-analyzer-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: student
+      POSTGRES_PASSWORD: capstoneteam4
+      POSTGRES_DB: capstone_db_dev
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U student -d capstone_db_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   app:
     platform: linux/amd64
     build: .
@@ -10,10 +28,16 @@ services:
       - ./data:/app/data
     environment:
       - PYTHONPATH=/app
-      - DATABASE_URL=postgresql://student:capstoneteam4@5.78.88.162:5434/capstone_db_dev
+      - DATABASE_URL=postgresql://student:capstoneteam4@db:5432/capstone_db_dev
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
+
+volumes:
+  postgres_data:

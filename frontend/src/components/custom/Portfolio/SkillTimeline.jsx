@@ -2,8 +2,6 @@ import { getAccessToken } from "@/lib/auth";
 import axios from "axios";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import SkillTimelineDateRow from "./SkillTimelineDateRow";
-import { buildSkillSnapshots } from "./utils/SkillTimeline";
 
 const SCROLL_MAX_HEIGHT = 420;
 
@@ -30,13 +28,21 @@ function SkillTimelineSkeleton() {
     );
 }
 
-function ProjectSnapshotCard({ projectGroup }) {
+function ProjectSnapshotCard({ projectGroup, onViewTimeline }) {
     return (
         <div className="rounded-xl border border-border/60 bg-background/50 p-4">
-            <div className="mb-4">
+            <div className="mb-4 flex items-center justify-between gap-4">
                 <h3 className="text-sm font-semibold text-foreground">
                     {projectGroup.projectName}
                 </h3>
+
+                <button
+                    type="button"
+                    className="shrink-0 text-xs font-medium text-primary hover:underline"
+                    onClick={() => onViewTimeline(projectGroup.projectId)}
+                >
+                    View Chronological Timeline
+                </button>
             </div>
 
             {projectGroup.skills.length === 0 ? (
@@ -44,7 +50,16 @@ function ProjectSnapshotCard({ projectGroup }) {
                     No skill snapshot data available for this project.
                 </p>
             ) : (
-                <SkillTimelineDateRow skills={projectGroup.skills} />
+                <div className="flex flex-wrap gap-2">
+                    {projectGroup.skills.map((skill) => (
+                        <span
+                            key={skill}
+                            className="rounded-full border border-border/60 bg-background px-3 py-1 text-xs text-foreground"
+                        >
+                            {skill}
+                        </span>
+                    ))}
+                </div>
             )}
         </div>
     );
@@ -57,6 +72,12 @@ export default function SkillTimeline() {
     const [partialError, setPartialError] = useState(false);
     const [isScrollable, setIsScrollable] = useState(false);
 
+    const [selectedProjectId, setSelectedProjectId] = useState(null);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [timelineData, setTimelineData] = useState(null);
+    const [timelineLoading, setTimelineLoading] = useState(false);
+    const [timelineError, setTimelineError] = useState("");
+
     const scrollContentRef = useRef(null);
 
     const authHeader = useMemo(() => {
@@ -67,7 +88,7 @@ export default function SkillTimeline() {
     useEffect(() => {
         let isCancelled = false;
 
-        async function loadTimeline() {
+        async function loadSnapshots() {
             setIsLoading(true);
             setError("");
             setPartialError(false);
@@ -106,29 +127,39 @@ export default function SkillTimeline() {
                 const results = await Promise.allSettled(
                     topThreeProjects.map((project) =>
                         axios.get(
-                            `/api/projects/${project.project_id ?? project.id}/skills/timeline`,
-                            {
-                                headers: authHeader,
-                            }
+                            `/api/projects/${project.project_id ?? project.id}/skills`,
+                            { headers: authHeader }
                         )
                     )
                 );
 
                 if (isCancelled) return;
 
-                const successfulResponses = results
-                    .filter((result) => result.status === "fulfilled")
-                    .map((result) => result.value.data);
-
                 const failedResponses = results.filter(
                     (result) => result.status === "rejected"
                 );
 
                 if (failedResponses.length > 0) {
-                    setPartialError(successfulResponses.length > 0);
+                    setPartialError(results.some((result) => result.status === "fulfilled"));
                 }
 
-                if (successfulResponses.length === 0) {
+                const snapshots = results
+                    .map((result, index) => {
+                        if (result.status !== "fulfilled") return null;
+
+                        const project = topThreeProjects[index];
+                        const data = result.value.data;
+
+                        return {
+                            projectId: project.project_id ?? project.id,
+                            projectName:
+                                data?.project_name || project.name || `Project ${project.project_id ?? project.id}`,
+                            skills: Array.isArray(data?.skills) ? data.skills : [],
+                        };
+                    })
+                    .filter(Boolean);
+
+                if (snapshots.length === 0) {
                     const firstError = failedResponses[0]?.reason;
                     const detail =
                         firstError?.response?.data?.detail ||
@@ -139,8 +170,7 @@ export default function SkillTimeline() {
                     return;
                 }
 
-                const grouped = buildSkillSnapshots(topThreeProjects, successfulResponses);
-                setProjectSnapshots(grouped);
+                setProjectSnapshots(snapshots);
             } catch (err) {
                 if (!isCancelled) {
                     setError(
@@ -157,7 +187,7 @@ export default function SkillTimeline() {
             }
         }
 
-        loadTimeline();
+        loadSnapshots();
 
         return () => {
             isCancelled = true;
@@ -187,6 +217,45 @@ export default function SkillTimeline() {
             window.removeEventListener("resize", updateScrollable);
         };
     }, [isLoading, error, partialError, projectSnapshots]);
+
+    async function handleViewTimeline(projectId) {
+        if (!authHeader) {
+            setTimelineError("You must be logged in to view the chronological timeline.");
+            setIsDialogOpen(true);
+            return;
+        }
+
+        setSelectedProjectId(projectId);
+        setIsDialogOpen(true);
+        setTimelineLoading(true);
+        setTimelineError("");
+        setTimelineData(null);
+
+        try {
+            const res = await axios.post(
+                `/api/projects/${projectId}/skills/timeline/build`,
+                {},
+                { headers: authHeader }
+            );
+            setTimelineData(res.data);
+        } catch (err) {
+            setTimelineError(
+                err?.response?.data?.detail ||
+                err?.message ||
+                "Failed to load chronological timeline."
+            );
+        } finally {
+            setTimelineLoading(false);
+        }
+    }
+
+    function closeDialog() {
+        setIsDialogOpen(false);
+        setSelectedProjectId(null);
+        setTimelineData(null);
+        setTimelineError("");
+        setTimelineLoading(false);
+    }
 
     return (
         <section>
@@ -227,6 +296,7 @@ export default function SkillTimeline() {
                                     <ProjectSnapshotCard
                                         key={projectGroup.projectId}
                                         projectGroup={projectGroup}
+                                        onViewTimeline={handleViewTimeline}
                                     />
                                 ))}
                             </>
@@ -234,6 +304,68 @@ export default function SkillTimeline() {
                     </div>
                 </div>
             </section>
+
+            {isDialogOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+                    <div className="w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-xl">
+                        <div className="mb-4 flex items-center justify-between gap-4">
+                            <div>
+                                <h3 className="text-lg font-semibold text-foreground">
+                                    Chronological Timeline
+                                </h3>
+                                {selectedProjectId && (
+                                    <p className="text-sm text-muted-foreground">
+                                        Project ID: {selectedProjectId}
+                                    </p>
+                                )}
+                            </div>
+
+                            <button
+                                type="button"
+                                className="text-sm text-muted-foreground hover:text-foreground"
+                                onClick={closeDialog}
+                            >
+                                Close
+                            </button>
+                        </div>
+
+                        <div className="max-h-[60vh] overflow-y-auto pr-1">
+                            {timelineLoading ? (
+                                <p className="text-sm text-muted-foreground">
+                                    Loading chronological timeline...
+                                </p>
+                            ) : timelineError ? (
+                                <p className="text-sm text-destructive">{timelineError}</p>
+                            ) : !timelineData?.timeline?.length ? (
+                                <p className="text-sm text-muted-foreground">
+                                    No chronological timeline data available yet.
+                                </p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {timelineData.timeline.map((entry, index) => (
+                                        <div
+                                            key={`${entry.skill}-${entry.date}-${index}`}
+                                            className="rounded-xl border border-border/60 bg-background/50 p-4"
+                                        >
+                                            <div className="flex items-center justify-between gap-4">
+                                                <span className="text-sm font-medium text-foreground">
+                                                    {entry.skill}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {entry.date}
+                                                </span>
+                                            </div>
+                                            <p className="mt-2 text-xs text-muted-foreground">
+                                                Count: {entry.count}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </section>
     );
 }
