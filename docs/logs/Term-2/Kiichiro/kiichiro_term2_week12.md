@@ -19,9 +19,15 @@ This week, I worked on the following frontend and backend coding tasks
 ### Review and Collaboration Tasks
 
 ## Reviewed PRs
+- https://github.com/COSC-499-W2025/capstone-project-team-4/pull/272
+- https://github.com/COSC-499-W2025/capstone-project-team-4/pull/276
+- https://github.com/COSC-499-W2025/capstone-project-team-4/pull/279
 
 ### Plan for Next Week
 
 - Watch other teams video and vote.
 
 Hours Worked: ~8 hours
+
+<img width="1092" height="643" alt="Screenshot 2026-03-29 at 18 25 13" src="https://github.com/user-attachments/assets/5ed3815e-e281-4c0f-8a17-755b7d671aa7" />
+
