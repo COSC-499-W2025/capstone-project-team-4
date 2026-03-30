@@ -2710,8 +2710,8 @@ def get_zip_entry_dates(zip_path: Path) -> Dict[str, datetime]:
     """
     Build a mapping of relative file path -> ZIP entry timestamp.
 
-    Uses timestamps stored inside the ZIP, which are usually more meaningful
-    than extracted temp-file timestamps for uploaded projects.
+    Normalizes paths so that if the ZIP has a single top-level folder,
+    entries are stored relative to that folder.
     """
     zip_path = Path(zip_path)
     dates: Dict[str, datetime] = {}
@@ -2721,6 +2721,8 @@ def get_zip_entry_dates(zip_path: Path) -> Dict[str, datetime]:
 
     try:
         with zipfile.ZipFile(zip_path, "r") as zf:
+            file_entries = []
+
             for info in zf.infolist():
                 name = info.filename.replace("\\", "/")
 
@@ -2729,12 +2731,33 @@ def get_zip_entry_dates(zip_path: Path) -> Dict[str, datetime]:
                 if _is_macos_junk_zip_name(name):
                     continue
 
+                file_entries.append((info, name))
+
+            # detect whether ZIP has a single top-level folder
+            top_level_parts = {
+                name.split("/", 1)[0]
+                for _, name in file_entries
+                if "/" in name
+            }
+
+            strip_prefix = None
+            if len(top_level_parts) == 1:
+                candidate = next(iter(top_level_parts))
+                # only strip if every file is under that folder
+                if all(name == candidate or name.startswith(candidate + "/") for _, name in file_entries):
+                    strip_prefix = candidate + "/"
+
+            for info, name in file_entries:
+                normalized_name = name
+                if strip_prefix and normalized_name.startswith(strip_prefix):
+                    normalized_name = normalized_name[len(strip_prefix):]
+
                 try:
                     entry_dt = datetime(*info.date_time)
                 except (ValueError, TypeError):
                     continue
 
-                dates[name] = entry_dt
+                dates[normalized_name] = entry_dt
 
     except Exception as e:
         logger.warning("Failed to read ZIP entry dates from %s: %s", zip_path, e)
