@@ -302,4 +302,192 @@ describe('History Page', () => {
     });
     expect(screen.getByText('Survivor')).toBeInTheDocument();
   });
+
+  // ── Search behaviour ──────────────────────────────────────────────────────
+
+  it('renders the search input when projects are loaded', async () => {
+    mockProjectList([{ id: 1, name: 'Alpha' }]);
+    render(<HistoryPage />);
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/search projects by name/i)).toBeInTheDocument();
+    });
+  });
+
+  it('filters project cards by search query', async () => {
+    mockProjectList([
+      { id: 1, name: 'Alpha Project' },
+      { id: 2, name: 'Beta Project' },
+      { id: 3, name: 'Gamma Project' },
+    ]);
+    render(<HistoryPage />);
+    await waitFor(() => {
+      expect(screen.getAllByTestId('project-card')).toHaveLength(3);
+    });
+
+    fireEvent.change(screen.getByPlaceholderText(/search projects by name/i), {
+      target: { value: 'Alpha' },
+    });
+
+    expect(screen.getAllByTestId('project-card')).toHaveLength(1);
+    expect(screen.getByText('Alpha Project')).toBeInTheDocument();
+    expect(screen.queryByText('Beta Project')).not.toBeInTheDocument();
+  });
+
+  it('shows the no-results empty state when search matches nothing', async () => {
+    mockProjectList([{ id: 1, name: 'Alpha Project' }]);
+    render(<HistoryPage />);
+    await waitFor(() => {
+      expect(screen.getByText('Alpha Project')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText(/search projects by name/i), {
+      target: { value: 'zzz-no-match' },
+    });
+
+    expect(screen.queryByTestId('project-card')).not.toBeInTheDocument();
+    expect(screen.getByText(/no projects match/i)).toBeInTheDocument();
+  });
+
+  it('shows "X of Y" count badge when a search is active', async () => {
+    mockProjectList([
+      { id: 1, name: 'Alpha' },
+      { id: 2, name: 'Beta' },
+    ]);
+    render(<HistoryPage />);
+    await waitFor(() => {
+      expect(screen.getAllByTestId('project-card')).toHaveLength(2);
+    });
+
+    fireEvent.change(screen.getByPlaceholderText(/search projects by name/i), {
+      target: { value: 'Alpha' },
+    });
+
+    expect(screen.getByText('1 of 2')).toBeInTheDocument();
+  });
+
+  it('resets to page 1 when the search query changes', async () => {
+    mockProjectList(
+      Array.from({ length: 9 }, (_, i) => ({ id: i + 1, name: `Project ${i + 1}` }))
+    );
+    render(<HistoryPage />);
+    await waitFor(() => {
+      expect(screen.getByRole('navigation', { name: /pagination/i })).toBeInTheDocument();
+    });
+
+    // Navigate to page 2
+    fireEvent.click(screen.getByLabelText('Go to next page'));
+    await waitFor(() => {
+      expect(screen.getAllByTestId('project-card')).toHaveLength(3);
+    });
+
+    // Typing in the search should reset back to page 1
+    fireEvent.change(screen.getByPlaceholderText(/search projects by name/i), {
+      target: { value: 'Project' },
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('project-card')).toHaveLength(6);
+    });
+  });
+
+  // ── Delete All behaviour ──────────────────────────────────────────────────
+
+  it('shows the Delete All button when projects are loaded', async () => {
+    mockProjectList([{ id: 1, name: 'Alpha' }]);
+    render(<HistoryPage />);
+    await waitFor(() => {
+      expect(screen.getByText(/delete all/i)).toBeInTheDocument();
+    });
+  });
+
+  it('shows confirm and cancel buttons after clicking Delete All', async () => {
+    mockProjectList([{ id: 1, name: 'Alpha' }]);
+    render(<HistoryPage />);
+    await waitFor(() => {
+      expect(screen.getByText(/delete all/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/delete all/i));
+
+    expect(screen.getByRole('button', { name: /confirm/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
+  });
+
+  it('hides the confirmation and keeps projects when Cancel is clicked', async () => {
+    mockProjectList([
+      { id: 1, name: 'Alpha' },
+      { id: 2, name: 'Beta' },
+    ]);
+    render(<HistoryPage />);
+    await waitFor(() => {
+      expect(screen.getByText(/delete all/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/delete all/i));
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+
+    expect(screen.queryByRole('button', { name: /confirm/i })).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('project-card')).toHaveLength(2);
+  });
+
+  it('calls DELETE for every project when Delete All is confirmed', async () => {
+    mockProjectList([
+      { id: 1, name: 'Alpha' },
+      { id: 2, name: 'Beta' },
+    ]);
+    render(<HistoryPage />);
+    await waitFor(() => {
+      expect(screen.getByText(/delete all/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/delete all/i));
+    fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
+
+    await waitFor(() => {
+      expect(axios.delete).toHaveBeenCalledWith(
+        '/api/projects/1',
+        expect.objectContaining({ headers: { Authorization: 'Bearer fake-token' } })
+      );
+      expect(axios.delete).toHaveBeenCalledWith(
+        '/api/projects/2',
+        expect.objectContaining({ headers: { Authorization: 'Bearer fake-token' } })
+      );
+    });
+  });
+
+  it('clears the project list after Delete All is confirmed', async () => {
+    mockProjectList([
+      { id: 1, name: 'Alpha' },
+      { id: 2, name: 'Beta' },
+    ]);
+    render(<HistoryPage />);
+    await waitFor(() => {
+      expect(screen.getAllByTestId('project-card')).toHaveLength(2);
+    });
+
+    fireEvent.click(screen.getByText(/delete all/i));
+    fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/no projects yet/i)).toBeInTheDocument();
+    });
+  });
+
+  it('shows an alert and keeps projects when Delete All fails', async () => {
+    vi.stubGlobal('alert', vi.fn());
+    axios.delete.mockRejectedValue({ message: 'Server error' });
+    mockProjectList([{ id: 1, name: 'Alpha' }]);
+    render(<HistoryPage />);
+    await waitFor(() => {
+      expect(screen.getByText(/delete all/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/delete all/i));
+    fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
+
+    await waitFor(() => {
+      expect(window.alert).toHaveBeenCalled();
+    });
+    expect(screen.getByText('Alpha')).toBeInTheDocument();
+  });
 });

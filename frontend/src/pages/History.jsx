@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Loader2, AlertCircle, Clock } from 'lucide-react';
+import { Loader2, AlertCircle, Clock, Search, Trash2 } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import ProjectSummary from '@/components/custom/Generator/ProjectSummary';
 import { getAccessToken } from '@/lib/auth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Pagination,
   PaginationContent,
@@ -70,6 +72,8 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -125,8 +129,29 @@ export default function HistoryPage() {
     }
   };
 
-  const totalPages = Math.ceil(projects.length / PAGE_SIZE);
-  const pagedProjects = projects.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const handleDeleteAll = async () => {
+    const token = getAccessToken();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    try {
+      await Promise.all(
+        projects.map((p) => axios.delete(`/api/projects/${p.projectId}`, { headers }))
+      );
+      setProjects([]);
+      setCurrentPage(1);
+      setSearchQuery('');
+    } catch (err) {
+      alert(err?.response?.data?.detail || err?.message || 'Failed to delete all projects.');
+    } finally {
+      setConfirmDeleteAll(false);
+    }
+  };
+
+  const filteredProjects = projects.filter((p) =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredProjects.length / PAGE_SIZE);
+  const pagedProjects = filteredProjects.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const pageNumbers = getPageNumbers(currentPage, totalPages);
 
   return (
@@ -139,10 +164,48 @@ export default function HistoryPage() {
           <h1 className="text-3xl font-bold text-slate-900">Project History</h1>
           {!loading && !error && (
             <span className="ml-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-sm font-medium text-slate-600">
-              {projects.length}
+              {searchQuery ? `${filteredProjects.length} of ${projects.length}` : projects.length}
             </span>
           )}
         </div>
+
+        {!loading && !error && projects.length > 0 && (
+          <div className="flex items-center gap-3 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Search projects by name..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="pl-9"
+              />
+            </div>
+            {confirmDeleteAll ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-600">Delete all {projects.length} projects?</span>
+                <Button size="sm" variant="destructive" onClick={handleDeleteAll}>
+                  Confirm
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setConfirmDeleteAll(false)}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 flex items-center gap-1.5"
+                onClick={() => setConfirmDeleteAll(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete All
+              </Button>
+            )}
+          </div>
+        )}
 
         {loading && (
           <div className="flex items-center gap-2 text-slate-500 py-12 justify-center">
@@ -166,7 +229,14 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {!loading && !error && projects.length > 0 && (
+        {!loading && !error && projects.length > 0 && filteredProjects.length === 0 && (
+          <div className="text-center py-20 text-slate-400">
+            <Search className="h-12 w-12 mx-auto mb-3 opacity-30" />
+            <p className="text-lg font-medium">No projects match &ldquo;{searchQuery}&rdquo;</p>
+          </div>
+        )}
+
+        {!loading && !error && filteredProjects.length > 0 && (
           <>
             <div className="bg-white rounded-lg shadow-md p-6">
               <ProjectSummary

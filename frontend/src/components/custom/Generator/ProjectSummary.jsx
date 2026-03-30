@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   Pencil,
+  Trash2,
   Users,
   Calendar,
   Code,
@@ -35,10 +36,11 @@ import EditProjectModal from '@/components/custom/Generator/EditProjectModal';
 import ContributorInsightsDialog from '@/components/custom/Generator/ContributorInsightsDialog';
 import SnapshotComparisonModal from '@/components/custom/Generator/SnapshotComparisonModal';
 
-const ProjectSummary = ({ projects, onUpdateProject }) => {
+const ProjectSummary = ({ projects, onUpdateProject, onDeleteProject }) => {
   const [sortBy, setSortBy] = useState('date');
   const [editingProject, setEditingProject] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   
   // Contributor modal state
   const [contributorModalOpen, setContributorModalOpen] = useState(false);
@@ -253,6 +255,41 @@ const ProjectSummary = ({ projects, onUpdateProject }) => {
               >
                 <Pencil className="h-4 w-4 text-gray-500 hover:text-blue-600" />
               </Button>
+              {project.projectId && onDeleteProject && (
+                confirmDeleteId === project.projectId ? (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => {
+                        onDeleteProject(project.projectId);
+                        setConfirmDeleteId(null);
+                      }}
+                    >
+                      Delete
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setConfirmDeleteId(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setConfirmDeleteId(project.projectId)}
+                    className="h-8 w-8 p-0 hover:bg-red-50"
+                    title="Delete project"
+                  >
+                    <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                  </Button>
+                )
+              )}
             </div>
 
             <CardHeader>
