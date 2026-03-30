@@ -6,8 +6,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from src.api.dependencies import get_current_user
 from src.api.exceptions import ProjectNotFoundError
 from src.models.database import get_db
+from src.models.orm.user import User
 from src.models.schemas.contributor import (
     ContributorAnalysisDetailResponseSchema,
     ContributorDirectoriesResponseSchema,
@@ -27,6 +29,7 @@ async def get_contributor_analysis(
     contributor_id: int,
     branch: Optional[str] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ContributorAnalysisDetailResponseSchema:
     """Get detailed analysis for a specific contributor in a project.
 
@@ -50,7 +53,7 @@ async def get_contributor_analysis(
     # Verify project exists
     project_repo = ProjectRepository(db)
     project = project_repo.get(project_id)
-    if not project:
+    if not project or project.user_id != current_user.id:
         raise ProjectNotFoundError(project_id)
 
     # Verify contributor exists
@@ -105,6 +108,7 @@ async def get_contributor_directories(
     depth: int = Query(3, ge=1, le=8, description="Directory depth to aggregate paths"),
     top_n: int = Query(10, ge=1, le=50, description="Number of top directories to return"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ContributorDirectoriesResponseSchema:
     """Get directory-level contribution breakdown for a specific contributor.
 
@@ -113,7 +117,7 @@ async def get_contributor_directories(
     """
     project_repo = ProjectRepository(db)
     project = project_repo.get(project_id)
-    if not project:
+    if not project or project.user_id != current_user.id:
         raise ProjectNotFoundError(project_id)
 
     contributor_repo = ContributorRepository(db)

@@ -185,13 +185,20 @@ def _calculate_activity_metrics(commit_dates: list) -> ActivitySchema:
         active_weeks=active_weeks,
     )
 
+
+def _require_project_owner(service: ProjectService, project_id: int, current_user: User) -> None:
+    if not service.user_owns_project(project_id, current_user.id):
+        raise ProjectNotFoundError(project_id)
+
 @router.get("/{project_id}", response_model=ProjectDetail)
 async def get_project(
     project_id: int,
     request: Request,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
     project = service.get_project_detail(project_id)
 
     if not project:
@@ -210,9 +217,11 @@ async def put_project_thumbnail(
     request: Request,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Upload or replace a project's thumbnail image."""
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
 
     if not service.project_exists(project_id):
         raise ProjectNotFoundError(project_id)
@@ -268,9 +277,11 @@ async def get_project_thumbnail(
     project_id: int,
     if_none_match: str | None = Header(default=None, alias="If-None-Match"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Fetch project's thumbnail bytes with Content-Type and basic caching (ETag)."""
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
 
     if not service.project_exists(project_id):
         raise ProjectNotFoundError(project_id)
@@ -297,9 +308,11 @@ async def get_project_thumbnail(
 async def delete_project_thumbnail(
     project_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Delete project's thumbnail."""
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
 
     if not service.project_exists(project_id):
         raise ProjectNotFoundError(project_id)
@@ -317,8 +330,10 @@ async def delete_project_thumbnail(
 async def get_textual_project_showcase(
     project_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
 
     if not service.project_exists(project_id):
         raise ProjectNotFoundError(project_id)
@@ -336,6 +351,7 @@ async def get_textual_project_showcase(
 async def delete_project(
     project_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Delete a project and all associated data.
@@ -344,6 +360,7 @@ async def delete_project(
     - This action cannot be undone
     """
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
     deleted = service.delete_project(project_id)
 
     if not deleted:
@@ -354,6 +371,7 @@ async def delete_project(
 async def get_project_contributors(
     project_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get contributors for a project from git history analysis.
@@ -362,6 +380,7 @@ async def get_project_contributors(
     - Includes lines added/deleted and contribution percentage
     """
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
     project_detail = service.get_project(project_id)
 
     if not project_detail:
@@ -432,6 +451,7 @@ async def get_contributor_analysis(
     include_merges: bool = Query(False, description="Include merge commits"),
     include_renames: bool = Query(False, description="Count renames as changes"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get detailed contribution analysis for each contributor in a project.
@@ -442,6 +462,7 @@ async def get_contributor_analysis(
     - Useful for understanding who contributed what to the project
     """
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
     result = service.get_contributor_analysis(project_id)
 
     if result is None:
@@ -456,6 +477,7 @@ async def get_default_branch_stats(
     include_merges: bool = Query(False, description="Include merge commits"),
     include_renames: bool = Query(False, description="Count renames as changes"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Return lines added/deleted per author (GitHub-like).
@@ -465,7 +487,7 @@ async def get_default_branch_stats(
     """
     project_repo = ProjectRepository(db)
     project = project_repo.get(project_id)
-    if not project:
+    if not project or project.user_id != current_user.id:
         raise ProjectNotFoundError(project_id)
 
     # Get contributors from database (stored during initial analysis)
@@ -518,6 +540,7 @@ async def get_default_branch_stats(
 async def get_project_complexity(
     project_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get code complexity metrics for a project.
@@ -526,6 +549,7 @@ async def get_project_complexity(
     - Includes high complexity functions for review
     """
     service = ProjectService(db)
+    _require_project_owner(service, project_id, current_user)
     project = service.get_project(project_id)
 
     if not project:
