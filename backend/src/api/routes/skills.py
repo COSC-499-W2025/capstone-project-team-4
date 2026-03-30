@@ -3,7 +3,7 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
 
 from src.models.database import get_db
@@ -55,7 +55,6 @@ async def get_skill_categories(
 
     - Returns list of unique skill categories
     """
-    # First check if project exists
     project_service = ProjectService(db)
     if not project_service.project_exists(project_id):
         raise ProjectNotFoundError(project_id)
@@ -84,6 +83,24 @@ async def get_skill_timeline(
 
     return result
 
+@router.post("/timeline/build", response_model=SkillTimelineResponse)
+async def build_skill_timeline(
+    project_id: int,
+    skill: Optional[str] = Query(None, description="Filter by specific skill"),
+    db: Session = Depends(get_db),
+):
+    logger.info("[TIMELINE ROUTE] project_id=%s", project_id)
+    project_service = ProjectService(db)
+    if not project_service.project_exists(project_id):
+        raise ProjectNotFoundError(project_id)
+
+    service = SkillService(db)
+    result = service.build_skill_timeline(project_id, skill)
+
+    if not result:
+        raise ProjectNotFoundError(project_id)
+
+    return result
 
 @router.get("/sources", response_model=SkillSourceResponse)
 async def get_skill_sources(
@@ -92,17 +109,6 @@ async def get_skill_sources(
 ):
     """
     Get skills grouped by their detection source.
-
-    Returns skills categorized by how they were detected:
-    - from_languages: Skills derived from programming languages
-    - from_frameworks: Skills derived from frameworks
-    - from_libraries: Skills derived from library dependencies
-    - from_tools: Skills derived from development tools
-    - contextual: Skills inferred from multi-signal combinations
-    - from_file_types: Skills derived from file types
-
-    This endpoint is useful for understanding where each skill
-    comes from in the complementary detection system.
     """
     project_service = ProjectService(db)
     if not project_service.project_exists(project_id):
@@ -120,14 +126,6 @@ async def get_skills_by_source(
 ):
     """
     Get skills filtered by a specific source type.
-
-    **Valid source types:**
-    - `language`: Skills from detected programming languages
-    - `framework`: Skills from detected frameworks
-    - `library`: Skills from detected library dependencies
-    - `tool`: Skills from detected development tools
-    - `contextual`: Skills inferred from multi-signal combinations
-    - `file_type`: Skills from detected file types
     """
     if source not in VALID_SOURCES:
         raise HTTPException(

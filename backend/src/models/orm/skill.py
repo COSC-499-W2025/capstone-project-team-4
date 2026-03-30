@@ -3,8 +3,9 @@
 from datetime import date as date_type
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Date, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint, func, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import datetime, timezone
 
 from src.models.database import Base
 
@@ -86,3 +87,35 @@ class ProjectSkillTimeline(Base):
 
     def __repr__(self) -> str:
         return f"<ProjectSkillTimeline(project_id={self.project_id}, skill='{self.skill}')>"
+
+class SkillOccurrence(Base):
+    __tablename__ = "skill_occurrences"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    skill_name = Column(String, nullable=False, index=True)
+    file_path = Column(String, nullable=False)
+
+    evidence_type = Column(String, nullable=False)  
+    # example: "language", "framework", "library", "tool", "skill"
+
+    evidence_value = Column(String, nullable=False)
+    # example: "React", "Python", "FastAPI"
+
+    first_seen_at = Column(DateTime(timezone=True), nullable=False, index=True)
+
+    date_source = Column(String, nullable=False)
+    # example: "git_commit", "file_metadata", "upload_fallback"
+
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    project = relationship("Project", back_populates="skill_occurrences")
+
+Index("ix_skill_occurrences_project_skill_date", SkillOccurrence.project_id, SkillOccurrence.skill_name, SkillOccurrence.first_seen_at)
+Index("ix_skill_occurrences_project_file_skill", SkillOccurrence.project_id, SkillOccurrence.file_path, SkillOccurrence.skill_name)

@@ -1,5 +1,6 @@
 """Pydantic schemas for skills."""
 
+from datetime import datetime
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict
@@ -13,7 +14,6 @@ class SkillSchema(BaseModel):
     name: str
     category: str
     frequency: int = 1
-    # Source tracking for complementary detection system
     source: Optional[str] = None
 
 
@@ -82,4 +82,4 @@ class SkillTimelineResponse(BaseModel):
     """Schema for skill timeline response."""
 
     project_id: int
-    timeline: List[SkillTimelineEntry]
+    timeline: List[SkillTimelineEntry] = []

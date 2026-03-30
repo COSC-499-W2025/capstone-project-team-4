@@ -55,6 +55,11 @@ class Project(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    skill_occurrences = relationship(
+        "SkillOccurrence",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
     files: Mapped[List["File"]] = relationship(
         "File", back_populates="project", cascade="all, delete-orphan"
     )
