@@ -130,7 +130,7 @@ async def get_skills_by_source(
     if source not in VALID_SOURCES:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid source type. Must be one of: {', '.join(VALID_SOURCES)}"
+            detail=f"Invalid source type. Must be one of: {', '.join(VALID_SOURCES)}",
         )
 
     project_service = ProjectService(db)

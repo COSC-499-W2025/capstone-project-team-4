@@ -97,15 +97,21 @@ def test_create_midpoint_snapshot_happy_path(monkeypatch):
     now = datetime.now(timezone.utc)
     service = SnapshotService(db=None)
     service.project_repo = SimpleNamespace(
-        get=lambda _project_id: SimpleNamespace(root_path="/tmp/root", source_url="/tmp/u.zip")
+        get=lambda _project_id: SimpleNamespace(
+            root_path="/tmp/root", source_url="/tmp/u.zip"
+        )
     )
     service.snapshot_repo = SimpleNamespace(
         create=lambda obj: SimpleNamespace(id=44, created_at=now, **obj.__dict__)
     )
 
-    monkeypatch.setattr(service, "_materialize_repo", lambda *_args, **_kwargs: Path("/tmp/repo"))
     monkeypatch.setattr(
-        service, "_get_midpoint_commit", lambda *_args, **_kwargs: MidpointCommit(hash="h1", index=1, total_commits=3)
+        service, "_materialize_repo", lambda *_args, **_kwargs: Path("/tmp/repo")
+    )
+    monkeypatch.setattr(
+        service,
+        "_get_midpoint_commit",
+        lambda *_args, **_kwargs: MidpointCommit(hash="h1", index=1, total_commits=3),
     )
     monkeypatch.setattr(service, "_git", lambda *_args, **_kwargs: "")
     monkeypatch.setattr(
@@ -114,7 +120,11 @@ def test_create_midpoint_snapshot_happy_path(monkeypatch):
         lambda *_args, **_kwargs: {
             "snapshot_type": "midpoint",
             "commit": {"hash": "h1", "index": 1, "total_commits": 3},
-            "summary": {"total_files": 10, "total_lines": 20, "file_type_distribution": [(".py", 5)]},
+            "summary": {
+                "total_files": 10,
+                "total_lines": 20,
+                "file_type_distribution": [(".py", 5)],
+            },
         },
     )
 
@@ -130,13 +140,17 @@ def test_create_current_snapshot_happy_path(monkeypatch):
     now = datetime.now(timezone.utc)
     service = SnapshotService(db=None)
     service.project_repo = SimpleNamespace(
-        get=lambda _project_id: SimpleNamespace(root_path="/tmp/root", source_url="/tmp/u.zip")
+        get=lambda _project_id: SimpleNamespace(
+            root_path="/tmp/root", source_url="/tmp/u.zip"
+        )
     )
     service.snapshot_repo = SimpleNamespace(
         create=lambda obj: SimpleNamespace(id=55, created_at=now, **obj.__dict__)
     )
 
-    monkeypatch.setattr(service, "_materialize_repo", lambda *_args, **_kwargs: Path("/tmp/repo"))
+    monkeypatch.setattr(
+        service, "_materialize_repo", lambda *_args, **_kwargs: Path("/tmp/repo")
+    )
     monkeypatch.setattr(
         service,
         "_resolve_commit_point",
@@ -149,7 +163,11 @@ def test_create_current_snapshot_happy_path(monkeypatch):
         lambda *_args, **_kwargs: {
             "snapshot_type": "current",
             "commit": {"hash": "h2", "index": 2, "total_commits": 3},
-            "summary": {"total_files": 11, "total_lines": 21, "file_type_distribution": [(".py", 6)]},
+            "summary": {
+                "total_files": 11,
+                "total_lines": 21,
+                "file_type_distribution": [(".py", 6)],
+            },
         },
     )
 
@@ -165,17 +183,19 @@ def test_create_current_and_midpoint_snapshots_happy_path(monkeypatch):
     now = datetime.now(timezone.utc)
     service = SnapshotService(db=None)
     service.project_repo = SimpleNamespace(
-        get=lambda _project_id: SimpleNamespace(root_path="/tmp/root", source_url="/tmp/u.zip")
+        get=lambda _project_id: SimpleNamespace(
+            root_path="/tmp/root", source_url="/tmp/u.zip"
+        )
     )
     saved_rows = [
         SimpleNamespace(id=100, created_at=now),
         SimpleNamespace(id=101, created_at=now),
     ]
-    service.snapshot_repo = SimpleNamespace(
-        create=lambda _obj: saved_rows.pop(0)
-    )
+    service.snapshot_repo = SimpleNamespace(create=lambda _obj: saved_rows.pop(0))
 
-    monkeypatch.setattr(service, "_materialize_repo", lambda *_args, **_kwargs: Path("/tmp/repo"))
+    monkeypatch.setattr(
+        service, "_materialize_repo", lambda *_args, **_kwargs: Path("/tmp/repo")
+    )
 
     def fake_resolve(_repo_root, snapshot_type: str, **kwargs):
         if snapshot_type == "current":
@@ -195,7 +215,11 @@ def test_create_current_and_midpoint_snapshots_happy_path(monkeypatch):
                 "index": commit_point.index,
                 "total_commits": commit_point.total_commits,
             },
-            "summary": {"total_files": 1, "total_lines": 2, "file_type_distribution": [(".py", 1)]},
+            "summary": {
+                "total_files": 1,
+                "total_lines": 2,
+                "file_type_distribution": [(".py", 1)],
+            },
         }
 
     monkeypatch.setattr(service, "_build_snapshot", fake_build)
@@ -215,7 +239,9 @@ def test_create_current_and_midpoint_snapshots_with_custom_end_percentage(monkey
     now = datetime.now(timezone.utc)
     service = SnapshotService(db=None)
     service.project_repo = SimpleNamespace(
-        get=lambda _project_id: SimpleNamespace(root_path="/tmp/root", source_url="/tmp/u.zip")
+        get=lambda _project_id: SimpleNamespace(
+            root_path="/tmp/root", source_url="/tmp/u.zip"
+        )
     )
     saved_rows = [
         SimpleNamespace(id=200, created_at=now),
@@ -223,7 +249,9 @@ def test_create_current_and_midpoint_snapshots_with_custom_end_percentage(monkey
     ]
     service.snapshot_repo = SimpleNamespace(create=lambda _obj: saved_rows.pop(0))
 
-    monkeypatch.setattr(service, "_materialize_repo", lambda *_args, **_kwargs: Path("/tmp/repo"))
+    monkeypatch.setattr(
+        service, "_materialize_repo", lambda *_args, **_kwargs: Path("/tmp/repo")
+    )
 
     git_calls = []
 
@@ -244,20 +272,32 @@ def test_create_current_and_midpoint_snapshots_with_custom_end_percentage(monkey
     def fake_resolve(_repo_root, snapshot_type: str, **kwargs):
         if snapshot_type == "midpoint":
             return CommitPoint(hash="starthash", index=1, total_commits=5)
-        raise AssertionError("current should not use _resolve_commit_point when end_percentage < 100")
+        raise AssertionError(
+            "current should not use _resolve_commit_point when end_percentage < 100"
+        )
 
     monkeypatch.setattr(service, "_resolve_commit_point", fake_resolve)
 
     def fake_build(project_id, _repo_root, commit_point, snapshot_type):
         return {
             "snapshot_type": snapshot_type,
-            "commit": {"hash": commit_point.hash, "index": commit_point.index, "total_commits": commit_point.total_commits},
-            "summary": {"total_files": 1, "total_lines": 2, "file_type_distribution": []},
+            "commit": {
+                "hash": commit_point.hash,
+                "index": commit_point.index,
+                "total_commits": commit_point.total_commits,
+            },
+            "summary": {
+                "total_files": 1,
+                "total_lines": 2,
+                "file_type_distribution": [],
+            },
         }
 
     monkeypatch.setattr(service, "_build_snapshot", fake_build)
 
-    result = service.create_current_and_midpoint_snapshots(project_id=55, percentage=25, end_percentage=75)
+    result = service.create_current_and_midpoint_snapshots(
+        project_id=55, percentage=25, end_percentage=75
+    )
 
     assert result["project_id"] == 55
     assert result["current_snapshot"]["commit_hash"] == "endhash"
@@ -277,10 +317,24 @@ def test_compare_current_and_midpoint_includes_commit_dates():
             "total_files": 5,
             "total_lines": 100,
             "analysis_metrics": {
-                "languages": [], "skills": [], "libraries": [],
-                "frameworks": [], "tools_and_technologies": [],
-                "complexity_summary": {"total_functions": 0, "avg_complexity": 0.0, "max_complexity": 0, "high_complexity_count": 0},
-                "counts": {"language_count": 0, "skill_count": 0, "library_count": 0, "framework_count": 0, "tool_count": 0},
+                "languages": [],
+                "skills": [],
+                "libraries": [],
+                "frameworks": [],
+                "tools_and_technologies": [],
+                "complexity_summary": {
+                    "total_functions": 0,
+                    "avg_complexity": 0.0,
+                    "max_complexity": 0,
+                    "high_complexity_count": 0,
+                },
+                "counts": {
+                    "language_count": 0,
+                    "skill_count": 0,
+                    "library_count": 0,
+                    "framework_count": 0,
+                    "tool_count": 0,
+                },
             },
         },
     }
@@ -290,17 +344,41 @@ def test_compare_current_and_midpoint_includes_commit_dates():
             "total_files": 3,
             "total_lines": 60,
             "analysis_metrics": {
-                "languages": [], "skills": [], "libraries": [],
-                "frameworks": [], "tools_and_technologies": [],
-                "complexity_summary": {"total_functions": 0, "avg_complexity": 0.0, "max_complexity": 0, "high_complexity_count": 0},
-                "counts": {"language_count": 0, "skill_count": 0, "library_count": 0, "framework_count": 0, "tool_count": 0},
+                "languages": [],
+                "skills": [],
+                "libraries": [],
+                "frameworks": [],
+                "tools_and_technologies": [],
+                "complexity_summary": {
+                    "total_functions": 0,
+                    "avg_complexity": 0.0,
+                    "max_complexity": 0,
+                    "high_complexity_count": 0,
+                },
+                "counts": {
+                    "language_count": 0,
+                    "skill_count": 0,
+                    "library_count": 0,
+                    "framework_count": 0,
+                    "tool_count": 0,
+                },
             },
         },
     }
     service.snapshot_repo = SimpleNamespace(
         get_latest_for_project=lambda project_id, snapshot_type: {
-            "current": SimpleNamespace(id=1, project_id=project_id, commit_hash="curhash", payload_json=json_dumps(current_payload)),
-            "midpoint": SimpleNamespace(id=2, project_id=project_id, commit_hash="midhash", payload_json=json_dumps(midpoint_payload)),
+            "current": SimpleNamespace(
+                id=1,
+                project_id=project_id,
+                commit_hash="curhash",
+                payload_json=json_dumps(current_payload),
+            ),
+            "midpoint": SimpleNamespace(
+                id=2,
+                project_id=project_id,
+                commit_hash="midhash",
+                payload_json=json_dumps(midpoint_payload),
+            ),
         }[snapshot_type]
     )
     service.comparison_repo = SimpleNamespace(
@@ -371,10 +449,16 @@ def test_compare_current_and_midpoint_happy_path():
     service.snapshot_repo = SimpleNamespace(
         get_latest_for_project=lambda project_id, snapshot_type: {
             "current": SimpleNamespace(
-                id=301, project_id=project_id, commit_hash="curhash", payload_json=json_dumps(current_payload)
+                id=301,
+                project_id=project_id,
+                commit_hash="curhash",
+                payload_json=json_dumps(current_payload),
             ),
             "midpoint": SimpleNamespace(
-                id=302, project_id=project_id, commit_hash="midhash", payload_json=json_dumps(midpoint_payload)
+                id=302,
+                project_id=project_id,
+                commit_hash="midhash",
+                payload_json=json_dumps(midpoint_payload),
             ),
         }[snapshot_type]
     )
@@ -395,7 +479,9 @@ def test_compare_current_and_midpoint_happy_path():
 def test_compare_current_and_midpoint_missing_snapshot():
     service = SnapshotService(db=None)
     service.snapshot_repo = SimpleNamespace(
-        get_latest_for_project=lambda _project_id, snapshot_type: None if snapshot_type == "midpoint" else object()
+        get_latest_for_project=lambda _project_id, snapshot_type: (
+            None if snapshot_type == "midpoint" else object()
+        )
     )
 
     with pytest.raises(HTTPException) as exc:
@@ -443,7 +529,9 @@ def test_delete_snapshot_happy_path():
 
 def json_dumps(obj: dict) -> str:
     import json
+
     return json.dumps(obj)
+
 
 def test_get_snapshot_activity_heatmap_raises_when_project_missing():
     service = SnapshotService(db=None)
@@ -460,9 +548,7 @@ def test_get_snapshot_activity_heatmap_returns_empty_data_when_no_snapshots():
     service.project_repo = SimpleNamespace(
         get=lambda _project_id: SimpleNamespace(id=7)
     )
-    service.snapshot_repo = SimpleNamespace(
-        get_all_for_project=lambda _project_id: []
-    )
+    service.snapshot_repo = SimpleNamespace(get_all_for_project=lambda _project_id: [])
 
     result = service.get_snapshot_activity_heatmap(project_id=7)
 
@@ -541,9 +627,7 @@ def test_get_snapshot_activity_heatmap_ignores_null_created_at():
     service.snapshot_repo = SimpleNamespace(
         get_all_for_project=lambda _project_id: [
             SimpleNamespace(created_at=None),
-            SimpleNamespace(
-                created_at=datetime(2026, 4, 1, 8, 0, tzinfo=timezone.utc)
-            ),
+            SimpleNamespace(created_at=datetime(2026, 4, 1, 8, 0, tzinfo=timezone.utc)),
             SimpleNamespace(created_at=None),
         ]
     )

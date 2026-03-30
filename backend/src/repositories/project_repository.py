@@ -16,6 +16,7 @@ from src.models.orm.contributor import Contributor
 from src.repositories.base import BaseRepository
 from src.models.schemas.project import ProjectDetail
 
+
 def get_project(self, project_id: int) -> Optional[ProjectDetail]:
     project = self.project_repo.get(project_id)
     if not project:
@@ -35,14 +36,12 @@ def get_project(self, project_id: int) -> Optional[ProjectDetail]:
         root_path=project.root_path,
         source_type=project.source_type,
         source_url=project.source_url,
-
         created_at=project.created_at,
         updated_at=project.updated_at,
         zip_uploaded_at=project.zip_uploaded_at,
         first_file_created=project.first_file_created,
         first_commit_date=project.first_commit_date,
         project_started_at=project.project_started_at,
-
         file_count=summary.get("file_count", 0),
         language_count=summary.get("language_count", 0),
         framework_count=summary.get("framework_count", 0),
@@ -50,16 +49,15 @@ def get_project(self, project_id: int) -> Optional[ProjectDetail]:
         skill_count=summary.get("skill_count", 0),
         library_count=summary.get("library_count", 0),
         tool_count=summary.get("tool_count", 0),
-
         languages=languages or [],
         frameworks=frameworks or [],
         libraries=libraries or [],
         tools=tools or [],
-
         total_lines_of_code=total_loc or 0,
         avg_complexity=float(complexity_summary.get("avg_complexity", 0.0) or 0.0),
         max_complexity=int(complexity_summary.get("max_complexity", 0) or 0),
     )
+
 
 class ProjectRepository(BaseRepository[Project]):
     """Repository for project operations."""
@@ -92,7 +90,7 @@ class ProjectRepository(BaseRepository[Project]):
         """Get project by name."""
         stmt = select(Project).where(Project.name == name)
         return self.db.scalar(stmt)
-    
+
     def get_latest_by_analysis_key(self, analysis_key: str) -> Optional[Project]:
         """Get most recent project with the given analysis_key (for cache reuse)."""
         stmt = (
@@ -109,35 +107,66 @@ class ProjectRepository(BaseRepository[Project]):
         if not project:
             return None
 
-        file_count = self.db.scalar(
-            select(func.count(File.id)).where(File.project_id == project_id)
-        ) or 0
+        file_count = (
+            self.db.scalar(
+                select(func.count(File.id)).where(File.project_id == project_id)
+            )
+            or 0
+        )
 
-        contributor_count = self.db.scalar(
-            select(func.count(Contributor.id)).where(Contributor.project_id == project_id)
-        ) or 0
+        contributor_count = (
+            self.db.scalar(
+                select(func.count(Contributor.id)).where(
+                    Contributor.project_id == project_id
+                )
+            )
+            or 0
+        )
 
-        skill_count = self.db.scalar(
-            select(func.count(ProjectSkill.id)).where(ProjectSkill.project_id == project_id)
-        ) or 0
+        skill_count = (
+            self.db.scalar(
+                select(func.count(ProjectSkill.id)).where(
+                    ProjectSkill.project_id == project_id
+                )
+            )
+            or 0
+        )
 
-        framework_count = self.db.scalar(
-            select(func.count(ProjectFramework.id)).where(ProjectFramework.project_id == project_id)
-        ) or 0
+        framework_count = (
+            self.db.scalar(
+                select(func.count(ProjectFramework.id)).where(
+                    ProjectFramework.project_id == project_id
+                )
+            )
+            or 0
+        )
 
-        language_count = self.db.scalar(
-            select(func.count(func.distinct(File.language_id)))
-            .where(File.project_id == project_id)
-            .where(File.language_id.isnot(None))
-        ) or 0
+        language_count = (
+            self.db.scalar(
+                select(func.count(func.distinct(File.language_id)))
+                .where(File.project_id == project_id)
+                .where(File.language_id.isnot(None))
+            )
+            or 0
+        )
 
-        tool_count = self.db.scalar(
-            select(func.count(ProjectTool.id)).where(ProjectTool.project_id == project_id)
-        ) or 0
+        tool_count = (
+            self.db.scalar(
+                select(func.count(ProjectTool.id)).where(
+                    ProjectTool.project_id == project_id
+                )
+            )
+            or 0
+        )
 
-        library_count = self.db.scalar(
-            select(func.count(ProjectLibrary.id)).where(ProjectLibrary.project_id == project_id)
-        ) or 0
+        library_count = (
+            self.db.scalar(
+                select(func.count(ProjectLibrary.id)).where(
+                    ProjectLibrary.project_id == project_id
+                )
+            )
+            or 0
+        )
 
         return {
             "id": project.id,
@@ -157,7 +186,9 @@ class ProjectRepository(BaseRepository[Project]):
             "library_count": library_count,
         }
 
-    def get_all_summaries(self, skip: int = 0, limit: int = 100, user_id: int = None) -> List[dict]:
+    def get_all_summaries(
+        self, skip: int = 0, limit: int = 100, user_id: int = None
+    ) -> List[dict]:
         """Get all project summaries (bulk). Avoid N+1 count queries."""
         # Fetch the base projects first
         projects = self.get_all(skip=skip, limit=limit, user_id=user_id)
@@ -259,6 +290,7 @@ class ProjectRepository(BaseRepository[Project]):
             .limit(1)
         )
         return self.db.scalar(stmt)
+
     def create_project(
         self,
         name: str,
@@ -356,7 +388,9 @@ class ProjectRepository(BaseRepository[Project]):
         )
         return result or 0
 
-    def get_all(self, skip: int = 0, limit: int = 100, user_id: int = None) -> List[Project]:
+    def get_all(
+        self, skip: int = 0, limit: int = 100, user_id: int = None
+    ) -> List[Project]:
         stmt = select(Project)
         if user_id is not None:
             stmt = stmt.where(Project.user_id == user_id)
@@ -365,6 +399,7 @@ class ProjectRepository(BaseRepository[Project]):
 
     def count(self, user_id: int = None) -> int:
         from sqlalchemy import func
+
         stmt = select(func.count()).select_from(Project)
         if user_id is not None:
             stmt = stmt.where(Project.user_id == user_id)

@@ -127,7 +127,9 @@ class UserProfileService:
             return None
         return self.get_profile(profile.id)
 
-    def create_profile(self, user_id: int, data: UserProfileCreate) -> UserProfileDetail:
+    def create_profile(
+        self, user_id: int, data: UserProfileCreate
+    ) -> UserProfileDetail:
         """
         Create a new user profile.
 
@@ -261,7 +263,10 @@ class UserProfileService:
         update_data = data.model_dump(exclude_unset=True)
 
         # Convert experience_type enum to string if present
-        if "experience_type" in update_data and update_data["experience_type"] is not None:
+        if (
+            "experience_type" in update_data
+            and update_data["experience_type"] is not None
+        ):
             update_data["experience_type"] = update_data["experience_type"].value
 
         experience = self.experience_repo.update_experience(

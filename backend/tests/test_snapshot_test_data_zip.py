@@ -17,4 +17,6 @@ def test_snapshot_test_data_zip_contains_required_projects():
     ]
 
     for prefix in required_prefixes:
-        assert any(name.startswith(prefix) for name in names), f"Missing required folder in zip: {prefix}"
+        assert any(name.startswith(prefix) for name in names), (
+            f"Missing required folder in zip: {prefix}"
+        )

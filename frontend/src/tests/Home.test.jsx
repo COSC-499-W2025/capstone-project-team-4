@@ -13,7 +13,7 @@ describe("MainPage Component", () => {
   it('displays the main hero heading', () => {
     render(<MainPage />)
     const heading = screen.getByRole('heading', { 
-      name: /Resume Builder/i 
+      name: /Coding Project Analyzer/i 
     })
     expect(heading).toBeInTheDocument()
   })

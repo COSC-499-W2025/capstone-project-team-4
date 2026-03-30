@@ -12,99 +12,165 @@ from typing import FrozenSet
 # SKIP DIRECTORIES - Directories to exclude from analysis
 # =============================================================================
 
-SKIP_DIRECTORIES: FrozenSet[str] = frozenset({
-    # Version control
-    '.git', '.svn', '.hg', '.bzr',
-
-    # Python
-    '__pycache__', '.pytest_cache', '.mypy_cache', '.coverage', 'htmlcov',
-    '.tox', '.nox', 'venv', '.venv', 'env', '.env', 'virtualenv',
-    'build', 'dist', '.eggs',
-
-    # Node.js / JavaScript
-    'node_modules', '.npm', '.yarn',
-
-    # Java / JVM
-    'target', '.gradle', '.m2',
-
-    # IDE and editors
-    '.vscode', '.idea', '.vs', '.vscode-test',
-
-    # Logs and temporary files
-    'logs', 'tmp', 'temp', '.tmp', '.temp',
-
-    # Dependencies and libraries
-    'vendor', 'bower_components', 'jspm_packages',
-
-    # Documentation build
-    '_build', 'site',
-
-    # Testing / Coverage
-    'coverage', '.nyc_output',
-})
+SKIP_DIRECTORIES: FrozenSet[str] = frozenset(
+    {
+        # Version control
+        ".git",
+        ".svn",
+        ".hg",
+        ".bzr",
+        # Python
+        "__pycache__",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".coverage",
+        "htmlcov",
+        ".tox",
+        ".nox",
+        "venv",
+        ".venv",
+        "env",
+        ".env",
+        "virtualenv",
+        "build",
+        "dist",
+        ".eggs",
+        # Node.js / JavaScript
+        "node_modules",
+        ".npm",
+        ".yarn",
+        # Java / JVM
+        "target",
+        ".gradle",
+        ".m2",
+        # IDE and editors
+        ".vscode",
+        ".idea",
+        ".vs",
+        ".vscode-test",
+        # Logs and temporary files
+        "logs",
+        "tmp",
+        "temp",
+        ".tmp",
+        ".temp",
+        # Dependencies and libraries
+        "vendor",
+        "bower_components",
+        "jspm_packages",
+        # Documentation build
+        "_build",
+        "site",
+        # Testing / Coverage
+        "coverage",
+        ".nyc_output",
+    }
+)
 
 
 # =============================================================================
 # SKIP EXTENSIONS - File extensions to exclude from analysis
 # =============================================================================
 
-SKIP_EXTENSIONS: FrozenSet[str] = frozenset({
-    # Compiled files
-    '.pyc', '.pyo', '.class', '.o', '.obj', '.so', '.dylib', '.dll', '.exe',
-
-    # Logs / temp
-    '.log', '.tmp', '.temp', '.swp', '.swo', '.bak', '.backup',
-
-    # OS / cache
-    '.DS_Store', '.cache',
-
-    # Documents
-    '.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx',
-
-    # Images
-    '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.svg',
-
-    # Archives
-    '.zip', '.rar', '.7z', '.tar', '.gz',
-
-    # Media
-    '.mp3', '.mp4', '.mov', '.wav',
-})
+SKIP_EXTENSIONS: FrozenSet[str] = frozenset(
+    {
+        # Compiled files
+        ".pyc",
+        ".pyo",
+        ".class",
+        ".o",
+        ".obj",
+        ".so",
+        ".dylib",
+        ".dll",
+        ".exe",
+        # Logs / temp
+        ".log",
+        ".tmp",
+        ".temp",
+        ".swp",
+        ".swo",
+        ".bak",
+        ".backup",
+        # OS / cache
+        ".DS_Store",
+        ".cache",
+        # Documents
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".ppt",
+        ".pptx",
+        ".xls",
+        ".xlsx",
+        # Images
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+        ".bmp",
+        ".ico",
+        ".svg",
+        # Archives
+        ".zip",
+        ".rar",
+        ".7z",
+        ".tar",
+        ".gz",
+        # Media
+        ".mp3",
+        ".mp4",
+        ".mov",
+        ".wav",
+    }
+)
 
 
 # =============================================================================
 # SKIP FILENAMES - Specific filenames to exclude from analysis
 # =============================================================================
 
-SKIP_FILENAMES: FrozenSet[str] = frozenset({
-    # System files
-    '.DS_Store', 'Thumbs.db', 'ehthumbs.db', 'Desktop.ini',
-
-    # Log files
-    'npm-debug.log', 'yarn-debug.log', 'yarn-error.log',
-
-    # Lock files (often large and not source code)
-    'package-lock.json', 'yarn.lock', 'Pipfile.lock', 'poetry.lock',
-    'composer.lock', 'Gemfile.lock',
-
-    # IDE files (when appearing as files, not directories)
-    '.vscode', '.idea',
-})
+SKIP_FILENAMES: FrozenSet[str] = frozenset(
+    {
+        # System files
+        ".DS_Store",
+        "Thumbs.db",
+        "ehthumbs.db",
+        "Desktop.ini",
+        # Log files
+        "npm-debug.log",
+        "yarn-debug.log",
+        "yarn-error.log",
+        # Lock files (often large and not source code)
+        "package-lock.json",
+        "yarn.lock",
+        "Pipfile.lock",
+        "poetry.lock",
+        "composer.lock",
+        "Gemfile.lock",
+        # IDE files (when appearing as files, not directories)
+        ".vscode",
+        ".idea",
+    }
+)
 
 
 # =============================================================================
 # HIDDEN FILE EXCEPTIONS - Hidden files that SHOULD be analyzed
 # =============================================================================
 
-HIDDEN_FILE_EXCEPTIONS: FrozenSet[str] = frozenset({
-    '.gitignore',
-    '.env',
-    '.dockerignore',
-    '.editorconfig',
-    '.prettierrc',
-    '.eslintrc',
-    '.babelrc',
-})
+HIDDEN_FILE_EXCEPTIONS: FrozenSet[str] = frozenset(
+    {
+        ".gitignore",
+        ".env",
+        ".dockerignore",
+        ".editorconfig",
+        ".prettierrc",
+        ".eslintrc",
+        ".babelrc",
+    }
+)
 
 
 # =============================================================================
@@ -129,6 +195,7 @@ MAX_NESTING_DEPTH: int = 10  # Maximum directory nesting depth
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
+
 
 def should_skip_directory(dirname: str) -> bool:
     """

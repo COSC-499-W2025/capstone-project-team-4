@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from "react";
 
 import ActivityHeatmap from "@/components/custom/Portfolio/ActivityHeatmap";
 import PrivateModeEditor from "@/components/custom/Portfolio/PrivateModeEditor";
-import PublicModeView from "@/components/custom/Portfolio/PublicModeView";
 import SkillTimeline from "@/components/custom/Portfolio/SkillTimeline";
 import TopProjects from "@/components/custom/Portfolio/TopProjects";
 
@@ -15,11 +14,13 @@ export default function PortfolioPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [mode, setMode] = useState("private");
+  const [featuredIds, setFeaturedIds] = useState(() => new Set());
+  const [pinnedIds, setPinnedIds] = useState(() => new Set());
 
   // To make the Heatmap (and maybe the skills thing) work well, make the user
   // view it based on the currently clicked on project
   const [selectedProjectId, setSelectedProjectId] = useState(null);
-  const [heatmapRefreshKey, setHeatmapRefreshKey] = useState(0);
+  const [user, setUser] = useState(null);
 
   const authHeader = useMemo(() => {
     const token = getAccessToken();
@@ -45,6 +46,13 @@ export default function PortfolioPage() {
         console.log("Full portfolio response:", res.data);
         console.log("Auth header:", authHeader);
         setPortfolio(res.data);
+        const featured = new Set(
+          (res.data.content?.projects ?? [])
+            .filter((p) => p.is_featured)
+            .map((p) => p.id),
+        );
+        setFeaturedIds(featured);
+        setPinnedIds(new Set(featured));
       } catch (err) {
         setError(
           err?.response?.data?.detail ||
@@ -56,6 +64,18 @@ export default function PortfolioPage() {
       }
     }
     generateOrFetchPortfolio();
+    // Lol sorry for this but I gotta set the user state some how
+    axios
+      .get("/api/auth/me", {
+        headers: authHeader,
+      })
+      .then((response) => {
+        setUser(response.data);
+      })
+      .catch((err) => {
+        console.error("Failed to load current user", err);
+        setUser(null);
+      });
   }, [authHeader]);
 
   return (
@@ -244,7 +264,14 @@ export default function PortfolioPage() {
                   </p>
                 )}
                 {/* Mode toggle */}
-                <div style={{ display: "flex", gap: 8 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                    justifyContent: "center",
+                  }}
+                >
                   <button
                     className={`pf-mode-btn ${mode === "public" ? "active" : ""}`}
                     onClick={() => setMode("public")}
@@ -256,6 +283,38 @@ export default function PortfolioPage() {
                     onClick={() => setMode("private")}
                   >
                     🔒 Private
+                  </button>
+                  <button
+                    className="pf-mode-btn"
+                    onClick={async () => {
+                      setIsLoading(true);
+                      setError("");
+                      try {
+                        const res = await axios.post(
+                          "/api/portfolio/generate",
+                          {},
+                          { headers: authHeader },
+                        );
+                        setPortfolio(res.data);
+                        const featured = new Set(
+                          (res.data.content?.projects ?? [])
+                            .filter((p) => p.is_featured)
+                            .map((p) => p.id),
+                        );
+                        setFeaturedIds(featured);
+                        setPinnedIds(new Set(featured));
+                      } catch (err) {
+                        setError(
+                          err?.response?.data?.detail ||
+                            err?.message ||
+                            "Failed to regenerate portfolio.",
+                        );
+                      } finally {
+                        setIsLoading(false);
+                      }
+                    }}
+                  >
+                    🔄 Refresh
                   </button>
                 </div>
               </div>
@@ -271,7 +330,9 @@ export default function PortfolioPage() {
                   },
                   {
                     label: "Skills",
-                    value: portfolio.content?.skills?.length ?? "—",
+                    value: portfolio.content?.aggregated_skills
+                      ? Object.values(portfolio.content.aggregated_skills).flat().length
+                      : "—",
                   },
                   {
                     label: "Languages",
@@ -351,25 +412,48 @@ export default function PortfolioPage() {
             >
               <TopProjects
                 portfolio={portfolio}
+                isPrivate={true}
+                featuredIds={featuredIds}
+                onFeaturedIdsChange={setFeaturedIds}
+                pinnedIds={pinnedIds}
+                onPinnedIdsChange={setPinnedIds}
                 selectedProjectId={selectedProjectId}
                 onSelectProject={setSelectedProjectId}
-                onSnapshotCreated={(projectId) => {
-                  setSelectedProjectId(projectId);
-                  setHeatmapRefreshKey((prev) => prev + 1);
-                }}
+                onPortfolioUpdate={setPortfolio}
               />
               <SkillTimeline />
               <ActivityHeatmap
                 projectId={selectedProjectId}
-                refreshKey={heatmapRefreshKey}
+                contributorIdentity={user?.email ?? ""}
               />
               <PrivateModeEditor />
             </div>
           ) : (
             <div
-              style={{ maxWidth: 1000, margin: "0 auto", padding: "64px 24px" }}
+              style={{
+                maxWidth: 1000,
+                margin: "0 auto",
+                padding: "64px 24px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 72,
+              }}
             >
-              <PublicModeView portfolio={portfolio} />
+              <TopProjects
+                portfolio={portfolio}
+                isPrivate={false}
+                featuredIds={featuredIds}
+                onFeaturedIdsChange={setFeaturedIds}
+                pinnedIds={pinnedIds}
+                onPinnedIdsChange={setPinnedIds}
+                selectedProjectId={selectedProjectId}
+                onSelectProject={setSelectedProjectId}
+              />
+              <SkillTimeline />
+              <ActivityHeatmap
+                projectId={selectedProjectId}
+                contributorIdentity={user?.email ?? ""}
+              />
             </div>
           )}
         </>

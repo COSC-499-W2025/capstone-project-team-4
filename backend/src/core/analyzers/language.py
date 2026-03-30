@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 # Tree-sitter for accurate multi-language parsing
 try:
     from tree_sitter_languages import get_parser
+
     TREE_SITTER_AVAILABLE = True
 except ImportError:
     TREE_SITTER_AVAILABLE = False
@@ -55,7 +56,6 @@ EXTENSION_MAP = {
     ".scss": "SCSS",
     ".sass": "Sass",
     ".less": "LESS",
-    
     # JavaScript/TypeScript
     ".js": "JavaScript",
     ".jsx": "JavaScript",
@@ -65,13 +65,11 @@ EXTENSION_MAP = {
     ".cjs": "JavaScript",
     ".vue": "Vue",
     ".svelte": "Svelte",
-    
     # Python
     ".py": "Python",
     ".pyw": "Python",
     ".pyx": "Cython",
     ".pyi": "Python",
-    
     # Java/JVM
     ".java": "Java",
     ".kt": "Kotlin",
@@ -80,7 +78,6 @@ EXTENSION_MAP = {
     ".gradle": "Gradle",
     ".clj": "Clojure",
     ".cljs": "ClojureScript",
-    
     # C/C++
     ".c": "C",
     ".h": "C",
@@ -91,22 +88,18 @@ EXTENSION_MAP = {
     ".hpp": "C++",
     ".hxx": "C++",
     ".h++": "C++",
-    
     # C#/.NET
     ".cs": "C#",
     ".csproj": "MSBuild",
     ".sln": "MSBuild",
     ".vb": "VB.NET",
-    
     # Go
     ".go": "Go",
     ".mod": "Go",
     ".sum": "Go",
-    
     # Rust
     ".rs": "Rust",
     ".toml": "TOML",
-    
     # PHP
     ".php": "PHP",
     ".php3": "PHP",
@@ -114,13 +107,11 @@ EXTENSION_MAP = {
     ".php5": "PHP",
     ".phtml": "PHP",
     ".phar": "PHP",
-    
     # Ruby
     ".rb": "Ruby",
     ".erb": "ERB",
     ".gemspec": "Ruby",
     ".jbuilder": "Ruby",
-    
     # Shell
     ".sh": "Shell",
     ".bash": "Shell",
@@ -129,11 +120,9 @@ EXTENSION_MAP = {
     ".ps1": "PowerShell",
     ".psm1": "PowerShell",
     ".psd1": "PowerShell",
-    
     # SQL
     ".sql": "SQL",
     ".tsql": "T-SQL",
-
     # Configuration
     ".json": "JSON",
     ".yaml": "YAML",
@@ -144,14 +133,12 @@ EXTENSION_MAP = {
     ".conf": "Config",
     ".config": "Config",
     ".properties": "Java Properties",
-
     # Markdown
     ".md": "Markdown",
     ".markdown": "Markdown",
     ".mdown": "Markdown",
     ".mkd": "Markdown",
     ".mdx": "MDX",
-
     # Other
     ".r": "R",
     ".R": "R",
@@ -397,7 +384,7 @@ class FileUtils:
                 return f.readlines()
         except (OSError, UnicodeError):
             return []
-    
+
     @staticmethod
     def read_file_bytes(file_path: str) -> bytes:
         """Read file as bytes safely, returning empty bytes if error."""
@@ -406,7 +393,7 @@ class FileUtils:
                 return f.read()
         except (OSError, IOError):
             return b""
-    
+
     @staticmethod
     def get_shebang(file_path: str) -> Optional[str]:
         """Extract shebang from file if present."""
@@ -414,7 +401,9 @@ class FileUtils:
             with open(file_path, "rb") as f:
                 first_bytes = f.read(128)
                 if first_bytes.startswith(b"#!"):
-                    shebang = first_bytes.split(b"\n")[0].decode("utf-8", errors="ignore")
+                    shebang = first_bytes.split(b"\n")[0].decode(
+                        "utf-8", errors="ignore"
+                    )
                     return shebang.lstrip("#!").strip()
         except Exception:
             pass
@@ -442,7 +431,7 @@ class FileWalker:
                 yield os.path.join(root, file)
 
     def should_analyze_file(self, file_path: str) -> bool:
-        
+
         filename, extension = FileUtils.get_file_info(file_path)
 
         # Skip by global extension rules (images, pdfs, zips, etc.)
@@ -467,7 +456,10 @@ class FileWalker:
 
         # Check file size limits
         file_size = FileUtils.get_file_size(file_path)
-        if file_size > self.config.max_file_size or file_size < self.config.min_file_size:
+        if (
+            file_size > self.config.max_file_size
+            or file_size < self.config.min_file_size
+        ):
             return False
 
         return True
@@ -490,33 +482,45 @@ class FileAnalyzer:
         self.config = config
         self.comment_detector = comment_detector
         self.file_walker = file_walker
-    
+
     def _detect_via_tree_sitter(self, file_path: str, extension: str) -> Optional[str]:
         """Use tree-sitter to detect language from file content."""
         if not TREE_SITTER_AVAILABLE:
             return None
-        
+
         try:
             content = FileUtils.read_file_bytes(file_path)
             if not content:
                 return None
-            
+
             # Map extensions to tree-sitter language names
             ext_to_ts_lang = {
-                ".py": "python", ".java": "java", ".js": "javascript", 
-                ".ts": "typescript", ".jsx": "javascript", ".tsx": "typescript",
-                ".c": "c", ".cpp": "cpp", ".h": "c", ".hpp": "cpp",
-                ".cs": "c_sharp", ".go": "go", ".rb": "ruby", ".php": "php",
-                ".rs": "rust", ".swift": "swift", ".kt": "kotlin",
+                ".py": "python",
+                ".java": "java",
+                ".js": "javascript",
+                ".ts": "typescript",
+                ".jsx": "javascript",
+                ".tsx": "typescript",
+                ".c": "c",
+                ".cpp": "cpp",
+                ".h": "c",
+                ".hpp": "cpp",
+                ".cs": "c_sharp",
+                ".go": "go",
+                ".rb": "ruby",
+                ".php": "php",
+                ".rs": "rust",
+                ".swift": "swift",
+                ".kt": "kotlin",
             }
-            
+
             ts_lang = ext_to_ts_lang.get(extension)
             if not ts_lang:
                 return None
-            
+
             parser = get_parser(ts_lang)
             tree = parser.parse(content)
-            
+
             # If parsing succeeds, language is confirmed
             if tree and tree.root_node:
                 # Extra validation: check if it's the right language
@@ -524,71 +528,94 @@ class FileAnalyzer:
                 return None  # Let fallback detection handle it
         except Exception:
             pass
-        
+
         return None
-    
+
     def _detect_via_shebang(self, file_path: str) -> Optional[str]:
         """Detect language from shebang line."""
         shebang = FileUtils.get_shebang(file_path)
         if not shebang:
             return None
-        
+
         # Extract interpreter name
         for interpreter, language in SHEBANG_MAP.items():
             if interpreter in shebang.lower():
                 return language
-        
+
         return None
-    
+
     def _detect_via_content_heuristics(self, file_path: str) -> Optional[str]:
         """Detect language from file content patterns."""
         try:
             lines = FileUtils.read_file_lines(file_path)
             if not lines:
                 return None
-            
+
             # Check first 20 lines for language-specific patterns
             content_sample = "".join(lines[:20]).lower()
-            
+
             # Python patterns
-            if any(p in content_sample for p in ["import ", "from ", "def ", "class ", "@", "if __name__"]):
+            if any(
+                p in content_sample
+                for p in ["import ", "from ", "def ", "class ", "@", "if __name__"]
+            ):
                 return "Python"
-            
+
             # JavaScript/TypeScript patterns
-            if any(p in content_sample for p in ["import ", "export ", "const ", "let ", "var ", "async ", "await "]):
+            if any(
+                p in content_sample
+                for p in [
+                    "import ",
+                    "export ",
+                    "const ",
+                    "let ",
+                    "var ",
+                    "async ",
+                    "await ",
+                ]
+            ):
                 return "JavaScript"
-            
+
             # Java patterns
-            if any(p in content_sample for p in ["package ", "import ", "class ", "public ", "private "]):
+            if any(
+                p in content_sample
+                for p in ["package ", "import ", "class ", "public ", "private "]
+            ):
                 if "public class" in content_sample or "package " in content_sample:
                     return "Java"
-            
+
             # C# patterns
-            if any(p in content_sample for p in ["namespace ", "using ", "class ", "public ", "interface "]):
+            if any(
+                p in content_sample
+                for p in ["namespace ", "using ", "class ", "public ", "interface "]
+            ):
                 if "namespace " in content_sample:
                     return "C#"
-            
+
             # Go patterns
             if "package main" in content_sample or "import (" in content_sample:
                 return "Go"
-            
+
             # Ruby patterns
-            if any(p in content_sample for p in ["def ", "class ", "require ", "attr_", "@"]):
+            if any(
+                p in content_sample
+                for p in ["def ", "class ", "require ", "attr_", "@"]
+            ):
                 return "Ruby"
-            
+
             # PHP patterns
             if "<?php" in content_sample or "<?" in content_sample:
                 return "PHP"
-            
+
         except Exception:
             pass
-        
+
         return None
 
     def detect_language(self, file_path: str) -> str:
         """
         Comprehensive language detection with multiple strategies.
-        
+
         Detection priority:
         1. Special filenames (Dockerfile, Makefile, etc.)
         2. Shebang line (for scripts)
@@ -598,44 +625,44 @@ class FileAnalyzer:
         6. Fallback to "Unknown"
         """
         filename, extension = FileUtils.get_file_info(file_path)
-        
+
         # Strategy 1: Check special filenames
         if filename in SPECIAL_FILES:
             return SPECIAL_FILES[filename]
-        
+
         # Also check without lowercase
         original_filename = Path(file_path).name
         if original_filename in SPECIAL_FILES:
             return SPECIAL_FILES[original_filename]
-        
+
         # Strategy 2: Check shebang (for scripts without extension)
         if not extension or extension == ".":
             lang = self._detect_via_shebang(file_path)
             if lang:
                 return lang
-        
+
         # Strategy 3: Check built-in extension map
         if extension in EXTENSION_MAP:
             return EXTENSION_MAP[extension]
-        
+
         # Strategy 4: Check config-based patterns
         if filename in self.config.filename_patterns:
             return self.config.filename_patterns[filename]
-        
+
         if extension in self.config.extensions:
             return self.config.extensions[extension]
-        
+
         # Strategy 5: Try tree-sitter validation
         if TREE_SITTER_AVAILABLE and extension:
             ts_result = self._detect_via_tree_sitter(file_path, extension)
             if ts_result:
                 return ts_result
-        
+
         # Strategy 6: Content heuristics
         lang = self._detect_via_content_heuristics(file_path)
         if lang:
             return lang
-        
+
         return "Unknown"
 
     def detect_language_by_extension(self, file_path: str) -> str:
@@ -645,7 +672,7 @@ class FileAnalyzer:
     def count_lines_of_code(self, file_path: str, language: str) -> FileStats:
         """
         Count different types of lines in a file with multi-line comment handling.
-        
+
         Handles:
         - Single-line comments (// # --)
         - Multi-line comments (/* */ <!-- -->)
@@ -657,11 +684,11 @@ class FileAnalyzer:
             return FileStats()
 
         stats = FileStats(files=1, total_lines=len(lines))
-        
+
         # Get multi-line comment delimiters for this language
         multiline_start = None
         multiline_end = None
-        
+
         multiline_pairs = {
             "Python": ("'''", "'''"),  # Also """ but not handling triple quotes
             "JavaScript": ("/*", "*/"),
@@ -678,12 +705,12 @@ class FileAnalyzer:
             "CSS": ("/*", "*/"),
             "SQL": ("/*", "*/"),
         }
-        
+
         if language in multiline_pairs:
             multiline_start, multiline_end = multiline_pairs[language]
-        
+
         in_multiline_comment = False
-        
+
         for line in lines:
             stripped = line.strip()
 
@@ -691,7 +718,7 @@ class FileAnalyzer:
             if not stripped:
                 stats.blank_lines += 1
                 continue
-            
+
             # Handle multi-line comments
             if multiline_start:
                 if multiline_start in stripped and multiline_end in stripped:
@@ -699,18 +726,18 @@ class FileAnalyzer:
                     if stripped.startswith(multiline_start):
                         stats.comment_lines += 1
                         continue
-                
+
                 if in_multiline_comment:
                     stats.comment_lines += 1
                     if multiline_end in stripped:
                         in_multiline_comment = False
                     continue
-                
+
                 if multiline_start in stripped:
                     in_multiline_comment = True
                     stats.comment_lines += 1
                     continue
-            
+
             # Handle single-line comments
             if self.comment_detector.is_comment_line(line, language):
                 stats.comment_lines += 1
@@ -960,7 +987,7 @@ class StatsFormatter:
                 file_name = os.path.basename(file_path)
                 file_ext = Path(file_path).suffix
                 rel_path = os.path.relpath(file_path, project_path)
-                print(f"{i+1:2d}. {file_name} (ext: '{file_ext}') - {rel_path}")
+                print(f"{i + 1:2d}. {file_name} (ext: '{file_ext}') - {rel_path}")
 
             if len(unknown_files) > limit:
                 print(f"... and {len(unknown_files) - limit} more unknown files")

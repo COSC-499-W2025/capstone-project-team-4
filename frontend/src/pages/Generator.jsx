@@ -12,11 +12,14 @@ import DataPrivacyConsent from "@/components/custom/Generator/DataPrivacyConsent
 const Generator = () => {
   const {
     uploadedFiles,
+    customProjectNames,
     projectData,
+    recentProjectData,
     isLoading,
     showConsent,
     setShowConsent,
     handleFileDrop,
+    handleProjectNameChange,
     handleDeleteFile,
     handleSubmit,
     handleConsentAccept,
@@ -24,7 +27,11 @@ const Generator = () => {
     clearAllData,
     handleUpdateProject,
     handleDeleteAll,
+    handleDeleteProject,
   } = useFileUpload();
+
+  const totalProjectCount = projectData?.length ?? 0;
+  const hasMore = totalProjectCount > 4;
 
   const handleReset = () => {
     if (confirm("Are you sure you want to clear all data and restart?")) {
@@ -40,8 +47,8 @@ const Generator = () => {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
             <PageHeader
-              title="Resume Generator"
-              subtitle="Upload your project ZIP files to generate a comprehensive resume"
+              title="Coding Project Analyzer"
+              subtitle="Upload your project ZIP files to analyze your coding projects"
             />
 
             {/* Reset Button - Shows only if there's data */}
@@ -63,6 +70,8 @@ const Generator = () => {
 
           <ConfirmFilesSection
             files={uploadedFiles}
+            projectNames={customProjectNames}
+            onProjectNameChange={handleProjectNameChange}
             onDelete={handleDeleteFile}
             onDeleteAll={handleDeleteAll}
             onSubmit={() => handleSubmit(processFiles)}
@@ -70,8 +79,11 @@ const Generator = () => {
           />
 
           <SummarySection
-            projectData={projectData}
+            projectData={recentProjectData}
             onUpdateProject={handleUpdateProject}
+            onDeleteProject={handleDeleteProject}
+            hasMore={hasMore}
+            totalCount={totalProjectCount}
           />
 
           <DataPrivacyConsent

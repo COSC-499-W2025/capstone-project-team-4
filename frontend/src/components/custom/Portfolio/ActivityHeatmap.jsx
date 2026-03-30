@@ -1,15 +1,34 @@
 import { Activity } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityCalendar } from "react-activity-calendar";
+import "./activityheatmap.css";
+import "react-activity-calendar/tooltips.css";
 
-export default function ActivityHeatmap({ projectId, refreshKey }) {
+function toDateString(value) {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getLevel(count) {
+  if (count === 0) return 0;
+  if (count === 1) return 1;
+  if (count <= 3) return 2;
+  if (count <= 5) return 3;
+  return 4;
+}
+
+export default function ActivityHeatmap({ projectId, contributorIdentity }) {
   const [heatmapData, setHeatmapData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [projectName, setProjectName] = useState("");
 
   useEffect(() => {
     async function fetchHeatmap() {
-      if (!projectId) {
+      if (!projectId || !contributorIdentity) {
         setHeatmapData([]);
         setError("");
         setLoading(false);
@@ -21,8 +40,14 @@ export default function ActivityHeatmap({ projectId, refreshKey }) {
         setError("");
 
         const response = await fetch(
-          `/api/snapshots/${projectId}/activity-heatmap`,
+          `/api/contributors/github/${encodeURIComponent(contributorIdentity)}/projects/${projectId}/activity-heatmap`,
         );
+
+        if (response.status === 404) {
+          setHeatmapData([]);
+          setError("");
+          return;
+        }
 
         if (!response.ok) {
           throw new Error("Failed to fetch heatmap data");
@@ -32,43 +57,71 @@ export default function ActivityHeatmap({ projectId, refreshKey }) {
         setHeatmapData(json.data ?? []);
       } catch (err) {
         console.error(err);
-        setError("Could not load activity heatmap.");
+        setError("Could not load commit activity.");
         setHeatmapData([]);
       } finally {
         setLoading(false);
       }
     }
 
+    async function getProjectName() {
+      if (!projectId) {
+        setError("");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/projects/${projectId}`);
+        const project = await response.json();
+        setProjectName(project.name);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
     fetchHeatmap();
-  }, [projectId, refreshKey]);
+    getProjectName();
+  }, [projectId, contributorIdentity]);
+
+  function formatTooltip(activity) {
+    const formattedDate = new Date(
+      `${activity.date}T00:00:00`,
+    ).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    const commitText =
+      activity.count === 1 ? "1 commit" : `${activity.count} commits`;
+
+    return `${commitText} on ${formattedDate}`;
+  }
 
   const calendarData = useMemo(() => {
-    const dateMap = new Map(heatmapData.map((day) => [day.date, day.count]));
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(today.getDate() - 364);
 
-    const year = new Date().getFullYear();
-    const start = new Date(year, 0, 1);
-    const end = new Date(year, 11, 31);
+    const dateMap = new Map(
+      heatmapData.map((day) => [day.date, Number(day.count) || 0]),
+    );
 
     const filledData = [];
+    const cursor = new Date(start);
 
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toISOString().split("T")[0];
+    while (cursor <= today) {
+      const dateStr = toDateString(cursor);
       const count = dateMap.get(dateStr) ?? 0;
 
       filledData.push({
         date: dateStr,
         count,
-        level:
-          count === 0
-            ? 0
-            : count === 1
-              ? 1
-              : count <= 3
-                ? 2
-                : count <= 5
-                  ? 3
-                  : 4,
+        level: getLevel(count),
       });
+
+      cursor.setDate(cursor.getDate() + 1);
     }
 
     return filledData;
@@ -78,61 +131,44 @@ export default function ActivityHeatmap({ projectId, refreshKey }) {
 
   if (!projectId) {
     content = (
-      <p style={{ color: "#374151", fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-        Select a project to view snapshot activity.
+      <p className="text-gray-500 text-sm/1.6 m-0">
+        Select a project to view commit activity.
       </p>
     );
   } else if (loading) {
     content = (
-      <p style={{ color: "#374151", fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-        Loading activity...
-      </p>
+      <p className="text-gray-500 text-sm/1.6 m-0">Loading activity...</p>
     );
   } else if (error) {
-    content = (
-      <p style={{ color: "#b91c1c", fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-        {error}
-      </p>
-    );
+    content = <p className="text-red-500 text-sm/1.6 m-0">{error}</p>;
   } else if (heatmapData.length === 0) {
     content = (
       <>
-        <p
-          style={{ color: "#374151", fontSize: 13, margin: 0, lineHeight: 1.6 }}
-        >
-          Based on snapshots created per day.
+        <p className="text-gray-500 text-sm/1.6 m-0">
+          Based on commits grouped by day for the selected project.
         </p>
-        <p
-          style={{
-            color: "#6b7280",
-            fontSize: 13,
-            marginTop: 8,
-            marginBottom: 0,
-            lineHeight: 1.6,
-          }}
-        >
-          No snapshot activity yet.
+        <p>
+          <strong className="font-bold">{projectName}</strong>{" "}
+          <span className="text-gray-500 text-sm/1.6 m-0">
+            is a solo project or there are no commits for it!
+          </span>
+        </p>
+
+        <p className="text-gray-500 text-sm/1.6 mt-2">
+          <strong className="font-bold">Note:</strong> Commit Activities are
+          matched according to your registered email on GitHub.
         </p>
       </>
     );
   } else {
     content = (
       <>
-        <p
-          style={{
-            color: "#374151",
-            fontSize: 13,
-            marginTop: 0,
-            marginBottom: 12,
-            lineHeight: 1.6,
-          }}
-        >
-          Based on snapshots created per day.
+        <strong>Viewing Project: {projectName}</strong>
+        <p className="text-gray-500 text-sm/1.6 mt-0 mb-8">
+          Based on commits grouped by day for the selected project.
         </p>
 
-        <div
-          style={{ display: "flex", justifyContent: "center", marginTop: 12 }}
-        >
+        <div className="flex justify-center">
           <ActivityCalendar
             data={calendarData}
             maxLevel={4}
@@ -144,7 +180,13 @@ export default function ActivityHeatmap({ projectId, refreshKey }) {
               dark: ["#e5e7eb", "#bfdbfe", "#93c5fd", "#60a5fa", "#2563eb"],
             }}
             labels={{
-              totalCount: "{{count}} activities in {{year}}",
+              totalCount: "{{count}} commits in the last year",
+            }}
+            tooltips={{
+              activity: {
+                text: (activity) => formatTooltip(activity),
+                placement: "right",
+              },
             }}
           />
         </div>
@@ -157,30 +199,10 @@ export default function ActivityHeatmap({ projectId, refreshKey }) {
       <h2 className="pf-section-title">Activity</h2>
       <div className="pf-divider" />
 
-      <div
-        className="pf-placeholder"
-        style={{ marginTop: 32, textAlign: "center" }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-            marginBottom: 12,
-          }}
-        >
-          <Activity style={{ width: 20, height: 20, color: "#4b5563" }} />
-          <h3
-            style={{
-              color: "#4b5563",
-              fontSize: 15,
-              fontWeight: 600,
-              margin: 0,
-            }}
-          >
-            Snapshot Activity Heatmap
-          </h3>
+      <div className="pf-placeholder mt-8 text-center">
+        <div className="flex items-center justify-center gap-4 mb-2">
+          <Activity height={20} width={20} />
+          <h3 className="gray-800 font-medium">Commit Activity Heatmap</h3>
         </div>
 
         {content}

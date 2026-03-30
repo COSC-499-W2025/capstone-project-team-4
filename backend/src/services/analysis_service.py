@@ -437,7 +437,7 @@ class AnalysisService:
                     zip_upload_time=datetime.utcnow(),
                     earliest_file_date_in_zip=earliest_file_date,
                     use_cache=use_cache,
-                    user_id=user_id
+                    user_id=user_id,
                 )
                 results.append(result)
 
@@ -778,7 +778,7 @@ class AnalysisService:
                 if cached_project
                 else (incremental_base.id if incremental_base else None)
             ),
-            user_id=user_id
+            user_id=user_id,
         )
         project_id = project.id
         logger.info(f"Step 2 complete: Project ID {project_id}")
@@ -1050,7 +1050,8 @@ class AnalysisService:
                 self._save_complexity(project_id, complexity_dict.get("functions", []))
             elif complexity_dict.get("functions"):
                 changed_functions = [
-                    f for f in complexity_dict.get("functions", [])
+                    f
+                    for f in complexity_dict.get("functions", [])
                     if f.get("file_path", "").replace("\\", "/") not in unchanged_paths
                 ]
                 self._save_complexity(project_id, changed_functions)

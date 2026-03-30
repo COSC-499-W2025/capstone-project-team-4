@@ -21,8 +21,8 @@ class EducationBase(BaseModel):
     honors: Optional[str] = None
     activities: Optional[str] = None
 
-    @model_validator(mode='after')
-    def validate_timeline(self) -> 'EducationBase':
+    @model_validator(mode="after")
+    def validate_timeline(self) -> "EducationBase":
         if self.is_current and self.end_date is not None:
             raise ValueError("end_date must be null when is_current is True")
         if self.end_date is not None and self.end_date < self.start_date:
@@ -51,8 +51,8 @@ class EducationUpdate(BaseModel):
     honors: Optional[str] = None
     activities: Optional[str] = None
 
-    @model_validator(mode='after')
-    def validate_timeline(self) -> 'EducationUpdate':
+    @model_validator(mode="after")
+    def validate_timeline(self) -> "EducationUpdate":
         if self.is_current is True and self.end_date is not None:
             raise ValueError("end_date must be null when is_current is True")
         if self.end_date is not None and self.start_date is not None:

@@ -22,8 +22,8 @@ vi.mock('@/components/Navigation', () => ({
 vi.mock('@/components/custom/Instruction/InstructionHeader', () => ({
   default: ({ onGetStarted }) => (
     <div data-testid="instruction-header">
-      <h1>Resume Generator</h1>
-      <p>Transform your project files into a professional resume in 4 easy steps</p>
+      <h1>Coding Project Analyzer</h1>
+      <p>Transform your project files into a comprehensive summary of your project in 4 easy steps</p>
       <button onClick={onGetStarted}>Get Started</button>
     </div>
   ),
@@ -78,31 +78,31 @@ describe('Instruction Page', () => {
 
   it('renders the page correctly', () => {
     renderWithRouter(<Instruction />);
-    
-    expect(screen.getByText('Resume Generator')).toBeInTheDocument();
+
+    expect(screen.getByText('Coding Project Analyzer')).toBeInTheDocument();
   });
 
   it('renders navigation component', () => {
     renderWithRouter(<Instruction />);
-    
+
     expect(screen.getByTestId('navigation')).toBeInTheDocument();
   });
 
   it('renders InstructionHeader component', () => {
     renderWithRouter(<Instruction />);
-    
+
     expect(screen.getByTestId('instruction-header')).toBeInTheDocument();
   });
 
   it('renders StepsGrid component', () => {
     renderWithRouter(<Instruction />);
-    
+
     expect(screen.getByTestId('steps-grid')).toBeInTheDocument();
   });
 
   it('displays all 4 steps', () => {
     renderWithRouter(<Instruction />);
-    
+
     // Check step numbers
     expect(screen.getByText('1')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
@@ -112,7 +112,7 @@ describe('Instruction Page', () => {
 
   it('displays step titles', () => {
     renderWithRouter(<Instruction />);
-    
+
     expect(screen.getByText('Upload')).toBeInTheDocument();
     expect(screen.getByText('Confirm')).toBeInTheDocument();
     expect(screen.getByText('Analyze')).toBeInTheDocument();
@@ -121,7 +121,7 @@ describe('Instruction Page', () => {
 
   it('displays step descriptions', () => {
     renderWithRouter(<Instruction />);
-    
+
     expect(screen.getByText(/Drag and drop your project ZIP files/i)).toBeInTheDocument();
     expect(screen.getByText(/Review and manage uploaded files/i)).toBeInTheDocument();
     expect(screen.getByText(/Submit to analyze your projects/i)).toBeInTheDocument();
@@ -130,22 +130,22 @@ describe('Instruction Page', () => {
 
   it('renders "Get Started" button', () => {
     renderWithRouter(<Instruction />);
-    
+
     expect(screen.getByText('Get Started')).toBeInTheDocument();
   });
 
   it('navigates to /login when unauthenticated and "Get Started" is clicked', () => {
     renderWithRouter(<Instruction />);
-    
+
     const getStartedButton = screen.getByText('Get Started');
     fireEvent.click(getStartedButton);
-    
+
     expect(mockNavigate).toHaveBeenCalledWith('/login');
   });
 
   it('has correct layout structure', () => {
     const { container } = renderWithRouter(<Instruction />);
-    
+
     // Check for main container with correct classes
     const mainContainer = container.querySelector('.min-h-screen.flex.flex-col');
     expect(mainContainer).toBeInTheDocument();
@@ -153,24 +153,24 @@ describe('Instruction Page', () => {
 
   it('has gradient background', () => {
     const { container } = renderWithRouter(<Instruction />);
-    
+
     const gradientDiv = container.querySelector('.bg-gradient-to-b.from-blue-50.to-white');
     expect(gradientDiv).toBeInTheDocument();
   });
 
   it('has centered content with max width', () => {
     const { container } = renderWithRouter(<Instruction />);
-    
+
     const maxWidthDiv = container.querySelector('.max-w-7xl.mx-auto');
     expect(maxWidthDiv).toBeInTheDocument();
   });
 
   it('passes onGetStarted handler to InstructionHeader', () => {
     renderWithRouter(<Instruction />);
-    
+
     const button = screen.getByText('Get Started');
     expect(button).toBeInTheDocument();
-    
+
     // Click and verify navigation
     fireEvent.click(button);
     expect(mockNavigate).toHaveBeenCalledWith('/login');
@@ -188,11 +188,11 @@ describe('Instruction Page', () => {
 
   it('renders in correct order: Navigation -> Header -> Steps', () => {
     renderWithRouter(<Instruction />);
-    
+
     const nav = screen.getByTestId('navigation');
     const header = screen.getByTestId('instruction-header');
     const steps = screen.getByTestId('steps-grid');
-    
+
     expect(nav).toBeInTheDocument();
     expect(header).toBeInTheDocument();
     expect(steps).toBeInTheDocument();

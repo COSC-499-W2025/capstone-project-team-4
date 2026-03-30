@@ -38,7 +38,9 @@ def _validate_format(format: str) -> None:
         )
 
 
-def _build_export_response(service: FullResumeService, data: FullResumeData, format: str) -> Response:
+def _build_export_response(
+    service: FullResumeService, data: FullResumeData, format: str
+) -> Response:
     """Render FullResumeData to the requested format and return a download Response."""
     filename_base = _safe_filename(data.contact.name)
 
@@ -46,20 +48,26 @@ def _build_export_response(service: FullResumeService, data: FullResumeData, for
         return Response(
             content=service.export_pdf(data),
             media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="resume_{filename_base}.pdf"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="resume_{filename_base}.pdf"'
+            },
         )
 
     if format == "html":
         return Response(
             content=service.export_html(data).encode("utf-8"),
             media_type="text/html; charset=utf-8",
-            headers={"Content-Disposition": f'attachment; filename="resume_{filename_base}.html"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="resume_{filename_base}.html"'
+            },
         )
 
     return Response(
         content=service.export_markdown(data).encode("utf-8"),
         media_type="text/markdown; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="resume_{filename_base}.md"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="resume_{filename_base}.md"'
+        },
     )
 
 
@@ -86,7 +94,7 @@ async def export_resume_from_data(
 async def get_resume_json(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Compose and return a full structured resume as JSON.
@@ -110,7 +118,7 @@ async def export_resume(
     user_id: int,
     format: str = Query("pdf", description="Export format: pdf, html, or markdown"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Export the full resume in the requested format.

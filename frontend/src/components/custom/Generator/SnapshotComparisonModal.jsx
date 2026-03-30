@@ -193,16 +193,14 @@ const SnapshotComparisonModal = ({ isOpen, onClose, project }) => {
   const [fromPct, setFromPct] = useState(50);
   const [toPct, setToPct] = useState(100);
   const [commitTimeline, setCommitTimeline] = useState(null);
-  const [timelineLoading, setTimelineLoading] = useState(false);
+  const timelineLoading = isOpen && !!project?.projectId && !Array.isArray(commitTimeline);
 
   useEffect(() => {
     if (!isOpen || !project?.projectId) return;
-    setTimelineLoading(true);
     axios
       .get(`/api/snapshots/${project.projectId}/commit-timeline`, { headers: getAuthHeaders() })
       .then((res) => setCommitTimeline(res.data))
-      .catch(() => setCommitTimeline(null))
-      .finally(() => setTimelineLoading(false));
+      .catch(() => setCommitTimeline([]));
   }, [isOpen, project?.projectId]);
 
   const handleLoad = async () => {

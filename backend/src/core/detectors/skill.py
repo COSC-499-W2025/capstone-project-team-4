@@ -38,7 +38,9 @@ SKILLS_YAML_PATH = Path(__file__).parent.parent / "rules" / "skills.yml"
 def _load_skills_config() -> Dict[str, Any]:
     """Load and cache skills configuration from YAML."""
     if not SKILLS_YAML_PATH.exists():
-        logger.warning("Skills config not found at %s, using empty config", SKILLS_YAML_PATH)
+        logger.warning(
+            "Skills config not found at %s, using empty config", SKILLS_YAML_PATH
+        )
         return {}
 
     with open(SKILLS_YAML_PATH, "r", encoding="utf-8") as f:
@@ -101,9 +103,25 @@ def _get_single_file_triggers() -> List[str]:
 # =============================================================================
 
 SUPPORTED_LANGUAGES_FOR_PATTERNS = {
-    "javascript", "typescript", "java", "python", "c", "c++", "c#",
-    "go", "rust", "php", "ruby", "shell", "powershell", "html",
-    "css", "yaml", "json", "markdown", "sql"
+    "javascript",
+    "typescript",
+    "java",
+    "python",
+    "c",
+    "c++",
+    "c#",
+    "go",
+    "rust",
+    "php",
+    "ruby",
+    "shell",
+    "powershell",
+    "html",
+    "css",
+    "yaml",
+    "json",
+    "markdown",
+    "sql",
 }
 
 
@@ -225,7 +243,9 @@ def run_code_pattern_extraction(
         modified_ts = f.get("last_modified")
 
         if lang not in SUPPORTED_LANGUAGES_FOR_PATTERNS:
-            summary["unsupported_languages"][lang] = summary["unsupported_languages"].get(lang, 0) + 1
+            summary["unsupported_languages"][lang] = (
+                summary["unsupported_languages"].get(lang, 0) + 1
+            )
             summary["files_skipped"] += 1
             continue
 
@@ -239,12 +259,14 @@ def run_code_pattern_extraction(
 
         skill_counts, ts = result
 
-        file_reports.append({
-            "file_path": absolute_path,
-            "language": lang,
-            "skills": skill_counts,
-            "timestamp": ts,
-        })
+        file_reports.append(
+            {
+                "file_path": absolute_path,
+                "language": lang,
+                "skills": skill_counts,
+                "timestamp": ts,
+            }
+        )
 
         for skill, count in skill_counts.items():
             summary["global_skill_counts"][skill] += count
@@ -270,6 +292,7 @@ def run_code_pattern_extraction(
 # =============================================================================
 # Main skill extraction functions
 # =============================================================================
+
 
 def _count_skills(mapping: Dict[str, List[str]], items: List[str]) -> Counter:
     """
@@ -517,17 +540,56 @@ def _infer_contextual_skills(
     # =========================================================================
     # Backend vs Frontend Detection
     # =========================================================================
-    backend_langs = {"Python", "Java", "C#", "Go", "Rust", "PHP", "Ruby", "Kotlin", "Scala", "Elixir", "Erlang"}
+    backend_langs = {
+        "Python",
+        "Java",
+        "C#",
+        "Go",
+        "Rust",
+        "PHP",
+        "Ruby",
+        "Kotlin",
+        "Scala",
+        "Elixir",
+        "Erlang",
+    }
     backend_frameworks = {
-        "Django", "Flask", "FastAPI", "Express", "Koa", "Fastify", "Hapi",
-        "NestJS", "Spring Boot", "Spring", "Rails", "Sinatra", "Laravel",
-        "Symfony", "Gin", "Echo", "Fiber", "Actix", "Rocket", "ASP.NET Core"
+        "Django",
+        "Flask",
+        "FastAPI",
+        "Express",
+        "Koa",
+        "Fastify",
+        "Hapi",
+        "NestJS",
+        "Spring Boot",
+        "Spring",
+        "Rails",
+        "Sinatra",
+        "Laravel",
+        "Symfony",
+        "Gin",
+        "Echo",
+        "Fiber",
+        "Actix",
+        "Rocket",
+        "ASP.NET Core",
     }
 
     frontend_langs = {"JavaScript", "TypeScript"}
     frontend_frameworks = {
-        "React", "Vue", "Angular", "Svelte", "Solid.js", "Preact",
-        "Next.js", "Nuxt.js", "Gatsby", "Remix", "Astro", "SvelteKit"
+        "React",
+        "Vue",
+        "Angular",
+        "Svelte",
+        "Solid.js",
+        "Preact",
+        "Next.js",
+        "Nuxt.js",
+        "Gatsby",
+        "Remix",
+        "Astro",
+        "SvelteKit",
     }
 
     backend_lang_count = len(lang_set & backend_langs)
@@ -542,13 +604,20 @@ def _infer_contextual_skills(
 
     if has_backend and has_frontend:
         # Count contributing signals
-        signal_count = backend_lang_count + backend_fw_count + frontend_lang_count + frontend_fw_count
+        signal_count = (
+            backend_lang_count
+            + backend_fw_count
+            + frontend_lang_count
+            + frontend_fw_count
+        )
         skill_counts["Full-Stack Development"] = signal_count
     else:
         if has_backend:
             skill_counts["Backend Development"] = backend_lang_count + backend_fw_count
         if has_modern_frontend:
-            skill_counts["Frontend Development"] = frontend_lang_count + frontend_fw_count
+            skill_counts["Frontend Development"] = (
+                frontend_lang_count + frontend_fw_count
+            )
         elif has_traditional_frontend and not has_backend:
             skill_counts["Frontend Development"] = 1
 
@@ -592,7 +661,16 @@ def _infer_contextual_skills(
         skill_counts["Data Science"] = data_signals
 
     ml_frameworks = {"TensorFlow", "PyTorch", "Keras", "Scikit-learn"}
-    ml_libs = {"tensorflow", "pytorch", "torch", "keras", "scikit-learn", "sklearn", "transformers", "huggingface"}
+    ml_libs = {
+        "tensorflow",
+        "pytorch",
+        "torch",
+        "keras",
+        "scikit-learn",
+        "sklearn",
+        "transformers",
+        "huggingface",
+    }
 
     ml_fw_count = len(framework_set & ml_frameworks)
     ml_lib_count = len(lib_names & ml_libs)
@@ -619,11 +697,17 @@ def _infer_contextual_skills(
 
     if has_containers and has_cicd:
         skill_counts["DevOps"] = skill_counts.get("DevOps", 0) + 2
-        skill_counts["CI/CD Pipeline Management"] = skill_counts.get("CI/CD Pipeline Management", 0) + 2
+        skill_counts["CI/CD Pipeline Management"] = (
+            skill_counts.get("CI/CD Pipeline Management", 0) + 2
+        )
 
     if has_k8s:
-        skill_counts["Container Orchestration"] = skill_counts.get("Container Orchestration", 0) + 1
-        skill_counts["Cloud-Native Development"] = skill_counts.get("Cloud-Native Development", 0) + 1
+        skill_counts["Container Orchestration"] = (
+            skill_counts.get("Container Orchestration", 0) + 1
+        )
+        skill_counts["Cloud-Native Development"] = (
+            skill_counts.get("Cloud-Native Development", 0) + 1
+        )
 
     # Infrastructure as Code
     iac_tools = {"Terraform", "Pulumi", "AWS CDK", "Ansible", "CloudFormation"}
@@ -643,16 +727,30 @@ def _infer_contextual_skills(
     test_count = len(tool_names & testing_tools)
 
     if ui_count > 0 and build_count > 0 and test_count > 0:
-        skill_counts["Modern Frontend Development"] = ui_count + build_count + test_count
+        skill_counts["Modern Frontend Development"] = (
+            ui_count + build_count + test_count
+        )
 
     # =========================================================================
     # Full-Stack Web Development (enhanced with DB detection)
     # =========================================================================
-    db_libs = {"pg", "mysql2", "mongodb", "pymongo", "psycopg2", "asyncpg", "prisma", "sequelize", "typeorm"}
+    db_libs = {
+        "pg",
+        "mysql2",
+        "mongodb",
+        "pymongo",
+        "psycopg2",
+        "asyncpg",
+        "prisma",
+        "sequelize",
+        "typeorm",
+    }
     db_count = len(lib_names & db_libs)
 
     if has_backend and has_frontend and db_count >= 1:
-        skill_counts["Full-Stack Web Development"] = skill_counts.get("Full-Stack Development", 1) + db_count
+        skill_counts["Full-Stack Web Development"] = (
+            skill_counts.get("Full-Stack Development", 1) + db_count
+        )
 
     # =========================================================================
     # API Development
@@ -669,7 +767,9 @@ def _infer_contextual_skills(
 
     graphql_count = len(lib_names & graphql_indicators)
     if graphql_count > 0 or "GraphQL" in framework_set:
-        skill_counts["GraphQL Development"] = graphql_count + (1 if "GraphQL" in framework_set else 0)
+        skill_counts["GraphQL Development"] = graphql_count + (
+            1 if "GraphQL" in framework_set else 0
+        )
 
     # =========================================================================
     # Real-Time Applications
@@ -685,12 +785,14 @@ def _infer_contextual_skills(
     mq_count = len(lib_names & {"amqplib", "bull", "celery", "kafka-python"})
     gateway_count = len(lib_names & {"express-gateway", "kong"})
 
-    microservice_signals = sum([
-        1 if has_containers else 0,
-        1 if has_k8s else 0,
-        mq_count,
-        gateway_count,
-    ])
+    microservice_signals = sum(
+        [
+            1 if has_containers else 0,
+            1 if has_k8s else 0,
+            mq_count,
+            gateway_count,
+        ]
+    )
     if microservice_signals >= 3:
         skill_counts["Microservices Architecture"] = microservice_signals
 
@@ -745,13 +847,19 @@ def extract_resume_skills(
     # Get languages if not provided
     if languages is None:
         from src.core.detectors.language import ProjectAnalyzer
+
         analyzer = ProjectAnalyzer()
         language_stats = analyzer.analyze_project_languages(str(root_path))
-        languages = [lang for lang, count in language_stats.items() if lang != "Unknown" and count > 0]
+        languages = [
+            lang
+            for lang, count in language_stats.items()
+            if lang != "Unknown" and count > 0
+        ]
 
     # Get frameworks if not provided
     if frameworks is None:
         from src.core.detectors.framework import detect_frameworks_recursive
+
         rules_path = Path(__file__).parent.parent / "rules" / "frameworks.yml"
         if rules_path.exists():
             fw_results = detect_frameworks_recursive(root_path, str(rules_path))
@@ -775,7 +883,9 @@ def extract_resume_skills(
         all_skills.update(extract_skills_from_tools(tools).keys())
 
     # Use enhanced contextual inference with libraries and tools
-    all_skills.update(_infer_contextual_skills(languages, frameworks, libraries, tools).keys())
+    all_skills.update(
+        _infer_contextual_skills(languages, frameworks, libraries, tools).keys()
+    )
 
     return sorted(list(all_skills))
 
@@ -801,59 +911,197 @@ def get_skill_categories() -> Dict[str, List[str]]:
 
     for skills in _get_language_skills().values():
         for skill in skills:
-            if any(keyword in skill for keyword in ["Programming", "Development", "Scripting"]):
+            if any(
+                keyword in skill
+                for keyword in ["Programming", "Development", "Scripting"]
+            ):
                 categories["Programming Languages"].add(skill)
 
     for skills in _get_framework_skills().values():
         for skill in skills:
-            if any(keyword in skill for keyword in ["Machine Learning", "Data Science", "AI", "Deep Learning"]):
+            if any(
+                keyword in skill
+                for keyword in [
+                    "Machine Learning",
+                    "Data Science",
+                    "AI",
+                    "Deep Learning",
+                ]
+            ):
                 categories["Data Science & ML"].add(skill)
             elif any(keyword in skill for keyword in ["Mobile", "iOS", "Android"]):
                 categories["Mobile Development"].add(skill)
-            elif any(keyword in skill for keyword in ["Testing", "Test-Driven", "QA", "Quality"]):
+            elif any(
+                keyword in skill
+                for keyword in ["Testing", "Test-Driven", "QA", "Quality"]
+            ):
                 categories["Testing & QA"].add(skill)
-            elif any(keyword in skill for keyword in ["DevOps", "Docker", "CI/CD", "Container"]):
+            elif any(
+                keyword in skill
+                for keyword in ["DevOps", "Docker", "CI/CD", "Container"]
+            ):
                 categories["DevOps & Infrastructure"].add(skill)
             elif any(keyword in skill for keyword in ["ORM", "Database", "SQL"]):
                 categories["Database & ORM"].add(skill)
-            elif any(keyword in skill for keyword in ["Frontend", "Backend", "Web", "API"]):
+            elif any(
+                keyword in skill for keyword in ["Frontend", "Backend", "Web", "API"]
+            ):
                 categories["Web Development"].add(skill)
 
     for skills in _get_file_type_skills().values():
         for skill in skills:
-            if any(keyword in skill for keyword in ["Design", "Photo", "Video", "Audio", "3D", "Graphics"]):
+            if any(
+                keyword in skill
+                for keyword in ["Design", "Photo", "Video", "Audio", "3D", "Graphics"]
+            ):
                 categories["Design & Creative"].add(skill)
 
     # Add library skills to categories
     for skills in _get_library_skills().values():
         for skill in skills:
-            if any(keyword in skill for keyword in ["Machine Learning", "Data Science", "AI", "Deep Learning", "NLP", "Natural Language", "Data Analysis", "Data Processing", "Scientific Computing", "Statistical", "Computer Vision"]):
+            if any(
+                keyword in skill
+                for keyword in [
+                    "Machine Learning",
+                    "Data Science",
+                    "AI",
+                    "Deep Learning",
+                    "NLP",
+                    "Natural Language",
+                    "Data Analysis",
+                    "Data Processing",
+                    "Scientific Computing",
+                    "Statistical",
+                    "Computer Vision",
+                ]
+            ):
                 categories["Data Science & ML"].add(skill)
-            elif any(keyword in skill for keyword in ["Database", "SQL", "PostgreSQL", "MySQL", "MongoDB", "NoSQL", "Redis", "Caching", "ORM"]):
+            elif any(
+                keyword in skill
+                for keyword in [
+                    "Database",
+                    "SQL",
+                    "PostgreSQL",
+                    "MySQL",
+                    "MongoDB",
+                    "NoSQL",
+                    "Redis",
+                    "Caching",
+                    "ORM",
+                ]
+            ):
                 categories["Database & ORM"].add(skill)
-            elif any(keyword in skill for keyword in ["DevOps", "Docker", "CI/CD", "Container", "Cloud", "AWS", "Azure", "Google Cloud", "Infrastructure", "Monitoring", "Metrics"]):
+            elif any(
+                keyword in skill
+                for keyword in [
+                    "DevOps",
+                    "Docker",
+                    "CI/CD",
+                    "Container",
+                    "Cloud",
+                    "AWS",
+                    "Azure",
+                    "Google Cloud",
+                    "Infrastructure",
+                    "Monitoring",
+                    "Metrics",
+                ]
+            ):
                 categories["DevOps & Infrastructure"].add(skill)
-            elif any(keyword in skill for keyword in ["Testing", "Test-Driven", "QA", "Quality"]):
+            elif any(
+                keyword in skill
+                for keyword in ["Testing", "Test-Driven", "QA", "Quality"]
+            ):
                 categories["Testing & QA"].add(skill)
-            elif any(keyword in skill for keyword in ["Frontend", "Backend", "Web", "API", "HTTP", "REST", "WebSocket", "Real-Time", "Authentication", "OAuth", "JWT", "Security"]):
+            elif any(
+                keyword in skill
+                for keyword in [
+                    "Frontend",
+                    "Backend",
+                    "Web",
+                    "API",
+                    "HTTP",
+                    "REST",
+                    "WebSocket",
+                    "Real-Time",
+                    "Authentication",
+                    "OAuth",
+                    "JWT",
+                    "Security",
+                ]
+            ):
                 categories["Web Development"].add(skill)
             elif any(keyword in skill for keyword in ["Mobile", "iOS", "Android"]):
                 categories["Mobile Development"].add(skill)
-            elif any(keyword in skill for keyword in ["Design", "Photo", "Video", "Audio", "3D", "Graphics", "Image"]):
+            elif any(
+                keyword in skill
+                for keyword in [
+                    "Design",
+                    "Photo",
+                    "Video",
+                    "Audio",
+                    "3D",
+                    "Graphics",
+                    "Image",
+                ]
+            ):
                 categories["Design & Creative"].add(skill)
 
     # Add tool skills to categories
     for skills in _get_tool_skills().values():
         for skill in skills:
-            if any(keyword in skill for keyword in ["DevOps", "Docker", "CI/CD", "Container", "Containerization", "Orchestration", "Infrastructure", "Cloud", "Deployment", "Hosting", "Serverless"]):
+            if any(
+                keyword in skill
+                for keyword in [
+                    "DevOps",
+                    "Docker",
+                    "CI/CD",
+                    "Container",
+                    "Containerization",
+                    "Orchestration",
+                    "Infrastructure",
+                    "Cloud",
+                    "Deployment",
+                    "Hosting",
+                    "Serverless",
+                ]
+            ):
                 categories["DevOps & Infrastructure"].add(skill)
-            elif any(keyword in skill for keyword in ["Testing", "Test", "QA", "Quality", "Linting", "Code Quality", "Formatting", "Type Checking", "Type Safety"]):
+            elif any(
+                keyword in skill
+                for keyword in [
+                    "Testing",
+                    "Test",
+                    "QA",
+                    "Quality",
+                    "Linting",
+                    "Code Quality",
+                    "Formatting",
+                    "Type Checking",
+                    "Type Safety",
+                ]
+            ):
                 categories["Testing & QA"].add(skill)
-            elif any(keyword in skill for keyword in ["Database", "ORM", "Migration", "Schema"]):
+            elif any(
+                keyword in skill
+                for keyword in ["Database", "ORM", "Migration", "Schema"]
+            ):
                 categories["Database & ORM"].add(skill)
-            elif any(keyword in skill for keyword in ["API", "REST", "GraphQL", "Documentation"]):
+            elif any(
+                keyword in skill
+                for keyword in ["API", "REST", "GraphQL", "Documentation"]
+            ):
                 categories["Web Development"].add(skill)
-            elif any(keyword in skill for keyword in ["Build", "Bundling", "Package", "Monorepo", "Version Control"]):
+            elif any(
+                keyword in skill
+                for keyword in [
+                    "Build",
+                    "Bundling",
+                    "Package",
+                    "Monorepo",
+                    "Version Control",
+                ]
+            ):
                 categories["DevOps & Infrastructure"].add(skill)
 
     return {k: sorted(list(v)) for k, v in categories.items() if v}
@@ -867,65 +1115,178 @@ def categorize_skill_by_keywords(skill: str) -> Optional[str]:
     skill_lower = skill.lower()
 
     # Data Science & ML keywords
-    if any(kw in skill_lower for kw in [
-        "machine learning", "data science", "ai", "deep learning", "nlp",
-        "natural language", "data analysis", "data processing", "scientific",
-        "statistical", "computer vision", "data manipulation", "numerical",
-        "neural", "model", "training", "prediction", "classification"
-    ]):
+    if any(
+        kw in skill_lower
+        for kw in [
+            "machine learning",
+            "data science",
+            "ai",
+            "deep learning",
+            "nlp",
+            "natural language",
+            "data analysis",
+            "data processing",
+            "scientific",
+            "statistical",
+            "computer vision",
+            "data manipulation",
+            "numerical",
+            "neural",
+            "model",
+            "training",
+            "prediction",
+            "classification",
+        ]
+    ):
         return "Data Science & ML"
 
     # DevOps & Infrastructure keywords
-    if any(kw in skill_lower for kw in [
-        "devops", "docker", "ci/cd", "container", "cloud", "aws", "azure",
-        "google cloud", "infrastructure", "monitoring", "metrics", "deployment",
-        "hosting", "serverless", "orchestration", "pipeline", "automation",
-        "kubernetes", "terraform", "ansible", "build", "bundling", "package",
-        "monorepo", "version control", "git"
-    ]):
+    if any(
+        kw in skill_lower
+        for kw in [
+            "devops",
+            "docker",
+            "ci/cd",
+            "container",
+            "cloud",
+            "aws",
+            "azure",
+            "google cloud",
+            "infrastructure",
+            "monitoring",
+            "metrics",
+            "deployment",
+            "hosting",
+            "serverless",
+            "orchestration",
+            "pipeline",
+            "automation",
+            "kubernetes",
+            "terraform",
+            "ansible",
+            "build",
+            "bundling",
+            "package",
+            "monorepo",
+            "version control",
+            "git",
+        ]
+    ):
         return "DevOps & Infrastructure"
 
     # Testing & QA keywords
-    if any(kw in skill_lower for kw in [
-        "testing", "test-driven", "test driven", "qa", "quality", "linting",
-        "code quality", "formatting", "type checking", "type safety", "unit test",
-        "integration test", "e2e", "end-to-end", "coverage"
-    ]):
+    if any(
+        kw in skill_lower
+        for kw in [
+            "testing",
+            "test-driven",
+            "test driven",
+            "qa",
+            "quality",
+            "linting",
+            "code quality",
+            "formatting",
+            "type checking",
+            "type safety",
+            "unit test",
+            "integration test",
+            "e2e",
+            "end-to-end",
+            "coverage",
+        ]
+    ):
         return "Testing & QA"
 
     # Database & ORM keywords
-    if any(kw in skill_lower for kw in [
-        "database", "sql", "postgresql", "mysql", "mongodb", "nosql", "redis",
-        "caching", "orm", "migration", "schema", "query"
-    ]):
+    if any(
+        kw in skill_lower
+        for kw in [
+            "database",
+            "sql",
+            "postgresql",
+            "mysql",
+            "mongodb",
+            "nosql",
+            "redis",
+            "caching",
+            "orm",
+            "migration",
+            "schema",
+            "query",
+        ]
+    ):
         return "Database & ORM"
 
     # Web Development keywords
-    if any(kw in skill_lower for kw in [
-        "frontend", "backend", "web", "api", "http", "rest", "websocket",
-        "real-time", "authentication", "oauth", "jwt", "security", "graphql",
-        "fullstack", "full-stack", "full stack", "component", "spa", "ssr",
-        "async", "server", "client", "request", "response"
-    ]):
+    if any(
+        kw in skill_lower
+        for kw in [
+            "frontend",
+            "backend",
+            "web",
+            "api",
+            "http",
+            "rest",
+            "websocket",
+            "real-time",
+            "authentication",
+            "oauth",
+            "jwt",
+            "security",
+            "graphql",
+            "fullstack",
+            "full-stack",
+            "full stack",
+            "component",
+            "spa",
+            "ssr",
+            "async",
+            "server",
+            "client",
+            "request",
+            "response",
+        ]
+    ):
         return "Web Development"
 
     # Mobile Development keywords
-    if any(kw in skill_lower for kw in [
-        "mobile", "ios", "android", "react native", "flutter", "swift", "kotlin"
-    ]):
+    if any(
+        kw in skill_lower
+        for kw in [
+            "mobile",
+            "ios",
+            "android",
+            "react native",
+            "flutter",
+            "swift",
+            "kotlin",
+        ]
+    ):
         return "Mobile Development"
 
     # Design & Creative keywords
-    if any(kw in skill_lower for kw in [
-        "design", "photo", "video", "audio", "3d", "graphics", "image",
-        "ui", "ux", "animation", "illustration"
-    ]):
+    if any(
+        kw in skill_lower
+        for kw in [
+            "design",
+            "photo",
+            "video",
+            "audio",
+            "3d",
+            "graphics",
+            "image",
+            "ui",
+            "ux",
+            "animation",
+            "illustration",
+        ]
+    ):
         return "Design & Creative"
 
     # Programming Languages keywords
-    if any(kw in skill_lower for kw in [
-        "programming", "development language", "scripting"
-    ]):
+    if any(
+        kw in skill_lower for kw in ["programming", "development language", "scripting"]
+    ):
         return "Programming Languages"
 
     return None
@@ -953,6 +1314,7 @@ def analyze_project_skills(
     # Extract languages (or use provided)
     if languages is None:
         from src.core.detectors.language import ProjectAnalyzer
+
         analyzer = ProjectAnalyzer()
         language_stats = analyzer.analyze_project_languages(str(root_path))
         languages = [
@@ -963,6 +1325,7 @@ def analyze_project_skills(
     # Extract frameworks (or use provided)
     if frameworks is None:
         from src.core.detectors.framework import detect_frameworks_recursive
+
         rules_path = Path(__file__).parent.parent / "rules" / "frameworks.yml"
         if rules_path.exists():
             fw_results = detect_frameworks_recursive(root_path, str(rules_path))
@@ -975,7 +1338,10 @@ def analyze_project_skills(
                     conf = fw.get("confidence", 1.0)
                     if name not in best or conf > best[name]:
                         best[name] = conf
-            frameworks = [name for name, _ in sorted(best.items(), key=lambda kv: (-kv[1], kv[0])) ]
+            frameworks = [
+                name 
+                for name, _ in sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))
+            ]
         else:
             logger.warning("Framework rules file not found at %s", rules_path)
             frameworks = []

@@ -1,14 +1,12 @@
 from pathlib import Path
 
 
-
 from src.core.utils.project_detection import detect_project_roots
 
 
 def test_detect_project_roots_collapses_monorepo_to_root(tmp_path: Path):
     root = tmp_path / "repo"
     root.mkdir()
-
 
     (root / ".gitignore").write_text("node_modules/\n", encoding="utf-8")
 
@@ -18,7 +16,9 @@ def test_detect_project_roots_collapses_monorepo_to_root(tmp_path: Path):
 
     backend = root / "backend"
     backend.mkdir()
-    (backend / "pyproject.toml").write_text("[project]\nname='backend'\n", encoding="utf-8")
+    (backend / "pyproject.toml").write_text(
+        "[project]\nname='backend'\n", encoding="utf-8"
+    )
 
     roots = detect_project_roots(root, max_depth=4)
 
@@ -54,5 +54,3 @@ def test_detect_project_roots_multiple_projects_returns_multiple_roots(tmp_path:
     # Should detect both project roots (order may vary)
     root_paths = {r.resolve() for r in roots}
     assert root_paths == {p1.resolve(), p2.resolve()}
-
-

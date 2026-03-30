@@ -29,12 +29,14 @@ engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 def override_get_db():
     db = TestingSessionLocal()
     try:
         yield db
     finally:
         db.close()
+
 
 def override_current_user():
     return User(
@@ -43,7 +45,9 @@ def override_current_user():
         is_active=True,
     )
 
+
 client = TestClient(app)
+
 
 def setup_function():
     Base.metadata.drop_all(bind=engine)
@@ -52,13 +56,16 @@ def setup_function():
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_current_user
 
+
 def teardown_function():
     app.dependency_overrides.clear()
     Base.metadata.drop_all(bind=engine)
 
+
 def test_get_my_profile_returns_404_when_missing():
     response = client.get("/api/user-profiles/me")
     assert response.status_code == 404
+
 
 def test_put_my_profile_creates_profile():
     response = client.put("/api/user-profiles/me", json=PROFILE_PAYLOAD)
@@ -69,6 +76,7 @@ def test_put_my_profile_creates_profile():
     assert data["last_name"] == PROFILE_PAYLOAD["last_name"]
     assert data["city"] == PROFILE_PAYLOAD["city"]
 
+
 def test_get_my_profile_returns_profile():
     client.put("/api/user-profiles/me", json=PROFILE_PAYLOAD)
     response = client.get("/api/user-profiles/me")
@@ -77,6 +85,7 @@ def test_get_my_profile_returns_profile():
     assert data["user_id"] == 1
     assert data["first_name"] == PROFILE_PAYLOAD["first_name"]
     assert data["github_url"] == PROFILE_PAYLOAD["github_url"]
+
 
 def test_put_my_profile_updates_existing_profile():
     client.put("/api/user-profiles/me", json=PROFILE_PAYLOAD)
@@ -91,6 +100,7 @@ def test_put_my_profile_updates_existing_profile():
     assert data["user_id"] == 1
     assert data["city"] == "Vancouver"
     assert data["summary"] == "Updated summary"
+
 
 def test_get_my_profile_requires_auth():
     app.dependency_overrides.pop(get_current_user, None)

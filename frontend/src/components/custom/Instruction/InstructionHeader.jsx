@@ -6,10 +6,10 @@ const InstructionHeader = ({ onGetStarted }) => {
   return (
     <div className="text-center mb-8">
       <h1 className="text-5xl font-bold text-gray-900 mb-4">
-        Resume Generator
+        Coding Project Analyzer
       </h1>
       <p className="text-lg text-gray-600 mb-6">
-        Transform your project files into a professional resume in 4 easy steps
+        Transform your project files into a comprehensive summary of your project in 4 easy steps
       </p>
       
       {/* Get Started Button */}

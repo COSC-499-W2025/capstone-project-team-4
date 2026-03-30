@@ -136,11 +136,11 @@ def _build_ai_context(
     context = f"""Project: {project_name}
 
 Technical Stack:
-- Languages: {', '.join(languages) if languages else 'N/A'}
-- Frameworks: {', '.join(frameworks) if frameworks else 'N/A'}
-- Libraries: {', '.join(libraries[:10]) if libraries else 'N/A'}
-- Tools: {', '.join(tools[:10]) if tools else 'N/A'}
-- Key Technologies: {', '.join(tech_stack[:15])}
+- Languages: {", ".join(languages) if languages else "N/A"}
+- Frameworks: {", ".join(frameworks) if frameworks else "N/A"}
+- Libraries: {", ".join(libraries[:10]) if libraries else "N/A"}
+- Tools: {", ".join(tools[:10]) if tools else "N/A"}
+- Key Technologies: {", ".join(tech_stack[:15])}
 
 Project Metrics:
 - Total Files: {file_count}
@@ -237,7 +237,11 @@ BULLET3: [third bullet point text]"""
         # Fallback if parsing failed
         if len(highlights) < 3:
             logger.warning("AI response parsing failed, using full response")
-            highlights = [line.strip() for line in content.split("\n") if line.strip() and not line.startswith("BULLET")]
+            highlights = [
+                line.strip()
+                for line in content.split("\n")
+                if line.strip() and not line.startswith("BULLET")
+            ]
             highlights = highlights[:3]  # Take first 3 lines
 
         return {"title": project_name, "highlights": highlights}

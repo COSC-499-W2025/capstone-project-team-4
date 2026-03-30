@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/user-profiles", tags=["user-profiles"])
 
 
-
 # User Profile Endpoints
 @router.get("", response_model=UserProfileList)
 async def list_user_profiles(
@@ -49,7 +48,7 @@ async def list_user_profiles(
 async def get_user_profile_by_user_id(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get detailed information about a specific user profile using user ID.
@@ -71,7 +70,7 @@ async def create_user_profile(
     user_id: int,
     data: UserProfileCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Create a new user profile for a user.
@@ -97,7 +96,7 @@ async def update_user_profile_by_user_id(
     user_id: int,
     data: UserProfileUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Update a user profile using user ID.
@@ -117,7 +116,7 @@ async def update_user_profile_by_user_id(
 async def delete_user_profile_by_user_id(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Delete a user profile using user ID.
@@ -129,6 +128,7 @@ async def delete_user_profile_by_user_id(
     if not success:
         raise UserProfileNotFoundError(user_id)
     return
+
 
 @router.get("/me", response_model=UserProfileDetail)
 async def get_my_profile(
@@ -143,6 +143,7 @@ async def get_my_profile(
     if not profile:
         raise UserProfileNotFoundError(current_user.id)
     return profile
+
 
 @router.put("/me", response_model=UserProfileDetail)
 async def upsert_my_profile(

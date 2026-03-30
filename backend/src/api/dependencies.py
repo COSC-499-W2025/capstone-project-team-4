@@ -1,6 +1,5 @@
 """FastAPI dependencies for dependency injection & auth."""
 
-
 from sqlalchemy.orm import Session
 
 from src.models.database import get_db

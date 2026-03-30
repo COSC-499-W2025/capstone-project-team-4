@@ -6,6 +6,7 @@ from sqlalchemy import func, select, or_
 from sqlalchemy.orm import Session, joinedload
 
 from src.models.orm.contributor import Contributor, ContributorFile
+from src.models.orm.contributor_commit import ContributorCommit
 from src.models.orm.project import Project
 from src.repositories.base import BaseRepository
 
@@ -88,7 +89,9 @@ class ContributorRepository(BaseRepository[Contributor]):
         self.db.refresh(cf)
         return cf
 
-    def create_contributors_bulk(self, contributors_data: List[dict]) -> List[Contributor]:
+    def create_contributors_bulk(
+        self, contributors_data: List[dict]
+    ) -> List[Contributor]:
         """Create multiple contributors efficiently."""
         contributors = []
         for data in contributors_data:
@@ -143,30 +146,36 @@ class ContributorRepository(BaseRepository[Contributor]):
         )
         for file_obj in self.db.scalars(stmt_files):
             self.db.delete(file_obj)
-        
+
         # Delete contributors
         stmt = select(Contributor).where(Contributor.project_id == project_id)
         count = 0
         for contributor in self.db.scalars(stmt):
             self.db.delete(contributor)
             count += 1
-        
+
         self.db.commit()
         return count
 
     def count_by_project(self, project_id: int) -> int:
         """Count contributors in a project."""
-        stmt = select(func.count(Contributor.id)).where(Contributor.project_id == project_id)
+        stmt = select(func.count(Contributor.id)).where(
+            Contributor.project_id == project_id
+        )
         return self.db.scalar(stmt) or 0
 
     def get_total_commits(self, project_id: int) -> int:
         """Get total commits for a project."""
         result = self.db.scalar(
-            select(func.sum(Contributor.commits)).where(Contributor.project_id == project_id)
+            select(func.sum(Contributor.commits)).where(
+                Contributor.project_id == project_id
+            )
         )
         return result or 0
 
-    def get_projects_by_identity(self, identity: str) -> List[tuple[Contributor, Project]]:
+    def get_projects_by_identity(
+        self, identity: str
+    ) -> List[tuple[Contributor, Project]]:
         """Get contributor records and projects matching GitHub username or identity fields."""
         identity_normalized = identity.strip().lower()
         if not identity_normalized:
@@ -188,5 +197,27 @@ class ContributorRepository(BaseRepository[Contributor]):
 
     def get_all_with_projects(self) -> List[tuple[Contributor, Project]]:
         """Get all contributors with their projects."""
-        stmt = select(Contributor, Project).join(Project, Project.id == Contributor.project_id)
+        stmt = select(Contributor, Project).join(
+            Project, Project.id == Contributor.project_id
+        )
+        return list(self.db.execute(stmt).all())
+
+    def get_commit_counts_by_day_for_contributors(
+        self,
+        contributor_ids: List[int],
+    ) -> List[tuple]:
+        """Get commit counts grouped by day for the given contributor IDs."""
+        if not contributor_ids:
+            return []
+
+        stmt = (
+            select(
+                func.date(ContributorCommit.commit_date).label("commit_date"),
+                func.count(ContributorCommit.id).label("commit_count"),
+            )
+            .where(ContributorCommit.contributor_id.in_(contributor_ids))
+            .group_by(func.date(ContributorCommit.commit_date))
+            .order_by(func.date(ContributorCommit.commit_date))
+        )
+
         return list(self.db.execute(stmt).all())
