@@ -1726,115 +1726,27 @@ class AnalysisService:
             "Deferred chronological occurrence analysis for project %s until timeline build endpoint is called",
             project_id,
         )
-    def _save_skill_occurrences(
-        self,
-        project_id: int,
-        skill_categories: dict,
-        file_list: List[dict],
-        detected_languages: Optional[List[str]] = None,
-        detected_frameworks: Optional[List[str]] = None,
-        project_path: Optional[str] = None,
-        project_upload_time: Optional[datetime] = None,
-    ) -> None:
-        """
-        Save file-level skill occurrences using:
-        1. Git commit date
-        2. File metadata date
-        3. Project upload fallback
-
-        v1 strategy:
-        - infer language/framework evidence from file extensions
-        - attach contextual/category skills to relevant code files
-        """
-        detected_languages = detected_languages or []
-        detected_frameworks = detected_frameworks or []
-
-        all_skills = set()
-        for skills in skill_categories.values():
-            all_skills.update(skills)
-
-        if not all_skills or not file_list:
-            logger.info("No skills or files available for skill occurrences")
-            return
-
-        git_dates_by_path = self._extract_file_commit_dates_from_git(project_path)
-
-        occurrences_data = []
-
-        for file_meta in file_list:
-            file_path = (file_meta.get("path") or "").replace("\\", "/")
-            if not file_path:
-                continue
-
-            matched_skills = self._match_skills_to_file(
-                file_path=file_path,
-                all_skills=all_skills,
-                detected_languages=detected_languages,
-                detected_frameworks=detected_frameworks,
-            )
-
-            if not matched_skills:
-                continue
-
-            resolved_dt, date_source = self._resolve_file_occurrence_date(
-                file_meta=file_meta,
-                file_path=file_path,
-                git_dates_by_path=git_dates_by_path,
-                project_upload_time=project_upload_time,
-            )
-
-            for skill_name, evidence_type, evidence_value in matched_skills:
-                occurrences_data.append(
-                    {
-                        "project_id": project_id,
-                        "skill_name": skill_name,
-                        "file_path": file_path,
-                        "evidence_type": evidence_type,
-                        "evidence_value": evidence_value,
-                        "first_seen_at": resolved_dt,
-                        "date_source": date_source,
-                    }
-                )
-
-        logger.info(
-            "Skill occurrence generation complete for project %s: %d rows",
-            project_id,
-            len(occurrences_data),
-        )
-
-        if occurrences_data:
-            self.skill_repo.create_occurrences_bulk(occurrences_data)
-            logger.info(
-                "Saved %d skill occurrences for project %d",
-                len(occurrences_data),
-                project_id,
-            )
-        else:
-            logger.info("No skill occurrences matched files for project %d", project_id)
 
     def _resolve_file_occurrence_date(
         self,
         file_meta: dict,
         file_path: str,
         git_dates_by_path: Dict[str, datetime],
+        zip_dates_by_path: Optional[Dict[str, datetime]] = None,
         project_upload_time: Optional[datetime] = None,
     ) -> Tuple[datetime, str]:
         """
         Resolve the best available timestamp for a file using:
-        git commit -> file metadata -> upload fallback
+        git commit -> ZIP entry metadata -> extracted file metadata -> upload fallback
         """
         git_dt = git_dates_by_path.get(file_path)
         if git_dt:
             return git_dt, "git_commit"
 
-        created_ts = file_meta.get("created_timestamp")
-        if created_ts:
-            if isinstance(created_ts, datetime):
-                return created_ts, "file_metadata"
-            try:
-                return datetime.fromtimestamp(created_ts), "file_metadata"
-            except (ValueError, TypeError, OSError):
-                pass
+        zip_dates_by_path = zip_dates_by_path or {}
+        zip_dt = zip_dates_by_path.get(file_path)
+        if zip_dt:
+            return zip_dt, "zip_metadata"
 
         modified_ts = file_meta.get("last_modified")
         if modified_ts:
@@ -1842,6 +1754,15 @@ class AnalysisService:
                 return modified_ts, "file_metadata"
             try:
                 return datetime.fromtimestamp(modified_ts), "file_metadata"
+            except (ValueError, TypeError, OSError):
+                pass
+
+        created_ts = file_meta.get("created_timestamp")
+        if created_ts:
+            if isinstance(created_ts, datetime):
+                return created_ts, "file_metadata"
+            try:
+                return datetime.fromtimestamp(created_ts), "file_metadata"
             except (ValueError, TypeError, OSError):
                 pass
 
@@ -2556,6 +2477,7 @@ class AnalysisService:
             first_commit_date=first_commit_date,
             project_started_at=project_started_at,
         )
+    
     def _save_skill_occurrences(
         self,
         project_id: int,
@@ -2565,15 +2487,18 @@ class AnalysisService:
         detected_frameworks: Optional[List[str]] = None,
         project_path: Optional[str] = None,
         project_upload_time: Optional[datetime] = None,
+        zip_dates_by_path: Optional[Dict[str, datetime]] = None,
     ) -> None:
         """
         Save file-level skill occurrences using:
         1. Git commit date
-        2. File metadata date
-        3. Project upload fallback
+        2. ZIP entry metadata date
+        3. Extracted file metadata date
+        4. Project upload fallback
         """
         detected_languages = detected_languages or []
         detected_frameworks = detected_frameworks or []
+        zip_dates_by_path = zip_dates_by_path or {}
 
         all_skills = set()
         for skills in skill_categories.values():
@@ -2594,8 +2519,9 @@ class AnalysisService:
 
         git_dates_by_path = self._extract_file_commit_dates_from_git(project_path)
         logger.info(
-            "[OCCURRENCES] git_dates_found=%d for project=%s",
+            "[OCCURRENCES] git_dates_found=%d zip_dates_found=%d for project=%s",
             len(git_dates_by_path),
+            len(zip_dates_by_path),
             project_id,
         )
 
@@ -2634,6 +2560,7 @@ class AnalysisService:
                 file_meta=file_meta,
                 file_path=file_path,
                 git_dates_by_path=git_dates_by_path,
+                zip_dates_by_path=zip_dates_by_path,
                 project_upload_time=project_upload_time,
             )
 
@@ -2670,7 +2597,7 @@ class AnalysisService:
             self.skill_repo.create_occurrences_bulk(occurrences_data)
             logger.info(
                 "Saved %d skill occurrences for project %d",
-            len(occurrences_data),
+                len(occurrences_data),
                 project_id,
             )
         else:
@@ -2723,6 +2650,14 @@ class AnalysisService:
             detected_languages = self.project_repo.get_languages(project_id) or []
             detected_frameworks = self.project_repo.get_frameworks(project_id) or []
 
+            zip_dates_by_path: Dict[str, datetime] = {}
+            if project.source_type == "zip" and project.source_url:
+                zip_dates_by_path = get_zip_entry_dates(Path(project.source_url))
+            logger.info(
+                "[TIMELINE REBUILD] zip_dates_found=%d",
+                len(zip_dates_by_path),
+            )
+
             for language in detected_languages:
                 if language and language != "Unknown":
                     skill_categories.setdefault("Languages", [])
@@ -2753,6 +2688,7 @@ class AnalysisService:
                 detected_frameworks=detected_frameworks,
                 project_path=str(project_root),
                 project_upload_time=project.zip_uploaded_at or project.created_at or datetime.utcnow(),
+                zip_dates_by_path=zip_dates_by_path,
             )
 
             saved_rows = len(self.skill_repo.get_occurrences_by_project(project_id))
@@ -2769,3 +2705,38 @@ class AnalysisService:
         finally:
             if temp_dir is not None:
                 temp_dir.cleanup()
+
+def get_zip_entry_dates(zip_path: Path) -> Dict[str, datetime]:
+    """
+    Build a mapping of relative file path -> ZIP entry timestamp.
+
+    Uses timestamps stored inside the ZIP, which are usually more meaningful
+    than extracted temp-file timestamps for uploaded projects.
+    """
+    zip_path = Path(zip_path)
+    dates: Dict[str, datetime] = {}
+
+    if not zip_path.exists() or not zipfile.is_zipfile(zip_path):
+        return dates
+
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            for info in zf.infolist():
+                name = info.filename.replace("\\", "/")
+
+                if info.is_dir() or name.endswith("/"):
+                    continue
+                if _is_macos_junk_zip_name(name):
+                    continue
+
+                try:
+                    entry_dt = datetime(*info.date_time)
+                except (ValueError, TypeError):
+                    continue
+
+                dates[name] = entry_dt
+
+    except Exception as e:
+        logger.warning("Failed to read ZIP entry dates from %s: %s", zip_path, e)
+
+    return dates
