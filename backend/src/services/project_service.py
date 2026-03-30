@@ -17,7 +17,12 @@ from src.models.schemas.project import (
     ProjectDetail,
     ProjectThumbnailResponse,
 )
-from src.models.schemas.analysis import AnalysisResult, AnalysisStatus, ComplexitySummary, TextualProjectShowcaseResponse
+from src.models.schemas.analysis import (
+    AnalysisResult,
+    AnalysisStatus,
+    ComplexitySummary,
+    TextualProjectShowcaseResponse,
+)
 from src.models.schemas.contributor import (
     ContributorAnalysisSchema,
     ProjectContributorsAnalysisResponse,
@@ -118,12 +123,16 @@ class ProjectService:
                 return domain_index["languages"][lang_key]
         return None
 
-    def list_projects(self, page: int = 1, page_size: int = 20, user_id: int = None) -> ProjectList:
+    def list_projects(
+        self, page: int = 1, page_size: int = 20, user_id: int = None
+    ) -> ProjectList:
         skip = (page - 1) * page_size
         total = self.project_repo.count(user_id=user_id)
         pages = (total + page_size - 1) // page_size
 
-        summaries = self.project_repo.get_all_summaries(skip=skip, limit=page_size, user_id=user_id)
+        summaries = self.project_repo.get_all_summaries(
+            skip=skip, limit=page_size, user_id=user_id
+        )
 
         # Populate thumbnail fields (feedback #4 / #9)
         project_ids = [s["id"] for s in summaries if s]
@@ -468,7 +477,9 @@ class ProjectService:
             net_lines = c.total_lines_added - c.total_lines_deleted
 
             # Calculate change statistics
-            contributor_total_lines_changed = c.total_lines_added + c.total_lines_deleted
+            contributor_total_lines_changed = (
+                c.total_lines_added + c.total_lines_deleted
+            )
             lines_changed_per_commit = (
                 round(contributor_total_lines_changed / c.commits, 2)
                 if c.commits > 0
@@ -566,7 +577,7 @@ class ProjectService:
     def project_exists(self, project_id: int) -> bool:
         """Check if a project exists."""
         return self.project_repo.get(project_id) is not None
-    
+
     def get_textual_project_showcase(
         self, project_id: int
     ) -> Optional[TextualProjectShowcaseResponse]:

@@ -17,23 +17,39 @@ from src.services.snapshot_service import SnapshotService
 router = APIRouter(prefix="/snapshots", tags=["snapshots"])
 
 
-def _require_project_owner(project_service: ProjectService, project_id: int, current_user: User) -> None:
+def _require_project_owner(
+    project_service: ProjectService, project_id: int, current_user: User
+) -> None:
     if not project_service.user_owns_project(project_id, current_user.id):
         raise ProjectNotFoundError(project_id)
 
 
-@router.post("/{project_id}/create", response_model=SnapshotPairResponse, status_code=201)
+@router.post(
+    "/{project_id}/create", response_model=SnapshotPairResponse, status_code=201
+)
 async def create_current_and_midpoint_snapshots(
     project_id: int,
-    percentage: int = Query(50, ge=1, le=99, description="Start point: percentage through commit history (1–99)"),
-    end_percentage: int = Query(100, ge=2, le=100, description="End point: percentage through commit history (2–100, where 100 = current HEAD)"),
+    percentage: int = Query(
+        50,
+        ge=1,
+        le=99,
+        description="Start point: percentage through commit history (1–99)",
+    ),
+    end_percentage: int = Query(
+        100,
+        ge=2,
+        le=100,
+        description="End point: percentage through commit history (2–100, where 100 = current HEAD)",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Create snapshots at two user-chosen points in commit history and compare them."""
     _require_project_owner(ProjectService(db), project_id, current_user)
     service = SnapshotService(db)
-    return service.create_current_and_midpoint_snapshots(project_id, percentage=percentage, end_percentage=end_percentage)
+    return service.create_current_and_midpoint_snapshots(
+        project_id, percentage=percentage, end_percentage=end_percentage
+    )
 
 
 @router.delete("/{project_id}/{snapshot_id}", status_code=200)
@@ -61,7 +77,11 @@ async def get_commit_timeline(
     return service.get_commit_timeline(project_id)
 
 
-@router.get("/{project_id}/compare", response_model=SnapshotCurrentMidpointComparisonResponse, status_code=200)
+@router.get(
+    "/{project_id}/compare",
+    response_model=SnapshotCurrentMidpointComparisonResponse,
+    status_code=200,
+)
 async def compare_current_and_midpoint_snapshots(
     project_id: int,
     db: Session = Depends(get_db),
@@ -71,6 +91,7 @@ async def compare_current_and_midpoint_snapshots(
     _require_project_owner(ProjectService(db), project_id, current_user)
     service = SnapshotService(db)
     return service.compare_current_and_midpoint(project_id)
+
 
 @router.get("/{project_id}/activity-heatmap", status_code=200)
 async def get_snapshot_activity_heatmap(

@@ -71,14 +71,14 @@ class SkillRepository(BaseRepository[ProjectSkill]):
     ) -> ProjectSkill:
         """
         Create a new project skill, using skill lookup table.
-        
+
         Args:
             project_id: Project ID
             skill_name: Name of the skill
             category: Category of the skill
             frequency: Occurrence count
             source: Detection source
-            
+
         Returns:
             ProjectSkill instance
         """
@@ -92,7 +92,7 @@ class SkillRepository(BaseRepository[ProjectSkill]):
             skill = Skill(name=skill_name, category=category)
             self.db.add(skill)
             self.db.flush()
-        
+
         # Check if project skill already exists
         existing = self.db.scalar(
             select(ProjectSkill)
@@ -125,7 +125,7 @@ class SkillRepository(BaseRepository[ProjectSkill]):
             List of created ProjectSkill instances
         """
         from sqlalchemy.exc import IntegrityError
-        
+
         # First, get or create all unique skills in lookup table
         skill_lookup = {}  # Key: (skill_name, category) -> Skill
         for data in skills_data:
@@ -152,7 +152,7 @@ class SkillRepository(BaseRepository[ProjectSkill]):
                         )
                         if not skill:
                             raise  # Re-raise if still not found
-                
+
                 skill_lookup[key] = skill
 
         # Group by project_id, skill_id to handle duplicates
@@ -160,7 +160,7 @@ class SkillRepository(BaseRepository[ProjectSkill]):
         for data in skills_data:
             skill = skill_lookup[(data["skill"], data["category"])]
             key = (data["project_id"], skill.id)
-            
+
             if key in project_skill_map:
                 project_skill_map[key]["frequency"] += data.get("frequency", 1)
             else:
@@ -186,13 +186,17 @@ class SkillRepository(BaseRepository[ProjectSkill]):
 
     def count_by_project(self, project_id: int) -> int:
         """Count skills in a project."""
-        stmt = select(func.count(ProjectSkill.id)).where(ProjectSkill.project_id == project_id)
+        stmt = select(func.count(ProjectSkill.id)).where(
+            ProjectSkill.project_id == project_id
+        )
         return self.db.scalar(stmt) or 0
 
     # Skill Summary operations
     def get_summary(self, project_id: int) -> Optional[ProjectAnalysisSummary]:
         """Get analysis summary for a project."""
-        stmt = select(ProjectAnalysisSummary).where(ProjectAnalysisSummary.project_id == project_id)
+        stmt = select(ProjectAnalysisSummary).where(
+            ProjectAnalysisSummary.project_id == project_id
+        )
         return self.db.scalar(stmt)
 
     def create_summary(
@@ -223,7 +227,9 @@ class SkillRepository(BaseRepository[ProjectSkill]):
             total_files_analyzed=total_files_analyzed,
             total_files_skipped=total_files_skipped,
             analysis_duration_seconds=analysis_duration_seconds,
-            analysis_stage_durations=json.dumps(stage_durations) if stage_durations else None,
+            analysis_stage_durations=json.dumps(stage_durations)
+            if stage_durations
+            else None,
         )
         self.db.add(summary)
         self.db.commit()
@@ -231,11 +237,17 @@ class SkillRepository(BaseRepository[ProjectSkill]):
         return summary
 
     # Skill Timeline operations
-    def get_timeline(self, project_id: int, skill: Optional[str] = None) -> List[ProjectSkillTimeline]:
+    def get_timeline(
+        self, project_id: int, skill: Optional[str] = None
+    ) -> List[ProjectSkillTimeline]:
         """Get skill timeline for a project (case-insensitive skill filter)."""
-        stmt = select(ProjectSkillTimeline).where(ProjectSkillTimeline.project_id == project_id)
+        stmt = select(ProjectSkillTimeline).where(
+            ProjectSkillTimeline.project_id == project_id
+        )
         if skill:
-            stmt = stmt.where(func.lower(ProjectSkillTimeline.skill) == func.lower(skill))
+            stmt = stmt.where(
+                func.lower(ProjectSkillTimeline.skill) == func.lower(skill)
+            )
         stmt = stmt.order_by(ProjectSkillTimeline.date)
         return list(self.db.scalars(stmt).all())
 
@@ -282,7 +294,9 @@ class SkillRepository(BaseRepository[ProjectSkill]):
         self.db.refresh(entry)
         return entry
 
-    def create_timeline_bulk(self, timeline_data: List[dict]) -> List[ProjectSkillTimeline]:
+    def create_timeline_bulk(
+        self, timeline_data: List[dict]
+    ) -> List[ProjectSkillTimeline]:
         """
         Create multiple timeline entries efficiently.
 
@@ -356,11 +370,15 @@ class SkillRepository(BaseRepository[ProjectSkill]):
             select(ProjectSkill)
             .join(Skill)
             .where(ProjectSkill.project_id == project_id)
-            .order_by(ProjectSkill.source, Skill.category, ProjectSkill.frequency.desc())
+            .order_by(
+                ProjectSkill.source, Skill.category, ProjectSkill.frequency.desc()
+            )
         )
         return list(self.db.scalars(stmt).all())
 
-    def get_skill_source_breakdown(self, project_id: int) -> Dict[str, List[ProjectSkill]]:
+    def get_skill_source_breakdown(
+        self, project_id: int
+    ) -> Dict[str, List[ProjectSkill]]:
         """
         Group skills by source type.
 

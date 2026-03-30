@@ -26,7 +26,9 @@ class Settings(BaseSettings):
     data_dir: Path = base_dir / "data"
 
     # Database - PostgreSQL only (required)
-    database_url: str = "postgresql://student:capstoneteam4@5.78.88.162:5434/capstone_db_dev"
+    database_url: str = (
+        "postgresql://student:capstoneteam4@5.78.88.162:5434/capstone_db_dev"
+    )
     database_echo: bool = False
 
     rules_dir: Path = base_dir / "src" / "core" / "rules"

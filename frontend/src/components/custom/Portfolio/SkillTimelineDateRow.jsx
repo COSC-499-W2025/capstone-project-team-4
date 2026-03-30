@@ -99,10 +99,6 @@ export default function SkillTimelineDateRow({ skills }) {
         };
     }, [allSkills]);
 
-    useLayoutEffect(() => {
-        setExpandedCount(0);
-    }, [allSkills]);
-
     const totalVisibleCount = Math.min(
         baseVisibleCount + expandedCount,
         allSkills.length

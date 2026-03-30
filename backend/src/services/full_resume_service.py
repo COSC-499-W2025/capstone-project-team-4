@@ -21,7 +21,10 @@ from src.repositories.education_repository import EducationRepository
 from src.repositories.project_repository import ProjectRepository
 from src.repositories.resume_repository import ResumeRepository
 from src.repositories.skill_repository import SkillRepository
-from src.repositories.user_profile_repository import ExperienceRepository, UserProfileRepository
+from src.repositories.user_profile_repository import (
+    ExperienceRepository,
+    UserProfileRepository,
+)
 from src.repositories.user_repository import UserRepository
 
 # Path to the Jinja2 template
@@ -176,7 +179,9 @@ class FullResumeService:
                 if exp.location:
                     date_line += f" | {exp.location}"
                 lines.append(date_line)
-                bullets = list(exp.responsibilities or []) + list(exp.achievements or [])
+                bullets = list(exp.responsibilities or []) + list(
+                    exp.achievements or []
+                )
                 for b in bullets:
                     lines.append(f"- {b}")
                 lines.append("")
@@ -185,7 +190,9 @@ class FullResumeService:
         if data.projects:
             lines.append("## Projects")
             for proj in data.projects:
-                tech_str = f" | {', '.join(proj.technologies)}" if proj.technologies else ""
+                tech_str = (
+                    f" | {', '.join(proj.technologies)}" if proj.technologies else ""
+                )
                 date_str = f" | {proj.date_label}" if proj.date_label else ""
                 lines.append(f"**{proj.title}**{tech_str}{date_str}")
                 for bullet in proj.highlights:
@@ -323,7 +330,4 @@ class FullResumeService:
                         aggregated[category].append(name)
 
         # Sort skills alphabetically within each category
-        return {
-            cat: sorted(skills)
-            for cat, skills in sorted(aggregated.items())
-        }
+        return {cat: sorted(skills) for cat, skills in sorted(aggregated.items())}

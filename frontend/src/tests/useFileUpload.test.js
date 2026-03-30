@@ -101,6 +101,26 @@ describe('useFileUpload', () => {
   // ── Upload behaviour ──────────────────────────────────────────────────────
 
   it('prepends new results to existing projectData (newest appears first)', async () => {
+    const existing = [{ name: 'ExistingProject', projectId: 1 }];
+    localStorageMock.setItem('projectData', JSON.stringify(existing));
+    localStorageMock.setItem('consentGiven', 'true');
+
+    const { result } = renderHook(() => useFileUpload());
+
+    act(() => {
+      result.current.handleFileDrop([
+        new File(['content'], 'test.zip', { type: 'application/zip' }),
+      ]);
+    });
+
+    await act(async () => {
+      await result.current.processFiles();
+    });
+
+    expect(result.current.projectData).toHaveLength(2);
+    expect(result.current.projectData[0].name).toBe('NewProject');
+    expect(result.current.projectData[1].name).toBe('ExistingProject');
+  });
 
   it('appends new results to existing projectData instead of replacing', async () => {
     const existing = [{ name: 'ExistingProject', projectId: 1 }];
@@ -250,10 +270,6 @@ describe('useFileUpload', () => {
     const existing = Array.from({ length: 4 }, (_, i) => ({ name: `Old${i}`, projectId: i }));
     localStorageMock.setItem('projectData', JSON.stringify(existing));
     localStorageMock.setItem('consentGiven', 'true');
-  it('does not clear custom project names if the analysis fails', async () => {
-    localStorageMock.setItem('consentGiven', 'true');
-    axios.post.mockRejectedValue(new Error('Network error'));
-    vi.stubGlobal('alert', vi.fn());
 
     const { result } = renderHook(() => useFileUpload());
 
@@ -271,6 +287,27 @@ describe('useFileUpload', () => {
     expect(result.current.recentProjectData).toHaveLength(4);
     // The newly uploaded project should be first
     expect(result.current.recentProjectData[0].name).toBe('NewProject');
+  });
+
+  it('does not clear custom project names if the analysis fails', async () => {
+    localStorageMock.setItem('consentGiven', 'true');
+    axios.post.mockRejectedValue(new Error('Network error'));
+    vi.stubGlobal('alert', vi.fn());
+
+    const { result } = renderHook(() => useFileUpload());
+
+    act(() => {
+      result.current.handleFileDrop([
+        new File(['content'], 'new.zip', { type: 'application/zip' }),
+      ]);
+    });
+
+    await act(async () => {
+      await result.current.processFiles();
+    });
+
+    expect(result.current.customProjectNames).toHaveLength(1);
+    expect(result.current.customProjectNames[0]).toBe('');
   });
 
   // ── handleDeleteProject ───────────────────────────────────────────────────

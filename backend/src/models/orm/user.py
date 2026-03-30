@@ -23,17 +23,26 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    email: Mapped[str] = mapped_column(
+        String(255), nullable=False, unique=True, index=True
+    )
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     # Relationships
     profile: Mapped[Optional["UserProfile"]] = relationship(
-        "UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan"
+        "UserProfile",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
     experiences: Mapped[List["Experience"]] = relationship(
         "Experience", back_populates="user", cascade="all, delete-orphan"
@@ -45,7 +54,10 @@ class User(Base):
         "Project", back_populates="user", cascade="all, delete-orphan"
     )
     privacy_settings: Mapped[Optional["DataPrivacySettings"]] = relationship(
-        "DataPrivacySettings", back_populates="user", uselist=False, cascade="all, delete-orphan"
+        "DataPrivacySettings",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
     portfolios: Mapped[List["Portfolio"]] = relationship(
         "Portfolio", back_populates="user", cascade="all, delete-orphan"

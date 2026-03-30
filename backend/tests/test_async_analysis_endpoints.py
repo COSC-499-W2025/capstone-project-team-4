@@ -28,34 +28,36 @@ class TestAnalyzeLibrariesToolsEndpoint:
 
     def test_analyze_libraries_tools_project_not_found(self, client, mock_db_session):
         """Verify 404 when project doesn't exist."""
-        with patch("src.api.routes.analysis.get_db") as mock_get_db, \
-             patch("src.api.routes.analysis.AnalysisService") as mock_service_class:
-            
+        with (
+            patch("src.api.routes.analysis.get_db") as mock_get_db,
+            patch("src.api.routes.analysis.AnalysisService") as mock_service_class,
+        ):
             mock_get_db.return_value = mock_db_session
-            
+
             # Mock service with no project found
             mock_service = MagicMock()
             mock_service.project_repo.get.return_value = None
             mock_service_class.return_value = mock_service
-            
+
             response = client.post("/api/projects/analyze/999/analyze-libraries-tools")
-            
+
             assert response.status_code == 404
             assert "Project not found" in response.json().get("detail", "")
 
     def test_analyze_libraries_tools_success(self, client, mock_db_session):
         """Verify successful library/tool analysis returns expected response."""
-        with patch("src.api.routes.analysis.get_db") as mock_get_db, \
-             patch("src.api.routes.analysis.AnalysisService") as mock_service_class:
-            
+        with (
+            patch("src.api.routes.analysis.get_db") as mock_get_db,
+            patch("src.api.routes.analysis.AnalysisService") as mock_service_class,
+        ):
             mock_get_db.return_value = mock_db_session
-            
+
             # Mock project exists
             mock_project = MagicMock()
             mock_project.id = 1
             mock_project.root_path = "/tmp/project"
             mock_project.name = "test-project"
-            
+
             # Mock service
             mock_service = MagicMock()
             mock_service.project_repo.get.return_value = mock_project
@@ -66,9 +68,9 @@ class TestAnalyzeLibrariesToolsEndpoint:
                 "duration_seconds": 2.5,
             }
             mock_service_class.return_value = mock_service
-            
+
             response = client.post("/api/projects/analyze/1/analyze-libraries-tools")
-            
+
             assert response.status_code == 200
             data = response.json()
             assert data["project_id"] == 1
@@ -78,23 +80,26 @@ class TestAnalyzeLibrariesToolsEndpoint:
 
     def test_analyze_libraries_tools_service_error(self, client, mock_db_session):
         """Verify proper error handling when service fails."""
-        with patch("src.api.routes.analysis.get_db") as mock_get_db, \
-             patch("src.api.routes.analysis.AnalysisService") as mock_service_class:
-            
+        with (
+            patch("src.api.routes.analysis.get_db") as mock_get_db,
+            patch("src.api.routes.analysis.AnalysisService") as mock_service_class,
+        ):
             mock_get_db.return_value = mock_db_session
-            
+
             # Mock project exists but service fails
             mock_project = MagicMock()
             mock_project.id = 1
             mock_project.root_path = "/tmp/project"
-            
+
             mock_service = MagicMock()
             mock_service.project_repo.get.return_value = mock_project
-            mock_service.analyze_libraries_and_tools.side_effect = Exception("Analysis failed")
+            mock_service.analyze_libraries_and_tools.side_effect = Exception(
+                "Analysis failed"
+            )
             mock_service_class.return_value = mock_service
-            
+
             response = client.post("/api/projects/analyze/1/analyze-libraries-tools")
-            
+
             # Should return 400-level error on service failure
             assert response.status_code in [400, 422, 500]
 
@@ -104,34 +109,36 @@ class TestAnalyzeFrameworksEndpoint:
 
     def test_analyze_frameworks_project_not_found(self, client, mock_db_session):
         """Verify 404 when project doesn't exist."""
-        with patch("src.api.routes.analysis.get_db") as mock_get_db, \
-             patch("src.api.routes.analysis.AnalysisService") as mock_service_class:
-            
+        with (
+            patch("src.api.routes.analysis.get_db") as mock_get_db,
+            patch("src.api.routes.analysis.AnalysisService") as mock_service_class,
+        ):
             mock_get_db.return_value = mock_db_session
-            
+
             # Mock service with no project found
             mock_service = MagicMock()
             mock_service.project_repo.get.return_value = None
             mock_service_class.return_value = mock_service
-            
+
             response = client.post("/api/projects/analyze/999/analyze-frameworks")
-            
+
             assert response.status_code == 404
             assert "Project not found" in response.json().get("detail", "")
 
     def test_analyze_frameworks_success(self, client, mock_db_session):
         """Verify successful framework analysis returns expected response."""
-        with patch("src.api.routes.analysis.get_db") as mock_get_db, \
-             patch("src.api.routes.analysis.AnalysisService") as mock_service_class:
-            
+        with (
+            patch("src.api.routes.analysis.get_db") as mock_get_db,
+            patch("src.api.routes.analysis.AnalysisService") as mock_service_class,
+        ):
             mock_get_db.return_value = mock_db_session
-            
+
             # Mock project exists
             mock_project = MagicMock()
             mock_project.id = 2
             mock_project.root_path = "/tmp/project"
             mock_project.name = "test-project"
-            
+
             # Mock service
             mock_service = MagicMock()
             mock_service.project_repo.get.return_value = mock_project
@@ -141,9 +148,9 @@ class TestAnalyzeFrameworksEndpoint:
                 "duration_seconds": 1.8,
             }
             mock_service_class.return_value = mock_service
-            
+
             response = client.post("/api/projects/analyze/2/analyze-frameworks")
-            
+
             assert response.status_code == 200
             data = response.json()
             assert data["project_id"] == 2
@@ -152,23 +159,26 @@ class TestAnalyzeFrameworksEndpoint:
 
     def test_analyze_frameworks_service_error(self, client, mock_db_session):
         """Verify proper error handling when service fails."""
-        with patch("src.api.routes.analysis.get_db") as mock_get_db, \
-             patch("src.api.routes.analysis.AnalysisService") as mock_service_class:
-            
+        with (
+            patch("src.api.routes.analysis.get_db") as mock_get_db,
+            patch("src.api.routes.analysis.AnalysisService") as mock_service_class,
+        ):
             mock_get_db.return_value = mock_db_session
-            
+
             # Mock project exists but service fails
             mock_project = MagicMock()
             mock_project.id = 2
             mock_project.root_path = "/tmp/project"
-            
+
             mock_service = MagicMock()
             mock_service.project_repo.get.return_value = mock_project
-            mock_service.analyze_frameworks.side_effect = Exception("Framework analysis failed")
+            mock_service.analyze_frameworks.side_effect = Exception(
+                "Framework analysis failed"
+            )
             mock_service_class.return_value = mock_service
-            
+
             response = client.post("/api/projects/analyze/2/analyze-frameworks")
-            
+
             # Should return 400-level error on service failure
             assert response.status_code in [400, 422, 500]
 
@@ -206,15 +216,16 @@ class TestAsyncEndpointResponse:
 
     def test_libraries_tools_response_format(self, client, mock_db_session):
         """Verify response format for libraries/tools endpoint."""
-        with patch("src.api.routes.analysis.get_db") as mock_get_db, \
-             patch("src.api.routes.analysis.AnalysisService") as mock_service_class:
-            
+        with (
+            patch("src.api.routes.analysis.get_db") as mock_get_db,
+            patch("src.api.routes.analysis.AnalysisService") as mock_service_class,
+        ):
             mock_get_db.return_value = mock_db_session
-            
+
             mock_project = MagicMock()
             mock_project.id = 1
             mock_project.root_path = "/tmp/project"
-            
+
             mock_service = MagicMock()
             mock_service.project_repo.get.return_value = mock_project
             mock_service.analyze_libraries_and_tools.return_value = {
@@ -224,18 +235,18 @@ class TestAsyncEndpointResponse:
                 "duration_seconds": 3.2,
             }
             mock_service_class.return_value = mock_service
-            
+
             response = client.post("/api/projects/analyze/1/analyze-libraries-tools")
-            
+
             assert response.status_code == 200
             data = response.json()
-            
+
             # Verify response structure
             assert "project_id" in data
             assert "libraries_found" in data
             assert "tools_found" in data
             assert "duration_seconds" in data
-            
+
             # Verify data types
             assert isinstance(data["project_id"], int)
             assert isinstance(data["libraries_found"], int)
@@ -244,15 +255,16 @@ class TestAsyncEndpointResponse:
 
     def test_frameworks_response_format(self, client, mock_db_session):
         """Verify response format for frameworks endpoint."""
-        with patch("src.api.routes.analysis.get_db") as mock_get_db, \
-             patch("src.api.routes.analysis.AnalysisService") as mock_service_class:
-            
+        with (
+            patch("src.api.routes.analysis.get_db") as mock_get_db,
+            patch("src.api.routes.analysis.AnalysisService") as mock_service_class,
+        ):
             mock_get_db.return_value = mock_db_session
-            
+
             mock_project = MagicMock()
             mock_project.id = 2
             mock_project.root_path = "/tmp/project"
-            
+
             mock_service = MagicMock()
             mock_service.project_repo.get.return_value = mock_project
             mock_service.analyze_frameworks.return_value = {
@@ -261,17 +273,17 @@ class TestAsyncEndpointResponse:
                 "duration_seconds": 2.1,
             }
             mock_service_class.return_value = mock_service
-            
+
             response = client.post("/api/projects/analyze/2/analyze-frameworks")
-            
+
             assert response.status_code == 200
             data = response.json()
-            
+
             # Verify response structure
             assert "project_id" in data
             assert "frameworks_found" in data
             assert "duration_seconds" in data
-            
+
             # Verify data types
             assert isinstance(data["project_id"], int)
             assert isinstance(data["frameworks_found"], int)
@@ -282,8 +294,10 @@ class TestUnifiedTechStackEndpoints:
     """Tests for unified project/contributor tech stack endpoints."""
 
     def test_analyze_project_tech_stack_success(self, client, mock_db_session):
-        with patch("src.api.routes.analysis.get_db") as mock_get_db, \
-             patch("src.api.routes.analysis.AnalysisService") as mock_service_class:
+        with (
+            patch("src.api.routes.analysis.get_db") as mock_get_db,
+            patch("src.api.routes.analysis.AnalysisService") as mock_service_class,
+        ):
             mock_get_db.return_value = mock_db_session
 
             mock_project = MagicMock()
@@ -314,8 +328,10 @@ class TestUnifiedTechStackEndpoints:
             assert "frameworks" in data
 
     def test_analyze_contributor_tech_stack_success(self, client, mock_db_session):
-        with patch("src.api.routes.analysis.get_db") as mock_get_db, \
-             patch("src.api.routes.analysis.AnalysisService") as mock_service_class:
+        with (
+            patch("src.api.routes.analysis.get_db") as mock_get_db,
+            patch("src.api.routes.analysis.AnalysisService") as mock_service_class,
+        ):
             mock_get_db.return_value = mock_db_session
 
             mock_project = MagicMock()
@@ -339,7 +355,9 @@ class TestUnifiedTechStackEndpoints:
             }
             mock_service_class.return_value = mock_service
 
-            response = client.post("/api/projects/analyze/10/contributors/7/analyze-tech-stack")
+            response = client.post(
+                "/api/projects/analyze/10/contributors/7/analyze-tech-stack"
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -349,9 +367,13 @@ class TestUnifiedTechStackEndpoints:
             assert "files_considered" in data
             assert data["include_transitive"] is False
 
-    def test_analyze_contributor_tech_stack_with_transitive(self, client, mock_db_session):
-        with patch("src.api.routes.analysis.get_db") as mock_get_db, \
-             patch("src.api.routes.analysis.AnalysisService") as mock_service_class:
+    def test_analyze_contributor_tech_stack_with_transitive(
+        self, client, mock_db_session
+    ):
+        with (
+            patch("src.api.routes.analysis.get_db") as mock_get_db,
+            patch("src.api.routes.analysis.AnalysisService") as mock_service_class,
+        ):
             mock_get_db.return_value = mock_db_session
 
             mock_project = MagicMock()
@@ -375,15 +397,21 @@ class TestUnifiedTechStackEndpoints:
             }
             mock_service_class.return_value = mock_service
 
-            response = client.post("/api/projects/analyze/10/contributors/7/analyze-tech-stack?include_transitive=true")
+            response = client.post(
+                "/api/projects/analyze/10/contributors/7/analyze-tech-stack?include_transitive=true"
+            )
 
             assert response.status_code == 200
             data = response.json()
             assert data["include_transitive"] is True
 
-    def test_analyze_contributor_tech_stack_contributor_not_found(self, client, mock_db_session):
-        with patch("src.api.routes.analysis.get_db") as mock_get_db, \
-             patch("src.api.routes.analysis.AnalysisService") as mock_service_class:
+    def test_analyze_contributor_tech_stack_contributor_not_found(
+        self, client, mock_db_session
+    ):
+        with (
+            patch("src.api.routes.analysis.get_db") as mock_get_db,
+            patch("src.api.routes.analysis.AnalysisService") as mock_service_class,
+        ):
             mock_get_db.return_value = mock_db_session
 
             mock_project = MagicMock()
@@ -401,7 +429,9 @@ class TestUnifiedTechStackEndpoints:
             )
             mock_service_class.return_value = mock_service
 
-            response = client.post("/api/projects/analyze/11/contributors/999/analyze-tech-stack")
+            response = client.post(
+                "/api/projects/analyze/11/contributors/999/analyze-tech-stack"
+            )
 
             assert response.status_code == 404
             assert "Contributor not found" in response.json().get("detail", "")

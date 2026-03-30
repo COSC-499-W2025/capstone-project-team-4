@@ -76,26 +76,36 @@ class SkillService:
         timeline = []
 
         for entry in timeline_entries:
-            timeline.append(SkillTimelineEntry(
-                skill=entry.skill,
-                date=entry.date.isoformat() if entry.date else "",
-                count=entry.count,
-            ))
+            timeline.append(
+                SkillTimelineEntry(
+                    skill=entry.skill,
+                    date=entry.date.isoformat() if entry.date else "",
+                    count=entry.count,
+                )
+            )
 
         # Fallback: if no timeline data exists, synthesize a single snapshot from current skills
         if not timeline:
             skills = self.skill_repo.get_by_project(project_id)
             if skill:
-                skills = [s for s in skills if s.skill and s.skill.name.lower() == skill.lower()]
+                skills = [
+                    s
+                    for s in skills
+                    if s.skill and s.skill.name.lower() == skill.lower()
+                ]
             if skills:
-                snapshot_date = (project.created_at.date() if project.created_at else None)
+                snapshot_date = (
+                    project.created_at.date() if project.created_at else None
+                )
                 snapshot_date_str = snapshot_date.isoformat() if snapshot_date else ""
                 for s in skills:
-                    timeline.append(SkillTimelineEntry(
-                        skill=s.skill.name if s.skill else "",
-                        date=snapshot_date_str,
-                        count=s.frequency,
-                    ))
+                    timeline.append(
+                        SkillTimelineEntry(
+                            skill=s.skill.name if s.skill else "",
+                            date=snapshot_date_str,
+                            count=s.frequency,
+                        )
+                    )
 
         return SkillTimelineResponse(
             project_id=project_id,

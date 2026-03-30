@@ -15,11 +15,10 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 
-
-
 # ---------------------------------------------------------------------------
 # EducationBase / EducationCreate — timeline validation (create path)
 # ---------------------------------------------------------------------------
+
 
 class TestEducationBaseValidation:
     def _base_kwargs(self, **overrides):
@@ -38,34 +37,42 @@ class TestEducationBaseValidation:
         assert edu.end_date is None
 
     def test_valid_completed_with_end_date(self):
-        edu = EducationBase(**self._base_kwargs(
-            is_current=False,
-            start_date=date(2018, 9, 1),
-            end_date=date(2022, 5, 1),
-        ))
+        edu = EducationBase(
+            **self._base_kwargs(
+                is_current=False,
+                start_date=date(2018, 9, 1),
+                end_date=date(2022, 5, 1),
+            )
+        )
         assert edu.end_date == date(2022, 5, 1)
 
     def test_valid_same_start_end_date(self):
-        edu = EducationBase(**self._base_kwargs(
-            start_date=date(2020, 6, 1),
-            end_date=date(2020, 6, 1),
-        ))
+        edu = EducationBase(
+            **self._base_kwargs(
+                start_date=date(2020, 6, 1),
+                end_date=date(2020, 6, 1),
+            )
+        )
         assert edu.end_date == date(2020, 6, 1)
 
     def test_invalid_is_current_with_end_date(self):
         with pytest.raises(ValidationError) as exc_info:
-            EducationBase(**self._base_kwargs(
-                is_current=True,
-                end_date=date(2024, 5, 1),
-            ))
+            EducationBase(
+                **self._base_kwargs(
+                    is_current=True,
+                    end_date=date(2024, 5, 1),
+                )
+            )
         assert "end_date must be null when is_current is True" in str(exc_info.value)
 
     def test_invalid_end_date_before_start_date(self):
         with pytest.raises(ValidationError) as exc_info:
-            EducationBase(**self._base_kwargs(
-                start_date=date(2022, 9, 1),
-                end_date=date(2021, 5, 1),
-            ))
+            EducationBase(
+                **self._base_kwargs(
+                    start_date=date(2022, 9, 1),
+                    end_date=date(2021, 5, 1),
+                )
+            )
         assert "end_date must be on or after start_date" in str(exc_info.value)
 
     def test_valid_no_end_date_not_current(self):
@@ -89,6 +96,7 @@ class TestEducationBaseValidation:
 # ---------------------------------------------------------------------------
 # EducationUpdate — partial-field timeline validation (update path)
 # ---------------------------------------------------------------------------
+
 
 class TestEducationUpdateValidation:
     def test_valid_set_is_current_true_no_end_date(self):
@@ -143,6 +151,7 @@ class TestEducationUpdateValidation:
 # ---------------------------------------------------------------------------
 # EducationRepository.update_education — None-value handling
 # ---------------------------------------------------------------------------
+
 
 class TestUpdateEducationRepository:
     def _make_repo(self, existing_record):

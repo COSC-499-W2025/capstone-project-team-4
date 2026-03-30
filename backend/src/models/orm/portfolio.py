@@ -30,11 +30,17 @@ class Portfolio(Base):
     content: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="portfolios")
 
     def __repr__(self) -> str:
-        return f"<Portfolio(id={self.id}, user_id={self.user_id}, title='{self.title}')>"
+        return (
+            f"<Portfolio(id={self.id}, user_id={self.user_id}, title='{self.title}')>"
+        )

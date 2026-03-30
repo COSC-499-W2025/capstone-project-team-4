@@ -69,11 +69,14 @@ def sample_projects_response():
     )
 
 
-def test_get_projects_by_github_username_success(client, mock_db_session, sample_projects_response):
+def test_get_projects_by_github_username_success(
+    client, mock_db_session, sample_projects_response
+):
     """Endpoint returns projects list for a matched GitHub username."""
-    with patch("src.api.routes.contributors.get_db") as mock_get_db, patch(
-        "src.api.routes.contributors.ContributorProjectsService"
-    ) as mock_service:
+    with (
+        patch("src.api.routes.contributors.get_db") as mock_get_db,
+        patch("src.api.routes.contributors.ContributorProjectsService") as mock_service,
+    ):
         mock_get_db.return_value = mock_db_session
         mock_service.return_value.list_projects_by_github_username.return_value = (
             sample_projects_response
@@ -95,12 +98,15 @@ def test_get_projects_by_github_username_success(client, mock_db_session, sample
 
 def test_get_projects_by_github_username_not_found(client, mock_db_session):
     """Endpoint returns 404 when username has no contributor records."""
-    with patch("src.api.routes.contributors.get_db") as mock_get_db, patch(
-        "src.api.routes.contributors.ContributorProjectsService"
-    ) as mock_service:
+    with (
+        patch("src.api.routes.contributors.get_db") as mock_get_db,
+        patch("src.api.routes.contributors.ContributorProjectsService") as mock_service,
+    ):
         mock_get_db.return_value = mock_db_session
-        mock_service.return_value.list_projects_by_github_username.side_effect = HTTPException(
-            status_code=404, detail="No contributor records found for unknown-user"
+        mock_service.return_value.list_projects_by_github_username.side_effect = (
+            HTTPException(
+                status_code=404, detail="No contributor records found for unknown-user"
+            )
         )
 
         response = client.get("/api/contributors/github/unknown-user/projects")

@@ -6,7 +6,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from src.models.database import get_db
-from src.models.schemas.contributor import (ContributorProjectsByUsernameResponseSchema,  ContributorProjectHeatmapResponseSchema)
+from src.models.schemas.contributor import (
+    ContributorProjectsByUsernameResponseSchema,
+    ContributorProjectHeatmapResponseSchema,
+)
 from src.services.contributor_projects_service import ContributorProjectsService
 
 logger = logging.getLogger(__name__)
@@ -25,6 +28,7 @@ async def get_projects_by_github_username(
     """Return projects sorted by lines changed for a GitHub username."""
     service = ContributorProjectsService(db)
     return service.list_projects_by_github_username(github_username)
+
 
 @router.get(
     "/github/{github_username}/projects/{project_id}/activity-heatmap",

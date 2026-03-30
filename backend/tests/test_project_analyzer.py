@@ -3,6 +3,7 @@ import subprocess
 from src.core.analyzers.project_stats import calculate_project_stats
 from src.core.analyzers.contributor import analyze_contributors
 
+
 def test_calculate_project_stats():
     file_list = [
         {"file_size": 100, "created_timestamp": 10, "last_modified": 20},
@@ -19,6 +20,7 @@ def test_calculate_project_stats():
     assert metrics["average_file_size_bytes"] == 200
     assert metrics["duration_days"] == round((25 - 5) / 86400, 2)
 
+
 def test_analyze_contributors_with_dummy_repo(tmp_path):
     # Create a temporary Git repo
     repo_path = tmp_path / "repo"
@@ -34,9 +36,18 @@ def test_analyze_contributors_with_dummy_repo(tmp_path):
 
     subprocess.run(["git", "add", "test.txt"], cwd=repo_path, check=True)
     subprocess.run(
-        ["git", "-c", "user.name=Tester", "-c", "user.email=test@example.com", "commit", "-m", "Initial commit"],
+        [
+            "git",
+            "-c",
+            "user.name=Tester",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "-m",
+            "Initial commit",
+        ],
         cwd=repo_path,
-        check=True
+        check=True,
     )
 
     # Analyze the repo
@@ -45,6 +56,7 @@ def test_analyze_contributors_with_dummy_repo(tmp_path):
     assert len(contributors) == 1
     assert contributors[0]["name"] == "Tester"
     assert contributors[0]["commits"] == 1
+
 
 def test_analyze_contributors_no_git(tmp_path):
     contributors = analyze_contributors(str(tmp_path))

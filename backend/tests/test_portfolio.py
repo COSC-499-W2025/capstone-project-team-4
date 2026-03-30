@@ -26,7 +26,11 @@ def test_generate_portfolio_template_based():
     result = _generate_template_based(
         user_name="Jane Doe",
         projects_data=[
-            {"name": "WebApp", "languages": ["Python", "JavaScript"], "frameworks": ["FastAPI"]},
+            {
+                "name": "WebApp",
+                "languages": ["Python", "JavaScript"],
+                "frameworks": ["FastAPI"],
+            },
             {"name": "MobileApp", "languages": ["Kotlin"], "frameworks": ["Android"]},
         ],
         aggregated_skills={"Backend": ["REST API", "SQL"], "Frontend": ["React"]},
@@ -228,8 +232,13 @@ def test_generate_portfolio_upsert_updates_existing(mock_settings, mock_gen):
 
     now = datetime.now(timezone.utc)
     existing = SimpleNamespace(
-        id=5, user_id=1, title="Old", summary="Old summary",
-        content={}, created_at=now, updated_at=now,
+        id=5,
+        user_id=1,
+        title="Old",
+        summary="Old summary",
+        content={},
+        created_at=now,
+        updated_at=now,
     )
 
     service, created = _make_service_with_mocks(existing_portfolio=existing)
@@ -255,7 +264,9 @@ def test_generate_portfolio_uses_profile_name(mock_settings, mock_gen):
     mock_gen.return_value = {"title": "Portfolio", "summary": "Summary."}
 
     profile = SimpleNamespace(
-        first_name="Jane", last_name="Doe", summary="Senior dev",
+        first_name="Jane",
+        last_name="Doe",
+        summary="Senior dev",
     )
 
     service, _ = _make_service_with_mocks(profile=profile)
@@ -291,7 +302,9 @@ def test_generate_portfolio_skills_deduplicated(mock_settings, mock_gen):
 
     service, _ = _make_service_with_mocks(projects=projects)
     service.skill_repo = SimpleNamespace(
-        get_grouped_by_category=lambda pid: {"Backend": [skill_a if pid == 10 else skill_b]},
+        get_grouped_by_category=lambda pid: {
+            "Backend": [skill_a if pid == 10 else skill_b]
+        },
     )
     mock_user = SimpleNamespace(id=1, email="test@example.com")
 
@@ -373,11 +386,14 @@ def test_generate_portfolio_endpoint_server_error(mock_service_class):
     assert response.status_code == 500
     assert "failed" in response.json()["detail"].lower()
 
+
 # --- Portfolio Customization Tests ---
+
 
 def test_customize_portfolio_project_requires_auth():
     """PUT /api/portfolio/{id}/projects/{name}/customize returns 401 without auth token."""
     client.put("/api/portfolio/1/projects/string/customize", json={"name": "New Name"})
+
 
 # --- Edit service layer tests ---
 
@@ -402,8 +418,13 @@ def test_edit_portfolio_updates_title_and_summary():
     """Service updates title and summary when both provided."""
     now = datetime.now(timezone.utc)
     portfolio = SimpleNamespace(
-        id=1, user_id=10, title="Old Title", summary="Old summary.",
-        content={"projects": []}, created_at=now, updated_at=now,
+        id=1,
+        user_id=10,
+        title="Old Title",
+        summary="Old summary.",
+        content={"projects": []},
+        created_at=now,
+        updated_at=now,
     )
 
     service = _make_edit_service(portfolio=portfolio)
@@ -424,8 +445,13 @@ def test_edit_portfolio_partial_update():
     """Service only updates provided fields, leaves others unchanged."""
     now = datetime.now(timezone.utc)
     portfolio = SimpleNamespace(
-        id=1, user_id=10, title="Original Title", summary="Original summary.",
-        content={"projects": []}, created_at=now, updated_at=now,
+        id=1,
+        user_id=10,
+        title="Original Title",
+        summary="Original summary.",
+        content={"projects": []},
+        created_at=now,
+        updated_at=now,
     )
 
     service = _make_edit_service(portfolio=portfolio)
@@ -459,8 +485,13 @@ def test_edit_portfolio_forbidden():
     """Service returns 'forbidden' when user doesn't own the portfolio."""
     now = datetime.now(timezone.utc)
     portfolio = SimpleNamespace(
-        id=1, user_id=99, title="Title", summary="Summary.",
-        content={}, created_at=now, updated_at=now,
+        id=1,
+        user_id=99,
+        title="Title",
+        summary="Summary.",
+        content={},
+        created_at=now,
+        updated_at=now,
     )
 
     service = _make_edit_service(portfolio=portfolio)
@@ -495,7 +526,7 @@ def test_customize_portfolio_project_success(mock_service_class):
 
     # Fake the Service Response
     mock_service = MagicMock()
-    
+
     # Remember our service returns a tuple which is (result, error)
     mock_result = SimpleNamespace(
         id=1,
@@ -505,9 +536,9 @@ def test_customize_portfolio_project_success(mock_service_class):
         content={
             "projects": [
                 {
-                    "name": "Super Cool React App", 
+                    "name": "Super Cool React App",
                     "description": "I built this!",
-                    "live_demo_url": "https://example.com"
+                    "live_demo_url": "https://example.com",
                 }
             ]
         },
@@ -519,15 +550,17 @@ def test_customize_portfolio_project_success(mock_service_class):
 
     # Bypass the Bouncer
     app.dependency_overrides[get_current_user] = lambda: fake_user
-    
+
     payload = {
         "name": "Super Cool React App",
         "description": "I built this!",
-        "live_demo_url": "https://example.com"
+        "live_demo_url": "https://example.com",
     }
 
     try:
-        response = client.put("/api/portfolio/1/projects/string/customize", json=payload)
+        response = client.put(
+            "/api/portfolio/1/projects/string/customize", json=payload
+        )
     finally:
         app.dependency_overrides.pop(get_current_user, None)
 
@@ -535,7 +568,8 @@ def test_customize_portfolio_project_success(mock_service_class):
     data = response.json()
     assert data["content"]["projects"][0]["name"] == "Super Cool React App"
     assert data["content"]["projects"][0]["description"] == "I built this!"
-   
+
+
 @patch("src.api.routes.portfolio.PortfolioService")
 def test_edit_portfolio_endpoint_success(mock_service_class):
     """PUT /api/portfolio/1/edit returns 200 with updated data."""
@@ -580,19 +614,26 @@ def test_customize_portfolio_project_forbidden(mock_service_class):
 
     # Fake the Service Response to return error tuple
     mock_service = MagicMock()
-    mock_service.customize_project.return_value = (None, "Not authorized to edit this portfolio")
+    mock_service.customize_project.return_value = (
+        None,
+        "Not authorized to edit this portfolio",
+    )
     mock_service_class.return_value = mock_service
 
     app.dependency_overrides[get_current_user] = lambda: fake_user
 
     try:
-        response = client.put("/api/portfolio/1/projects/string/customize", json={"name": "Hacked"})
+        response = client.put(
+            "/api/portfolio/1/projects/string/customize", json={"name": "Hacked"}
+        )
     finally:
         app.dependency_overrides.pop(get_current_user, None)
 
     # Verify that they're kicked out
     assert response.status_code == 403
     assert "Not authorized" in response.json()["detail"]
+
+
 @patch("src.api.routes.portfolio.PortfolioService")
 def test_edit_portfolio_endpoint_not_found(mock_service_class):
     """PUT /api/portfolio/999/edit returns 404 when portfolio doesn't exist."""
@@ -650,8 +691,13 @@ def test_get_portfolio_returns_response():
     """Service returns PortfolioResponse when portfolio exists."""
     now = datetime.now(timezone.utc)
     portfolio = SimpleNamespace(
-        id=1, user_id=10, title="My Portfolio", summary="A summary.",
-        content={"projects": []}, created_at=now, updated_at=now,
+        id=1,
+        user_id=10,
+        title="My Portfolio",
+        summary="A summary.",
+        content={"projects": []},
+        created_at=now,
+        updated_at=now,
     )
 
     service = _make_get_service(portfolio=portfolio)

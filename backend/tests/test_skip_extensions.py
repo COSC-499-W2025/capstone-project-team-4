@@ -2,6 +2,7 @@ from pathlib import Path
 
 from src.core.analyzers.language import LanguageConfig, FileWalker
 
+
 def test_should_analyze_file_skips_pdf_png_zip(tmp_path: Path):
     project = tmp_path / "proj"
     project.mkdir()
